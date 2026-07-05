@@ -12,7 +12,9 @@ setup("authenticate", async ({ page }) => {
     headers: { "x-e2e-secret": E2E_TEST_LOGIN_SECRET },
     data: { email: E2E_USER }
   });
-  expect(response.ok()).toBeTruthy();
+  if (!response.ok()) {
+    throw new Error(`POST /api/test/login -> ${response.status()}: ${await response.text()}`);
+  }
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "My trips" })).toBeVisible();
