@@ -79,7 +79,7 @@ export default function InvitePage() {
         <>
           <h1 className="mb-1 text-2xl font-bold">{info.tripName}</h1>
           <p className="mb-6 text-ink/60">
-            You've been invited with <b>{info.role === "edit" ? "edit" : "view"}</b> access.
+            You&apos;ve been invited with <b>{info.role === "edit" ? "edit" : "view"}</b> access.
           </p>
           {state === "ready" ? (
             <div className="flex justify-center gap-3">

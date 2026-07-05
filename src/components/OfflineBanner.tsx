@@ -8,7 +8,7 @@ export default function OfflineBanner({ savedAt }: { savedAt?: number | null }) 
   return (
     <div className="mb-4 rounded-xl border border-travel/30 bg-travel/10 px-3 py-2 text-sm text-travel">
       Offline — showing last saved data
-      {savedAt ? ` (${new Date(savedAt).toLocaleString("sv-SE")})` : ""}. Changes can't be saved until you're back online.
+      {savedAt ? ` (${new Date(savedAt).toLocaleString("sv-SE")})` : ""}. Changes can&apos;t be saved until you&apos;re back online.
     </div>
   );
 }
