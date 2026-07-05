@@ -3,7 +3,7 @@ import "./globals.css";
 import SwRegister from "@/components/SwRegister";
 
 export const metadata: Metadata = {
-  title: "TripPlan",
+  title: "PlanPal",
   description: "Plan trips together",
   manifest: "/manifest.json"
 };

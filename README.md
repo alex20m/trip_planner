@@ -1,4 +1,4 @@
-# TripPlan
+# PlanPal
 
 A PWA for planning trips together.
 

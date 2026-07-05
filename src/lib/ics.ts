@@ -56,7 +56,7 @@ export function buildICS(tripName: string, events: TripEvent[], host: string): s
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//TripPlan//EN//",
+    "PRODID:-//PlanPal//EN//",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     fold("X-WR-CALNAME:" + esc(tripName)),

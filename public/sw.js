@@ -1,4 +1,4 @@
-const CACHE = "tripplan-v2";
+const CACHE = "planpal-v2";
 const STATIC = ["/", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {

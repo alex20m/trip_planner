@@ -78,9 +78,9 @@ export default function InstallButton() {
           onClick={() => setOpen(false)}
         >
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-1 text-lg font-bold">Install TripPlan</h2>
+            <h2 className="mb-1 text-lg font-bold">Install PlanPal</h2>
             <p className="mb-4 text-sm text-ink/60">
-              Add TripPlan to your home screen or dock for a full-screen, app-like experience that also works offline.
+              Add PlanPal to your home screen or dock for a full-screen, app-like experience that also works offline.
             </p>
 
             {deferred ? (
@@ -146,7 +146,7 @@ function Steps({ platform }: { platform: Platform }) {
         heading="On desktop (Chrome / Edge)"
         steps={[
           "Look for the install icon at the right end of the address bar (a monitor with a down arrow, or ⊕).",
-          "Or open the ⋮ menu and choose “Install TripPlan…”.",
+          "Or open the ⋮ menu and choose “Install PlanPal…”.",
           "Click “Install”.",
           "Safari (macOS): File → Add to Dock."
         ]}

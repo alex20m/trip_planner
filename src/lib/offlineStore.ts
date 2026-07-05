@@ -1,7 +1,7 @@
 // Minimal IndexedDB cache to read the last known trip data offline.
 // No external dependency — raw IndexedDB is enough for what we store.
 
-const DB_NAME = "tripplan";
+const DB_NAME = "planpal";
 const DB_VERSION = 1;
 const STORE = "snapshots";
 

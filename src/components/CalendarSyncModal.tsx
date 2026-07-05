@@ -21,7 +21,7 @@ export default function CalendarSyncModal({
   const httpsUrl = `${origin}/api/calendar/${tok}`;
   const webcalUrl = httpsUrl.replace(/^https?:/, "webcal:");
   // Outlook.com "subscribe from web" — opens directly in your Outlook calendar
-  const outlookUrl = `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(httpsUrl)}&name=TripPlan`;
+  const outlookUrl = `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(httpsUrl)}&name=PlanPal`;
   // Google Calendar "add by URL" — cid should be the webcal link
   const googleUrl = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}`;
 

@@ -20,7 +20,7 @@ export default function Login() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-6">
-      <h1 className="mb-2 text-3xl font-bold tracking-tight">TripPlan</h1>
+      <h1 className="mb-2 text-3xl font-bold tracking-tight">PlanPal</h1>
       <p className="mb-8 text-ink/60">Sign in with a magic link sent to your email.</p>
       {sent ? (
         <p className="rounded-xl bg-stay/10 p-4 text-stay">

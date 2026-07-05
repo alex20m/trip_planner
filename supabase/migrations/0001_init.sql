@@ -1,4 +1,4 @@
--- TripPlan schema. Run the whole file in the Supabase SQL Editor.
+-- PlanPal schema. Run the whole file in the Supabase SQL Editor.
 
 create type trip_role as enum ('owner', 'edit', 'read');
 create type event_type as enum ('activity', 'travel', 'accommodation');

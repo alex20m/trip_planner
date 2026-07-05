@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error: mailError } = await resend.emails.send({
-    from: process.env.RESEND_FROM ?? "TripPlan <onboarding@resend.dev>",
+    from: process.env.RESEND_FROM ?? "PlanPal <onboarding@resend.dev>",
     to: email,
     subject: `You've been invited to ${tripName}`,
     html: `
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
           &nbsp;&nbsp;
           <a href="${url}?action=decline" style="color:#666">Decline</a>
         </p>
-        <p style="color:#888;font-size:12px">The link takes you to TripPlan to confirm your choice.</p>
+        <p style="color:#888;font-size:12px">The link takes you to PlanPal to confirm your choice.</p>
       </div>`
   });
 

@@ -1,4 +1,4 @@
-# TripPlan – Setup
+# PlanPal – Setup
 
 Stack: Next.js 14 (App Router) · Supabase (Postgres + Auth) · Resend (email) · Vercel (hosting) · PWA.
 
@@ -10,7 +10,7 @@ Stack: Next.js 14 (App Router) · Supabase (Postgres + Auth) · Resend (email) �
 4. **Authentication → URL Configuration**:
    - Site URL: `http://localhost:3000` (switch to the Vercel domain later)
    - Redirect URLs: add `http://localhost:3000/auth/callback` and `https://YOUR-APP.vercel.app/auth/callback`
-5. **Project Settings → API**: copy
+5. **Project Settings → API**: copy (skip if using the Vercel Supabase integration – see step 4 – which sets these for you)
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `service_role` → `SUPABASE_SERVICE_ROLE_KEY` (⚠️ secret, never in client code)
@@ -19,30 +19,36 @@ Stack: Next.js 14 (App Router) · Supabase (Postgres + Auth) · Resend (email) �
 
 ## 2. Resend
 
-1. Create an account at https://resend.com → **API Keys** → create a key → `RESEND_API_KEY`.
-2. For testing, `onboarding@resend.dev` works as the sender, **but only to your own email address**.
-3. For real invitations: **Domains** → add your own domain → add the DNS records (SPF/DKIM) → set `RESEND_FROM="TripPlan <noreply@yourdomain.com>"`.
+Resend has no Vercel integration here – `RESEND_API_KEY` / `RESEND_FROM` are added by hand, scoped per Vercel environment.
+
+1. Create an account at https://resend.com → **API Keys** → create a key.
+2. For real invitations: **Domains** → add your own domain → add the DNS records (SPF/DKIM) → this unlocks sending to arbitrary recipients.
+3. In Vercel → **Settings → Environment Variables**, add both vars per environment:
+   - **Production**: `RESEND_API_KEY` (your key) + `RESEND_FROM="PlanPal <noreply@yourdomain.com>"` (verified domain).
+   - **Development** (and Preview): same `RESEND_API_KEY`, but `RESEND_FROM="PlanPal <onboarding@resend.dev>"` – the sandbox sender, which only delivers to your own account email. Keeps local testing from accidentally emailing real invitees.
+4. Locally, `vercel env pull .env.local` (step 3 below) picks these up automatically – no manual editing.
 
 ## 3. Local
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in the values from steps 1–2
+vercel link                  # connects this folder to the Vercel project (once)
+vercel env pull .env.local   # pulls the env vars from Vercel (Supabase integration + Resend etc.)
 npm run dev                  # http://localhost:3000
 ```
+
+> `vercel env pull` grabs the **Development** environment values by default. If the Supabase integration wired the *same* project to Production, Preview and Development, local dev will hit the prod database. To isolate them, create a second Supabase project for dev and override the `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` values for the **Development** environment in Vercel's dashboard before pulling.
 
 ## 4. Vercel
 
 1. Push the repo to GitHub.
 2. https://vercel.com → **Add New → Project** → import the repo. Next.js is detected automatically.
-3. **Environment Variables** – add all of them from `.env.example`:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+3. **Integrations → Supabase** → connect your project – this auto-populates `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` for you (per environment).
+4. Still add manually (not covered by the integration), under **Environment Variables**:
    - `RESEND_API_KEY`
    - `RESEND_FROM`
    - `NEXT_PUBLIC_APP_URL` = `https://YOUR-APP.vercel.app`
-4. Deploy. Then update Supabase **Site URL** + **Redirect URLs** with the Vercel domain (step 1.4).
+5. Deploy. Then update Supabase **Site URL** + **Redirect URLs** with the Vercel domain (step 1.4).
 
 ## 5. PWA
 

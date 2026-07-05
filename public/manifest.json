@@ -1,6 +1,6 @@
 {
-  "name": "TripPlan",
-  "short_name": "TripPlan",
+  "name": "PlanPal",
+  "short_name": "PlanPal",
   "description": "Plan trips together",
   "start_url": "/",
   "display": "standalone",
