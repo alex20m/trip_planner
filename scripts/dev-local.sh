@@ -48,9 +48,10 @@ echo "→ Starting Supabase (first run downloads Docker images, ~2 min)..."
 supabase start
 
 # ── Write local .env.local ─────────────────────────────────────────────────────
-SUPABASE_URL=$(supabase status -o env | grep '^API_URL=' | cut -d= -f2-)
-SUPABASE_ANON_KEY=$(supabase status -o env | grep '^ANON_KEY=' | cut -d= -f2-)
-SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2-)
+STATUS=$(supabase status -o env)
+SUPABASE_URL=$(echo "$STATUS" | grep '^API_URL=' | cut -d= -f2- | tr -d '"')
+SUPABASE_ANON_KEY=$(echo "$STATUS" | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '"')
+SUPABASE_SERVICE_ROLE_KEY=$(echo "$STATUS" | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '"')
 
 cat > "$ENV_FILE" <<EOF
 NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL

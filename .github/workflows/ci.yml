@@ -78,8 +78,8 @@ jobs:
         run: |
           set -euo pipefail
           STATUS=$(supabase status -o env)
-          ANON=$(echo "$STATUS" | grep '^ANON_KEY=' | cut -d= -f2-)
-          SERVICE=$(echo "$STATUS" | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2-)
+          ANON=$(echo "$STATUS" | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '"')
+          SERVICE=$(echo "$STATUS" | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '"')
           echo "anon=$ANON"       >> "$GITHUB_OUTPUT"
           echo "service=$SERVICE" >> "$GITHUB_OUTPUT"
 
