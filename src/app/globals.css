@@ -2,5 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
-body { @apply bg-paper text-ink antialiased; }
+:root {
+  --color-ink: 24 34 48;
+  --color-paper: 246 247 249;
+  --color-surface: 255 255 255;
+  color-scheme: light;
+}
+
+.dark {
+  --color-ink: 231 236 243;
+  --color-paper: 15 20 27;
+  --color-surface: 27 36 48;
+  color-scheme: dark;
+}
+
+body { @apply bg-paper text-ink antialiased transition-colors duration-200; }

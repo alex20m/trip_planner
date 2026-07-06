@@ -33,11 +33,11 @@ export default function Login() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@email.com"
-            className="w-full rounded-xl border border-ink/20 bg-white p-3 outline-none focus:border-activity"
+            className="w-full rounded-xl border border-ink/20 bg-surface p-3 outline-none focus:border-activity"
           />
           <button
             onClick={sendLink}
-            className="w-full rounded-xl bg-ink p-3 font-medium text-white hover:bg-ink/90"
+            className="w-full rounded-xl bg-charcoal p-3 font-medium text-white hover:bg-charcoal/90"
           >
             Send sign-in link
           </button>

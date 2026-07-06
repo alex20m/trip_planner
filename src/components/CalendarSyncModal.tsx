@@ -41,8 +41,8 @@ export default function CalendarSyncModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-1 text-lg font-bold">Sync calendar</h2>
         <p className="mb-4 text-sm text-ink/60">
           Subscribe to this trip in your calendar. The feed is always current — your changes appear
@@ -52,7 +52,7 @@ export default function CalendarSyncModal({
         {/* Apple / iCloud */}
         <a
           href={webcalUrl}
-          className="mb-2 flex items-center justify-between rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-medium hover:border-ink/40"
+          className="mb-2 flex items-center justify-between rounded-xl border border-ink/15 bg-surface px-4 py-3 text-sm font-medium hover:border-ink/40"
         >
           <span> Add to Apple / iCloud Calendar</span>
           <span className="text-ink/40">›</span>
@@ -63,7 +63,7 @@ export default function CalendarSyncModal({
           href={outlookUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mb-2 flex items-center justify-between rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-medium hover:border-ink/40"
+          className="mb-2 flex items-center justify-between rounded-xl border border-ink/15 bg-surface px-4 py-3 text-sm font-medium hover:border-ink/40"
         >
           <span>📅 Add to Outlook.com</span>
           <span className="text-ink/40">›</span>
@@ -74,7 +74,7 @@ export default function CalendarSyncModal({
           href={googleUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mb-2 flex items-center justify-between rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-medium hover:border-ink/40"
+          className="mb-2 flex items-center justify-between rounded-xl border border-ink/15 bg-surface px-4 py-3 text-sm font-medium hover:border-ink/40"
         >
           <span>🗓 Add to Google Calendar</span>
           <span className="text-ink/40">›</span>
@@ -87,9 +87,9 @@ export default function CalendarSyncModal({
             <input
               readOnly
               value={httpsUrl}
-              className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white p-2 text-xs"
+              className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-surface p-2 text-xs"
             />
-            <button onClick={copy} className="rounded-lg bg-ink px-3 text-sm font-medium text-white">
+            <button onClick={copy} className="rounded-lg bg-charcoal px-3 text-sm font-medium text-white">
               {copied ? "✓" : "Copy"}
             </button>
           </div>

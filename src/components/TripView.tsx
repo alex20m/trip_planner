@@ -95,7 +95,7 @@ export default function TripView({
           {trip.calendar_token && (
             <button
               onClick={() => setSyncing(true)}
-              className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm font-medium hover:border-ink/40"
+              className="rounded-lg border border-ink/20 bg-surface px-3 py-1.5 text-sm font-medium hover:border-ink/40"
             >
               Sync
             </button>
@@ -104,7 +104,7 @@ export default function TripView({
             onClick={() => online && setSharing(true)}
             disabled={!online}
             title={online ? undefined : "Requires internet"}
-            className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm font-medium hover:border-ink/40 disabled:opacity-40"
+            className="rounded-lg border border-ink/20 bg-surface px-3 py-1.5 text-sm font-medium hover:border-ink/40 disabled:opacity-40"
           >
             Share
           </button>
@@ -113,7 +113,7 @@ export default function TripView({
               onClick={() => editable && setEditing("new")}
               disabled={!editable}
               title={editable ? undefined : "Requires internet"}
-              className="rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-white hover:bg-ink/90 disabled:opacity-40"
+              className="rounded-lg bg-charcoal px-3 py-1.5 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-40"
             >
               + Event
             </button>
@@ -124,9 +124,9 @@ export default function TripView({
       <OfflineBanner savedAt={savedAt} />
 
       <div className="mb-3 flex items-center gap-3">
-        <button onClick={() => setWeekStart(addDays(weekStart, -7))} className="rounded-lg border border-ink/20 bg-white px-2 py-1 hover:border-ink/40" aria-label="Previous week">‹</button>
+        <button onClick={() => setWeekStart(addDays(weekStart, -7))} className="rounded-lg border border-ink/20 bg-surface px-2 py-1 hover:border-ink/40" aria-label="Previous week">‹</button>
         <span className="min-w-40 text-sm font-medium">{weekLabel}</span>
-        <button onClick={() => setWeekStart(addDays(weekStart, 7))} className="rounded-lg border border-ink/20 bg-white px-2 py-1 hover:border-ink/40" aria-label="Next week">›</button>
+        <button onClick={() => setWeekStart(addDays(weekStart, 7))} className="rounded-lg border border-ink/20 bg-surface px-2 py-1 hover:border-ink/40" aria-label="Next week">›</button>
         <div className="ml-auto hidden gap-3 text-xs sm:flex">
           {(Object.keys(EVENT_COLORS) as (keyof typeof EVENT_COLORS)[]).map((t) => (
             <span key={t} className="flex items-center gap-1.5">

@@ -69,8 +69,8 @@ export default function EventModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 text-lg font-bold">{event ? "Edit event" : "New event"}</h2>
 
         <div className="mb-3 flex gap-2">
@@ -128,7 +128,7 @@ export default function EventModal({
           <button onClick={onClose} className="ml-auto rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium">
             Cancel
           </button>
-          <button onClick={save} className="rounded-xl bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/90">
+          <button onClick={save} className="rounded-xl bg-charcoal px-4 py-2 text-sm font-medium text-white hover:bg-charcoal/90">
             Save
           </button>
         </div>

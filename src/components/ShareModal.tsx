@@ -34,8 +34,8 @@ export default function ShareModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-1 text-lg font-bold">Share trip</h2>
         <p className="mb-4 text-sm text-ink/60">
           The recipient gets an email and can accept or decline the invitation.
@@ -71,7 +71,7 @@ export default function ShareModal({
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium">Close</button>
           <button onClick={invite} disabled={busy || !email}
-            className="rounded-xl bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/90 disabled:opacity-50">
+            className="rounded-xl bg-charcoal px-4 py-2 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-50">
             {busy ? "Sending…" : "Send invitation"}
           </button>
         </div>
