@@ -36,8 +36,75 @@ export default function WeekView({
   });
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-ink/10 bg-white shadow-sm">
-      <div className="min-w-[720px]">
+    <>
+      {/* Agenda view: stacked days, no horizontal scrolling — used on small screens */}
+      <div className="space-y-3 sm:hidden">
+        {days.map((day) => {
+          const dayStays = stays.filter((e) => {
+            const s = new Date(e.start_at);
+            const en = e.end_at ? new Date(e.end_at) : s;
+            return s <= day && en >= day;
+          });
+          const dayTimed = timed
+            .filter((e) => isSameDay(new Date(e.start_at), day))
+            .sort((a, b) => +new Date(a.start_at) - +new Date(b.start_at));
+          const isToday = isSameDay(day, new Date());
+
+          return (
+            <div key={+day} className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm">
+              <div className={`flex items-baseline gap-2 border-b border-ink/10 px-3 py-2 ${isToday ? "bg-activity/5" : ""}`}>
+                <span className="text-[11px] uppercase tracking-wide text-ink/50">
+                  {format(day, "EEE", { locale: enUS })}
+                </span>
+                <span className={`text-sm font-semibold ${isToday ? "text-activity" : ""}`}>
+                  {format(day, "d MMM", { locale: enUS })}
+                </span>
+              </div>
+              <div className="divide-y divide-ink/5">
+                {dayStays.map((e) => (
+                  <button
+                    key={e.id}
+                    onClick={() => onSelect?.(e)}
+                    className={`flex w-full items-center gap-2 border-l-4 px-3 py-2.5 text-left text-sm font-medium ${COLORS.accommodation}`}
+                  >
+                    <span>🛏</span>
+                    <span className="truncate">{e.title}</span>
+                  </button>
+                ))}
+                {dayTimed.map((e) => {
+                  const s = new Date(e.start_at);
+                  const en = e.end_at ? new Date(e.end_at) : null;
+                  return (
+                    <button
+                      key={e.id}
+                      onClick={() => onSelect?.(e)}
+                      className={`flex w-full items-start gap-3 border-l-4 px-3 py-2.5 text-left ${COLORS[e.type]}`}
+                    >
+                      <span className="w-12 shrink-0 pt-0.5 text-xs font-medium opacity-70">{format(s, "HH:mm")}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{e.title}</span>
+                        {(en || e.location) && (
+                          <span className="block truncate text-xs opacity-70">
+                            {en ? `–${format(en, "HH:mm")}` : ""}
+                            {e.location ? ` · ${e.location}` : ""}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+                {dayStays.length === 0 && dayTimed.length === 0 && (
+                  <p className="px-3 py-3 text-sm text-ink/30">No events</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Time-grid view: full week at a glance — used from tablet width up */}
+      <div className="hidden overflow-x-auto rounded-2xl border border-ink/10 bg-white shadow-sm sm:block">
+        <div className="min-w-[720px]">
         {/* Dagrubriker */}
         <div className="grid grid-cols-[52px_repeat(7,1fr)] border-b border-ink/10">
           <div />
@@ -121,6 +188,7 @@ export default function WeekView({
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
