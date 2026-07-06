@@ -113,7 +113,7 @@ export default function CalendarSyncModal({
           </button>
         </div>
         <p className="mt-3 text-[11px] leading-snug text-ink/40">
-          Anyone with the link can read this trip's calendar. Don't share it publicly — create a new link if it leaks.
+          Anyone with the link can read this trip&apos;s calendar. Don&apos;t share it publicly — create a new link if it leaks.
         </p>
       </div>
     </div>

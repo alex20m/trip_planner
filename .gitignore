@@ -4,4 +4,16 @@ node_modules
 .env.local
 .vercel
 .env*
+
+# testing
+/coverage
+/playwright-report
+/test-results
+/tests/e2e/.auth
+
+# typescript
 *.tsbuildinfo
+
+# supabase local state
+supabase/.branches
+supabase/.temp
