@@ -98,7 +98,7 @@ export default function TripView({
   }, [events, sections]);
 
   return (
-    <main className="mx-auto max-w-5xl p-4 sm:p-6">
+    <main className="mx-auto max-w-5xl p-4 pb-32 sm:p-6 sm:pb-24">
       <header className="mb-4 flex flex-wrap items-center gap-3">
         <Link href="/" className="text-ink/50 hover:text-ink" aria-label="Back">
           ←
