@@ -16,4 +16,67 @@
   color-scheme: dark;
 }
 
-body { @apply bg-paper text-ink antialiased transition-colors duration-200; }
+body {
+  @apply bg-paper text-ink antialiased transition-colors duration-200;
+}
+
+::selection {
+  @apply bg-activity/20;
+}
+
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply btn bg-charcoal text-white shadow-sm hover:bg-charcoal/90 active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply btn border border-ink/15 bg-surface text-ink hover:border-ink/30 hover:bg-ink/[0.03] active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply btn text-ink/55 hover:bg-ink/5 hover:text-ink;
+  }
+  .btn-danger {
+    @apply btn border border-red-500/25 text-red-600 hover:bg-red-500/10 dark:text-red-400;
+  }
+  .btn-sm {
+    @apply rounded-lg px-3 py-1.5;
+  }
+  .btn-icon {
+    @apply rounded-lg px-2.5 py-1.5;
+  }
+
+  /* Segmented / toggle option, used for type & role pickers */
+  .option {
+    @apply flex-1 rounded-lg border px-2 py-1.5 text-sm font-medium transition-colors duration-150;
+  }
+  .option-off {
+    @apply option border-ink/10 text-ink/50 hover:border-ink/20 hover:text-ink/70;
+  }
+
+  /* Form fields */
+  .field {
+    @apply w-full rounded-xl border border-ink/15 bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink/35 focus:border-activity/50 focus:ring-4 focus:ring-activity/10 disabled:opacity-50;
+  }
+  .label {
+    @apply text-xs font-medium text-ink/55;
+  }
+
+  /* Surfaces */
+  .card {
+    @apply rounded-2xl border border-ink/10 bg-surface shadow-soft;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full bg-ink/5 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-ink/60;
+  }
+
+  /* Modals */
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center;
+  }
+  .modal-panel {
+    @apply w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-5 shadow-panel;
+  }
+}

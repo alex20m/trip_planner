@@ -2,8 +2,8 @@ import Skeleton from "@/components/Skeleton";
 
 export default function TripLoading() {
   return (
-    <main className="mx-auto max-w-5xl p-4 sm:p-6">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
+    <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      <header className="mb-5 flex flex-wrap items-center gap-3">
         <Skeleton className="h-5 w-5" />
         <Skeleton className="h-7 w-48" />
         <div className="ml-auto flex gap-2">

@@ -97,7 +97,7 @@ export default function NotesPanel({
 
   return (
     <section className="mt-8">
-      <h2 className="mb-3 text-lg font-bold tracking-tight">Notes</h2>
+      <h2 className="mb-3 text-lg font-semibold tracking-tight">Notes</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {sections.map((s) => (
           <SectionCard
@@ -122,13 +122,9 @@ export default function NotesPanel({
             onKeyDown={(e) => e.key === "Enter" && addSection()}
             placeholder="New section, e.g. Packing list"
             disabled={addingSection}
-            className="flex-1 rounded-xl border border-ink/20 bg-surface p-2.5 text-sm outline-none focus:border-activity disabled:opacity-50"
+            className="field flex-1 text-sm"
           />
-          <button
-            onClick={addSection}
-            disabled={addingSection}
-            className="flex items-center gap-2 rounded-xl border border-ink/20 bg-surface px-4 text-sm font-medium hover:border-ink/40 disabled:opacity-50"
-          >
+          <button onClick={addSection} disabled={addingSection} className="btn-secondary">
             {addingSection && <Spinner className="h-3.5 w-3.5" />}
             Add
           </button>
@@ -159,14 +155,14 @@ function SectionCard({
 }) {
   const [draft, setDraft] = useState("");
   return (
-    <div className="rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm">
+    <div className="card p-4">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="font-semibold">{section.title}</h3>
         {editable && (
           <button
             onClick={onDeleteSection}
             disabled={busy}
-            className="flex items-center gap-1.5 text-xs text-ink/40 hover:text-red-600 disabled:opacity-50"
+            className="flex items-center gap-1.5 text-xs text-ink/40 transition-colors hover:text-red-600 disabled:opacity-50"
           >
             {busy && <Spinner className="h-3 w-3" />}
             Remove
@@ -183,12 +179,12 @@ function SectionCard({
                 checked={n.done}
                 onChange={() => editable && onToggle(n)}
                 disabled={!editable || notePending}
-                className="mt-0.5 accent-ink"
+                className="mt-0.5 accent-activity"
               />
-              <span className={n.done ? "text-ink/40 line-through" : ""}>{n.content}</span>
+              <span className={n.done ? "text-ink/35 line-through" : ""}>{n.content}</span>
               {notePending && <Spinner className="h-3 w-3 text-ink/30" />}
               {editable && !notePending && (
-                <button onClick={() => onDeleteNote(n)} className="ml-auto hidden text-ink/30 hover:text-red-600 group-hover:block">
+                <button onClick={() => onDeleteNote(n)} className="ml-auto hidden text-ink/30 transition-colors hover:text-red-600 group-hover:block">
                   ✕
                 </button>
               )}
@@ -208,7 +204,7 @@ function SectionCard({
           }}
           placeholder="Type and press Enter…"
           disabled={busy}
-          className="mt-2 w-full rounded-lg border border-transparent bg-ink/5 p-2 text-sm outline-none focus:border-ink/20 disabled:opacity-50"
+          className="mt-2 w-full rounded-lg border border-transparent bg-ink/5 p-2 text-sm outline-none transition-colors focus:border-activity/40 focus:bg-surface disabled:opacity-50"
         />
       )}
     </div>

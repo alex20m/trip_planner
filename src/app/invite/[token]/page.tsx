@@ -80,47 +80,35 @@ export default function InvitePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-6 text-center">
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12 text-center">
       {state === "loading" && (
         <div className="flex justify-center">
           <Spinner className="h-6 w-6 text-ink/40" />
         </div>
       )}
-      {state === "error" && <p className="text-ink/70">{message}</p>}
-      {state === "declined" && <p className="text-ink/70">You have declined the invitation.</p>}
+      {state === "error" && <p className="text-ink/60">{message}</p>}
+      {state === "declined" && <p className="text-ink/60">You have declined the invitation.</p>}
       {(state === "ready" || state === "needsLogin") && info && (
         <>
-          <h1 className="mb-1 text-2xl font-bold">{info.tripName}</h1>
-          <p className="mb-6 text-ink/60">
-            You&apos;ve been invited with <b>{info.role === "edit" ? "edit" : "view"}</b> access.
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight">{info.tripName}</h1>
+          <p className="mb-6 text-ink/55">
+            You&apos;ve been invited with <b className="font-medium text-ink">{info.role === "edit" ? "edit" : "view"}</b> access.
           </p>
           {state === "ready" ? (
             <div className="flex justify-center gap-3">
-              <button
-                onClick={decline}
-                disabled={busy}
-                className="flex items-center gap-2 rounded-xl border border-ink/20 px-5 py-2.5 font-medium disabled:opacity-50"
-              >
+              <button onClick={decline} disabled={busy} className="btn-secondary px-5">
                 {busy && <Spinner className="h-4 w-4" />}
                 Decline
               </button>
-              <button
-                onClick={accept}
-                disabled={busy}
-                className="flex items-center gap-2 rounded-xl bg-charcoal px-5 py-2.5 font-medium text-white disabled:opacity-50"
-              >
+              <button onClick={accept} disabled={busy} className="btn-primary px-5">
                 {busy && <Spinner className="h-4 w-4" />}
                 Accept
               </button>
             </div>
           ) : (
             <div>
-              <p className="mb-3 text-sm text-ink/60">Sign in first to accept:</p>
-              <button
-                onClick={() => loginThenAccept(info.email)}
-                disabled={busy}
-                className="flex items-center gap-2 rounded-xl bg-charcoal px-5 py-2.5 font-medium text-white disabled:opacity-50"
-              >
+              <p className="mb-3 text-sm text-ink/55">Sign in first to accept:</p>
+              <button onClick={() => loginThenAccept(info.email)} disabled={busy} className="btn-primary px-5">
                 {busy && <Spinner className="h-4 w-4" />}
                 Send sign-in link to {info.email}
               </button>

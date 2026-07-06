@@ -41,20 +41,21 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
   return (
     <>
       <OfflineBanner savedAt={savedAt} />
-      <ul className="mt-6 space-y-2">
+      <ul className="mt-6 space-y-2.5">
         {trips.map((t) => (
           <li key={t.id}>
             <Link
               href={`/trips/${t.id}`}
               prefetch
-              className="block rounded-xl border border-ink/10 bg-surface p-4 font-medium shadow-sm hover:border-ink/30"
+              className="card group flex items-center justify-between p-4 font-medium transition-all duration-150 hover:-translate-y-0.5 hover:border-ink/20 hover:shadow-md"
             >
               {t.name}
+              <span aria-hidden="true" className="text-ink/25 transition-colors group-hover:text-ink/50">→</span>
             </Link>
           </li>
         ))}
         {trips.length === 0 && (
-          <li className="rounded-xl border border-dashed border-ink/20 p-8 text-center text-ink/50">
+          <li className="rounded-2xl border border-dashed border-ink/15 p-10 text-center text-sm text-ink/45">
             No trips yet. Create your first one above.
           </li>
         )}

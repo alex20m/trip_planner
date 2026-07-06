@@ -33,7 +33,7 @@ export default function ThemeToggle() {
     <div
       role="group"
       aria-label="Theme"
-      className="inline-flex rounded-lg border border-ink/20 bg-surface p-0.5 shadow-sm"
+      className="inline-flex rounded-xl border border-ink/10 bg-surface p-1 shadow-soft"
     >
       {OPTIONS.map((o) => (
         <button
@@ -41,8 +41,8 @@ export default function ThemeToggle() {
           type="button"
           onClick={() => choose(o.value)}
           aria-pressed={theme === o.value}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-            theme === o.value ? "bg-charcoal text-white" : "text-ink/60 hover:text-ink"
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
+            theme === o.value ? "bg-charcoal text-white" : "text-ink/50 hover:bg-ink/5 hover:text-ink"
           }`}
         >
           {o.label}

@@ -35,10 +35,10 @@ export default function ShareModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-1 text-lg font-bold">Share trip</h2>
-        <p className="mb-4 text-sm text-ink/60">
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-1 text-lg font-semibold tracking-tight">Share trip</h2>
+        <p className="mb-4 text-sm text-ink/55">
           The recipient gets an email and can accept or decline the invitation.
         </p>
         <div className="space-y-3">
@@ -47,19 +47,19 @@ export default function ShareModal({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="namn@epost.fi"
-            className="w-full rounded-xl border border-ink/20 p-2.5 outline-none focus:border-activity"
+            className="field"
           />
           <div className="flex gap-2">
             <button
               onClick={() => setRole("read")}
-              className={`flex-1 rounded-lg border-2 px-2 py-1.5 text-sm font-medium ${role === "read" ? "border-ink bg-ink/5" : "border-ink/10 text-ink/50"}`}
+              className={role === "read" ? "option border-ink bg-ink/5" : "option-off"}
             >
               View
             </button>
             <button
               onClick={() => canGiveEdit && setRole("edit")}
               disabled={!canGiveEdit}
-              className={`flex-1 rounded-lg border-2 px-2 py-1.5 text-sm font-medium disabled:opacity-40 ${role === "edit" ? "border-ink bg-ink/5" : "border-ink/10 text-ink/50"}`}
+              className={`disabled:opacity-40 ${role === "edit" ? "option border-ink bg-ink/5" : "option-off"}`}
             >
               Edit
             </button>
@@ -70,9 +70,8 @@ export default function ShareModal({
         </div>
         {status && <p className="mt-3 text-sm">{status}</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium">Close</button>
-          <button onClick={invite} disabled={busy || !email}
-            className="flex items-center gap-2 rounded-xl bg-charcoal px-4 py-2 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-50">
+          <button onClick={onClose} className="btn-secondary">Close</button>
+          <button onClick={invite} disabled={busy || !email} className="btn-primary">
             {busy && <Spinner className="h-3.5 w-3.5" />}
             {busy ? "Sending…" : "Send invitation"}
           </button>

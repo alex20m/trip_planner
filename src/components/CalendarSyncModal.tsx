@@ -42,44 +42,46 @@ export default function CalendarSyncModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-1 text-lg font-bold">Sync calendar</h2>
-        <p className="mb-4 text-sm text-ink/60">
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-1 text-lg font-semibold tracking-tight">Sync calendar</h2>
+        <p className="mb-4 text-sm text-ink/55">
           Subscribe to this trip in your calendar. The feed is always current — your changes appear
           the next time your calendar app fetches it (Apple ~every 5 min if you set it, Outlook can take longer).
         </p>
 
-        {/* Apple / iCloud */}
-        <a
-          href={webcalUrl}
-          className="mb-2 flex items-center justify-between rounded-xl border border-ink/15 bg-surface px-4 py-3 text-sm font-medium hover:border-ink/40"
-        >
-          <span> Add to Apple / iCloud Calendar</span>
-          <span className="text-ink/40">›</span>
-        </a>
+        <div className="space-y-2">
+          {/* Apple / iCloud */}
+          <a
+            href={webcalUrl}
+            className="flex items-center justify-between rounded-xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
+          >
+            <span> Add to Apple / iCloud Calendar</span>
+            <span className="text-ink/35">›</span>
+          </a>
 
-        {/* Outlook */}
-        <a
-          href={outlookUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mb-2 flex items-center justify-between rounded-xl border border-ink/15 bg-surface px-4 py-3 text-sm font-medium hover:border-ink/40"
-        >
-          <span>📅 Add to Outlook.com</span>
-          <span className="text-ink/40">›</span>
-        </a>
+          {/* Outlook */}
+          <a
+            href={outlookUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between rounded-xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
+          >
+            <span>📅 Add to Outlook.com</span>
+            <span className="text-ink/35">›</span>
+          </a>
 
-        {/* Google */}
-        <a
-          href={googleUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mb-2 flex items-center justify-between rounded-xl border border-ink/15 bg-surface px-4 py-3 text-sm font-medium hover:border-ink/40"
-        >
-          <span>🗓 Add to Google Calendar</span>
-          <span className="text-ink/40">›</span>
-        </a>
+          {/* Google */}
+          <a
+            href={googleUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between rounded-xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
+          >
+            <span>🗓 Add to Google Calendar</span>
+            <span className="text-ink/35">›</span>
+          </a>
+        </div>
 
         {/* Manuell URL */}
         <div className="mt-3 rounded-xl bg-ink/5 p-3">
@@ -90,7 +92,7 @@ export default function CalendarSyncModal({
               value={httpsUrl}
               className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-surface p-2 text-xs"
             />
-            <button onClick={copy} className="rounded-lg bg-charcoal px-3 text-sm font-medium text-white">
+            <button onClick={copy} className="btn-primary btn-sm">
               {copied ? "✓" : "Copy"}
             </button>
           </div>
@@ -103,12 +105,12 @@ export default function CalendarSyncModal({
           <button
             onClick={rotate}
             disabled={!online || rotating}
-            className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-red-600 disabled:opacity-40"
+            className="flex items-center gap-1.5 text-xs text-ink/50 transition-colors hover:text-red-600 disabled:opacity-40"
           >
             {rotating && <Spinner className="h-3 w-3" />}
             {rotating ? "Creating…" : "Create new link (revoke the old one)"}
           </button>
-          <button onClick={onClose} className="rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium">
+          <button onClick={onClose} className="btn-secondary">
             Close
           </button>
         </div>

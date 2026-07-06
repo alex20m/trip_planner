@@ -45,27 +45,27 @@ export default function EditTripDatesModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-4 text-lg font-bold">Trip dates</h2>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-4 text-lg font-semibold tracking-tight">Trip dates</h2>
 
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-sm text-ink/60">
+          <label className="label">
             Start
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-ink/20 p-2.5"
+              className="field mt-1"
             />
           </label>
-          <label className="text-sm text-ink/60">
+          <label className="label">
             End
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-ink/20 p-2.5"
+              className="field mt-1"
             />
           </label>
         </div>
@@ -73,18 +73,10 @@ export default function EditTripDatesModal({
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
         <div className="mt-5 flex gap-2">
-          <button
-            onClick={onClose}
-            disabled={saving}
-            className="ml-auto rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium disabled:opacity-50"
-          >
+          <button onClick={onClose} disabled={saving} className="btn-secondary ml-auto">
             Cancel
           </button>
-          <button
-            onClick={save}
-            disabled={saving}
-            className="flex items-center gap-2 rounded-xl bg-charcoal px-4 py-2 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-50"
-          >
+          <button onClick={save} disabled={saving} className="btn-primary">
             {saving && <Spinner className="h-3.5 w-3.5" />}
             {saving ? "Saving…" : "Save"}
           </button>
