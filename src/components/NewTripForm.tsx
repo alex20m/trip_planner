@@ -60,7 +60,7 @@ export default function NewTripForm() {
           onKeyDown={(e) => e.key === "Enter" && online && !busy && create()}
           placeholder="New trip, e.g. Rome 2026"
           disabled={!online || busy}
-          className="flex-1 rounded-xl border border-ink/20 bg-surface p-3 outline-none focus:border-activity disabled:opacity-50"
+          className="field flex-1"
         />
         <label className="flex items-center gap-2 text-sm text-ink/60">
           Start
@@ -69,7 +69,7 @@ export default function NewTripForm() {
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             disabled={!online || busy}
-            className="rounded-xl border border-ink/20 bg-surface p-3 outline-none focus:border-activity disabled:opacity-50"
+            className="field"
           />
         </label>
         <label className="flex items-center gap-2 text-sm text-ink/60">
@@ -79,14 +79,14 @@ export default function NewTripForm() {
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             disabled={!online || busy}
-            className="rounded-xl border border-ink/20 bg-surface p-3 outline-none focus:border-activity disabled:opacity-50"
+            className="field"
           />
         </label>
         <button
           onClick={create}
           disabled={!online || busy}
           title={online ? undefined : "Requires internet"}
-          className="flex items-center justify-center gap-2 rounded-xl bg-charcoal px-5 py-3 font-medium text-white hover:bg-charcoal/90 disabled:opacity-40 sm:py-0"
+          className="btn-primary px-5"
         >
           {busy && <Spinner className="h-4 w-4" />}
           {busy ? "Creating…" : "Create"}

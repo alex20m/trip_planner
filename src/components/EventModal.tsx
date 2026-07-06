@@ -81,18 +81,16 @@ export default function EventModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-4 text-lg font-bold">{event ? "Edit event" : "New event"}</h2>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-4 text-lg font-semibold tracking-tight">{event ? "Edit event" : "New event"}</h2>
 
         <div className="mb-3 flex gap-2">
           {(Object.keys(EVENT_COLORS) as EventType[]).map((t) => (
             <button
               key={t}
               onClick={() => setType(t)}
-              className={`flex-1 rounded-lg border-2 px-2 py-1.5 text-sm font-medium ${
-                type === t ? EVENT_COLORS[t].border + " " + EVENT_COLORS[t].bg : "border-ink/20 text-ink/70 hover:border-ink/40"
-              }`}
+              className={type === t ? `option ${EVENT_COLORS[t].border} ${EVENT_COLORS[t].bg}` : "option-off"}
             >
               {EVENT_COLORS[t].label}
             </button>
@@ -100,60 +98,46 @@ export default function EventModal({
         </div>
 
         <div className="space-y-3">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title"
-            className="w-full rounded-xl border border-ink/20 p-2.5 outline-none focus:border-activity" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="field" />
           {isStay ? (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <label className="text-sm text-ink/60">Check-in
+              <label className="label">Check-in
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-ink/20 p-2.5" />
+                  className="field mt-1" />
               </label>
-              <label className="text-sm text-ink/60">Check-out
+              <label className="label">Check-out
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-ink/20 p-2.5" />
+                  className="field mt-1" />
               </label>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <label className="text-sm text-ink/60">Start
+              <label className="label">Start
                 <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-ink/20 p-2.5" />
+                  className="field mt-1" />
               </label>
-              <label className="text-sm text-ink/60">End (optional)
+              <label className="label">End (optional)
                 <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-ink/20 p-2.5" />
+                  className="field mt-1" />
               </label>
             </div>
           )}
-          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)"
-            className="w-full rounded-xl border border-ink/20 p-2.5 outline-none focus:border-activity" />
+          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)" className="field" />
         </div>
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
         <div className="mt-5 flex gap-2">
           {event && (
-            <button
-              onClick={remove}
-              disabled={busy}
-              className="flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-            >
+            <button onClick={remove} disabled={busy} className="btn-danger">
               {deleting && <Spinner className="h-3.5 w-3.5" />}
               {deleting ? "Deleting…" : "Delete"}
             </button>
           )}
-          <button
-            onClick={onClose}
-            disabled={busy}
-            className="ml-auto rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium disabled:opacity-50"
-          >
+          <button onClick={onClose} disabled={busy} className="btn-secondary ml-auto">
             Cancel
           </button>
-          <button
-            onClick={save}
-            disabled={busy}
-            className="flex items-center gap-2 rounded-xl bg-charcoal px-4 py-2 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-50"
-          >
+          <button onClick={save} disabled={busy} className="btn-primary">
             {saving && <Spinner className="h-3.5 w-3.5" />}
             {saving ? "Saving…" : "Save"}
           </button>

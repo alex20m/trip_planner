@@ -2,8 +2,8 @@ import Skeleton from "@/components/Skeleton";
 
 export default function HomeLoading() {
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <header className="mb-8 flex items-center justify-between gap-3">
+    <main className="mx-auto max-w-2xl px-5 py-10 sm:px-6 sm:py-14">
+      <header className="mb-10 flex items-center justify-between gap-3">
         <Skeleton className="h-8 w-32" />
         <div className="flex items-center gap-3">
           <Skeleton className="h-8 w-24" />

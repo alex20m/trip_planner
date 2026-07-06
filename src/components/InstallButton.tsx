@@ -70,34 +70,24 @@ export default function InstallButton() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="rounded-lg border border-ink/20 bg-surface px-3 py-1.5 text-sm font-medium hover:border-ink/40"
-      >
+      <button onClick={() => setOpen(true)} className="btn-secondary btn-sm">
         Install app
       </button>
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
-          onClick={() => setOpen(false)}
-        >
-          <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-1 flex items-center gap-2 text-lg font-bold">
+        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold tracking-tight">
               <LogoMark className="h-6 w-6" />
               Install PlanPal
             </h2>
-            <p className="mb-4 text-sm text-ink/60">
+            <p className="mb-4 text-sm text-ink/55">
               Add PlanPal to your home screen or dock for a full-screen, app-like experience that also works offline.
             </p>
 
             {deferred ? (
               <>
-                <button
-                  onClick={nativeInstall}
-                  disabled={installing}
-                  className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-charcoal p-3 font-medium text-white hover:bg-charcoal/90 disabled:opacity-50"
-                >
+                <button onClick={nativeInstall} disabled={installing} className="btn-primary mb-3 w-full">
                   {installing && <Spinner className="h-4 w-4" />}
                   {installing ? "Installing…" : "Install now"}
                 </button>
@@ -110,10 +100,7 @@ export default function InstallButton() {
             )}
 
             <div className="mt-5 flex justify-end">
-              <button
-                onClick={() => setOpen(false)}
-                className="rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium"
-              >
+              <button onClick={() => setOpen(false)} className="btn-secondary">
                 Close
               </button>
             </div>

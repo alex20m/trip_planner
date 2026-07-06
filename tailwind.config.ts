@@ -13,6 +13,22 @@ const config: Config = {
         activity: "#3B6EF6",
         travel: "#E8842C",
         stay: "#2FA36B"
+      },
+      fontFamily: {
+        sans: [
+          "Inter",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ]
+      },
+      boxShadow: {
+        soft: "0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.04)",
+        panel: "0 8px 30px rgb(0 0 0 / 0.12)"
       }
     }
   },

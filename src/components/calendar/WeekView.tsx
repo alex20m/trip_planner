@@ -60,9 +60,9 @@ export default function WeekView({
           const isToday = isSameDay(day, new Date());
 
           return (
-            <div key={+day} className="overflow-hidden rounded-2xl border border-ink/10 bg-surface shadow-sm">
+            <div key={+day} className="card overflow-hidden">
               <div className={`flex items-baseline gap-2 border-b border-ink/10 px-3 py-2 ${isToday ? "bg-activity/5" : ""}`}>
-                <span className="text-[11px] uppercase tracking-wide text-ink/50">
+                <span className="text-[11px] uppercase tracking-wide text-ink/45">
                   {format(day, "EEE", { locale: enUS })}
                 </span>
                 <span className={`text-sm font-semibold ${isToday ? "text-activity" : ""}`}>
@@ -74,7 +74,7 @@ export default function WeekView({
                   <button
                     key={e.id}
                     onClick={() => onSelect?.(e)}
-                    className={`flex w-full items-center gap-2 border-l-4 px-3 py-2.5 text-left text-sm font-medium ${COLORS.accommodation}`}
+                    className={`flex w-full items-center gap-2 border-l-4 px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-ink/[0.02] ${COLORS.accommodation}`}
                   >
                     <span>🛏</span>
                     <span className="truncate">{e.title}</span>
@@ -87,7 +87,7 @@ export default function WeekView({
                     <button
                       key={e.id}
                       onClick={() => onSelect?.(e)}
-                      className={`flex w-full items-start gap-3 border-l-4 px-3 py-2.5 text-left ${COLORS[e.type]}`}
+                      className={`flex w-full items-start gap-3 border-l-4 px-3 py-2.5 text-left transition-colors hover:bg-ink/[0.02] ${COLORS[e.type]}`}
                     >
                       <span className="w-12 shrink-0 pt-0.5 text-xs font-medium opacity-70">{format(s, "HH:mm")}</span>
                       <span className="min-w-0 flex-1">
@@ -112,14 +112,14 @@ export default function WeekView({
       </div>
 
       {/* Time-grid view: full week at a glance — used from tablet width up */}
-      <div className="hidden overflow-x-auto rounded-2xl border border-ink/10 bg-surface shadow-sm sm:block">
+      <div className="card hidden overflow-x-auto sm:block">
         <div className="min-w-[720px]">
           {/* Dagrubriker */}
         <div className="grid border-b border-ink/10" style={gridStyle}>
           <div />
           {days.map((d) => (
-            <div key={+d} className="border-l border-ink/5 p-2 text-center">
-              <div className="text-[11px] uppercase tracking-wide text-ink/50">
+            <div key={+d} className={`border-l border-ink/5 p-2 text-center ${isSameDay(d, new Date()) ? "bg-activity/5" : ""}`}>
+              <div className="text-[11px] uppercase tracking-wide text-ink/45">
                 {format(d, "EEE", { locale: enUS })}
               </div>
               <div className={`text-sm font-semibold ${isSameDay(d, new Date()) ? "text-activity" : ""}`}>
@@ -132,7 +132,7 @@ export default function WeekView({
         {/* Accommodation: all-day row without a time */}
         {stays.length > 0 && (
           <div className="relative grid border-b border-ink/10 py-1" style={gridStyle}>
-            <div className="px-2 pt-1 text-[10px] uppercase tracking-wide text-ink/40">Stays</div>
+            <div className="px-2 pt-1 text-[10px] uppercase tracking-wide text-ink/45">Stays</div>
             <div
               className="relative grid gap-y-1"
               style={{ gridColumn: `2 / ${days.length + 2}`, gridTemplateColumns: `repeat(${days.length}, 1fr)` }}
@@ -147,7 +147,7 @@ export default function WeekView({
                     key={e.id}
                     onClick={() => onSelect?.(e)}
                     style={{ gridColumn: `${startCol + 1} / ${endCol + 2}` }}
-                    className={`mx-0.5 truncate rounded-lg border-l-4 px-2 py-1 text-left text-xs font-medium ${COLORS.accommodation}`}
+                    className={`mx-0.5 truncate rounded-lg border-l-4 px-2 py-1 text-left text-xs font-medium shadow-sm transition-transform hover:-translate-y-px ${COLORS.accommodation}`}
                   >
                     🛏 {e.title}
                   </button>
@@ -185,7 +185,7 @@ export default function WeekView({
                       key={e.id}
                       onClick={() => onSelect?.(e)}
                       style={{ top: Math.max(0, top), height }}
-                      className={`absolute inset-x-0.5 overflow-hidden rounded-lg border-l-4 px-1.5 py-0.5 text-left text-xs font-medium leading-tight ${COLORS[e.type]}`}
+                      className={`absolute inset-x-0.5 overflow-hidden rounded-lg border-l-4 px-1.5 py-0.5 text-left text-xs font-medium leading-tight shadow-sm transition-transform hover:z-10 hover:-translate-y-px ${COLORS[e.type]}`}
                     >
                       <span className="block truncate">{e.title}</span>
                       <span className="block truncate text-[10px] opacity-70">

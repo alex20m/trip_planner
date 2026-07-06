@@ -98,13 +98,17 @@ export default function TripView({
   }, [events, sections]);
 
   return (
-    <main className="mx-auto max-w-5xl p-4 pb-32 sm:p-6 sm:pb-24">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
-        <Link href="/" className="text-ink/50 hover:text-ink" aria-label="Back">
+    <main className="mx-auto max-w-5xl px-4 py-6 pb-32 sm:px-6 sm:py-8 sm:pb-24">
+      <header className="mb-5 flex flex-wrap items-center gap-3">
+        <Link
+          href="/"
+          className="btn-ghost btn-icon"
+          aria-label="Back"
+        >
           ←
         </Link>
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{trip.name}</h1>
-        <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs uppercase tracking-wide text-ink/60">
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{trip.name}</h1>
+        <span className="chip">
           {role === "owner" ? "owner" : role === "edit" ? "edit" : "view"}
         </span>
         {role === "owner" ? (
@@ -112,19 +116,16 @@ export default function TripView({
             onClick={() => online && setEditingDates(true)}
             disabled={!online}
             title={online ? "Edit trip dates" : "Requires internet"}
-            className="rounded-lg border border-ink/20 bg-surface px-2 py-1 text-xs font-medium text-ink/60 hover:border-ink/40 disabled:opacity-40"
+            className="chip transition-colors hover:bg-ink/10 disabled:opacity-40"
           >
             {tripDateLabel} ✎
           </button>
         ) : (
-          <span className="text-xs text-ink/50">{tripDateLabel}</span>
+          <span className="chip">{tripDateLabel}</span>
         )}
         <div className="ml-auto flex gap-2">
           {trip.calendar_token && (
-            <button
-              onClick={() => setSyncing(true)}
-              className="rounded-lg border border-ink/20 bg-surface px-3 py-1.5 text-sm font-medium hover:border-ink/40"
-            >
+            <button onClick={() => setSyncing(true)} className="btn-secondary btn-sm">
               Sync calendar
             </button>
           )}
@@ -132,7 +133,7 @@ export default function TripView({
             onClick={() => online && setSharing(true)}
             disabled={!online}
             title={online ? undefined : "Requires internet"}
-            className="rounded-lg border border-ink/20 bg-surface px-3 py-1.5 text-sm font-medium hover:border-ink/40 disabled:opacity-40"
+            className="btn-secondary btn-sm"
           >
             Share
           </button>
@@ -141,7 +142,7 @@ export default function TripView({
               onClick={() => editable && setEditing("new")}
               disabled={!editable}
               title={editable ? undefined : "Requires internet"}
-              className="rounded-lg bg-charcoal px-3 py-1.5 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-40"
+              className="btn-primary btn-sm"
             >
               + Event
             </button>
@@ -151,25 +152,25 @@ export default function TripView({
 
       <OfflineBanner savedAt={savedAt} />
 
-      <div className="mb-3 flex items-center gap-3">
+      <div className="mb-4 flex items-center gap-3">
         <button
           onClick={() => weekStart > firstWeek && setWeekStart(addDays(weekStart, -7))}
           disabled={weekStart <= firstWeek}
-          className="rounded-lg border border-ink/20 bg-surface px-2 py-1 hover:border-ink/40 disabled:opacity-40"
+          className="btn-secondary btn-icon"
           aria-label="Previous week"
         >
           ‹
         </button>
-        <span className="min-w-40 text-sm font-medium">{weekLabel}</span>
+        <span className="min-w-40 text-sm font-medium text-ink/80">{weekLabel}</span>
         <button
           onClick={() => weekStart < lastWeek && setWeekStart(addDays(weekStart, 7))}
           disabled={weekStart >= lastWeek}
-          className="rounded-lg border border-ink/20 bg-surface px-2 py-1 hover:border-ink/40 disabled:opacity-40"
+          className="btn-secondary btn-icon"
           aria-label="Next week"
         >
           ›
         </button>
-        <div className="ml-auto hidden gap-3 text-xs sm:flex">
+        <div className="ml-auto hidden gap-3 text-xs text-ink/60 sm:flex">
           {(Object.keys(EVENT_COLORS) as (keyof typeof EVENT_COLORS)[]).map((t) => (
             <span key={t} className="flex items-center gap-1.5">
               <i className={`h-2.5 w-2.5 rounded-full border-2 ${EVENT_COLORS[t].border} ${EVENT_COLORS[t].bg}`} />

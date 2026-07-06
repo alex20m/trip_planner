@@ -25,13 +25,13 @@ export default function Login() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-6">
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
       <h1 className="mb-2">
         <Logo className="h-10 w-10" textClassName="text-3xl" />
       </h1>
-      <p className="mb-8 text-ink/60">Sign in with a magic link sent to your email.</p>
+      <p className="mb-8 text-ink/55">Sign in with a magic link sent to your email.</p>
       {sent ? (
-        <p className="rounded-xl bg-stay/10 p-4 text-stay">
+        <p className="rounded-xl border border-stay/20 bg-stay/10 p-4 text-sm text-stay">
           Check your inbox — the link signs you in directly.
         </p>
       ) : (
@@ -43,13 +43,9 @@ export default function Login() {
             onKeyDown={(e) => e.key === "Enter" && !busy && sendLink()}
             placeholder="you@email.com"
             disabled={busy}
-            className="w-full rounded-xl border border-ink/20 bg-surface p-3 outline-none focus:border-activity disabled:opacity-50"
+            className="field"
           />
-          <button
-            onClick={sendLink}
-            disabled={busy || !email}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-charcoal p-3 font-medium text-white hover:bg-charcoal/90 disabled:opacity-50"
-          >
+          <button onClick={sendLink} disabled={busy || !email} className="btn-primary w-full">
             {busy && <Spinner className="h-4 w-4" />}
             {busy ? "Sending…" : "Send sign-in link"}
           </button>

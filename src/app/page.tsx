@@ -17,15 +17,15 @@ export default async function Home() {
     .order("created_at", { ascending: false });
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 whitespace-nowrap text-2xl font-bold tracking-tight">
+    <main className="mx-auto max-w-2xl px-5 py-10 sm:px-6 sm:py-14">
+      <header className="mb-10 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="flex items-center gap-2 whitespace-nowrap text-2xl font-semibold tracking-tight">
           <LogoMark className="h-8 w-8 shrink-0" />
           My trips
         </h1>
         <div className="flex items-center gap-3">
           <InstallButton />
-          <Link href="/settings" className="text-sm text-ink/60 hover:text-ink">
+          <Link href="/settings" className="text-sm text-ink/50 transition-colors hover:text-ink">
             Settings
           </Link>
         </div>
