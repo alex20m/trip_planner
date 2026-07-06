@@ -4,6 +4,7 @@ import Link from "next/link";
 import NewTripForm from "@/components/NewTripForm";
 import TripList from "@/components/TripList";
 import InstallButton from "@/components/InstallButton";
+import { LogoMark } from "@/components/Logo";
 
 export default async function Home() {
   const supabase = createClient();
@@ -18,7 +19,10 @@ export default async function Home() {
   return (
     <main className="mx-auto max-w-2xl p-6">
       <header className="mb-8 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">My trips</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <LogoMark className="h-7 w-7" />
+          My trips
+        </h1>
         <div className="flex items-center gap-3">
           <InstallButton />
           <form action="/auth/callback?signout=1" method="post">
