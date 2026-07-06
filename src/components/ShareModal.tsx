@@ -2,6 +2,7 @@
 import { useState } from "react";
 import type { TripRole } from "@/lib/types";
 import { ROLE_RANK } from "@/lib/types";
+import Spinner from "@/components/Spinner";
 
 export default function ShareModal({
   tripId,
@@ -71,7 +72,8 @@ export default function ShareModal({
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium">Close</button>
           <button onClick={invite} disabled={busy || !email}
-            className="rounded-xl bg-charcoal px-4 py-2 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-50">
+            className="flex items-center gap-2 rounded-xl bg-charcoal px-4 py-2 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-50">
+            {busy && <Spinner className="h-3.5 w-3.5" />}
             {busy ? "Sending…" : "Send invitation"}
           </button>
         </div>

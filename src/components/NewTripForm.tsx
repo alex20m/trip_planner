@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useOnline } from "@/hooks/useOnline";
+import Spinner from "@/components/Spinner";
 
 export default function NewTripForm() {
   const [name, setName] = useState("");
@@ -51,8 +52,9 @@ export default function NewTripForm() {
           onClick={create}
           disabled={!online || busy}
           title={online ? undefined : "Requires internet"}
-          className="rounded-xl bg-charcoal px-5 font-medium text-white hover:bg-charcoal/90 disabled:opacity-40"
+          className="flex items-center gap-2 rounded-xl bg-charcoal px-5 font-medium text-white hover:bg-charcoal/90 disabled:opacity-40"
         >
+          {busy && <Spinner className="h-4 w-4" />}
           {busy ? "Creating…" : "Create"}
         </button>
       </div>

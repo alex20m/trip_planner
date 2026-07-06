@@ -3,6 +3,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { EventType, TripEvent } from "@/lib/types";
 import { EVENT_COLORS } from "@/lib/types";
+import Spinner from "@/components/Spinner";
 
 const toLocal = (iso: string | null) =>
   iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
@@ -26,6 +27,9 @@ export default function EventModal({
   const [endDate, setEndDate] = useState(event?.end_at?.slice(0, 10) ?? "");
   const [location, setLocation] = useState(event?.location ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const busy = saving || deleting;
   const isStay = type === "accommodation";
 
   async function save() {
@@ -37,6 +41,7 @@ export default function EventModal({
       setError(isStay ? "Title and check-in date are required." : "Title and start time are required.");
       return;
     }
+    setSaving(true);
     const supabase = createClient();
     const payload = {
       trip_id: tripId,
@@ -50,6 +55,7 @@ export default function EventModal({
       ? supabase.from("trip_events").update(payload).eq("id", event.id).select().single()
       : supabase.from("trip_events").insert(payload).select().single();
     const { data, error } = await q;
+    setSaving(false);
     if (error) setError(error.message);
     else {
       onSaved(data as TripEvent);
@@ -59,8 +65,10 @@ export default function EventModal({
 
   async function remove() {
     if (!event) return;
+    setDeleting(true);
     const supabase = createClient();
     const { error } = await supabase.from("trip_events").delete().eq("id", event.id);
+    setDeleting(false);
     if (error) setError(error.message);
     else {
       onSaved(event, true);
@@ -121,15 +129,29 @@ export default function EventModal({
 
         <div className="mt-5 flex gap-2">
           {event && (
-            <button onClick={remove} className="rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
-              Delete
+            <button
+              onClick={remove}
+              disabled={busy}
+              className="flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              {deleting && <Spinner className="h-3.5 w-3.5" />}
+              {deleting ? "Deleting…" : "Delete"}
             </button>
           )}
-          <button onClick={onClose} className="ml-auto rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium">
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="ml-auto rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium disabled:opacity-50"
+          >
             Cancel
           </button>
-          <button onClick={save} className="rounded-xl bg-charcoal px-4 py-2 text-sm font-medium text-white hover:bg-charcoal/90">
-            Save
+          <button
+            onClick={save}
+            disabled={busy}
+            className="flex items-center gap-2 rounded-xl bg-charcoal px-4 py-2 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-50"
+          >
+            {saving && <Spinner className="h-3.5 w-3.5" />}
+            {saving ? "Saving…" : "Save"}
           </button>
         </div>
       </div>
