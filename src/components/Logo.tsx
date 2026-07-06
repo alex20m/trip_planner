@@ -9,17 +9,12 @@ export function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
         </linearGradient>
       </defs>
       <rect width="512" height="512" rx="112" fill="url(#planpal-bg)" />
-      <path
-        d="M160 352 Q176 176 352 176"
-        fill="none"
-        stroke="#F6F7F9"
-        strokeOpacity="0.3"
-        strokeWidth="16"
-        strokeLinecap="round"
-      />
-      <circle cx="160" cy="352" r="36" fill="#3B6EF6" />
-      <circle cx="216" cy="220" r="34" fill="#E8842C" />
-      <circle cx="352" cy="176" r="40" fill="#2FA36B" />
+      <g transform="translate(256,256) scale(15) translate(-12,-12)">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#F6F7F9" />
+      </g>
+      <circle cx="222" cy="205" r="40" fill="#3B6EF6" />
+      <circle cx="290" cy="205" r="52" fill="#F6F7F9" />
+      <circle cx="290" cy="205" r="40" fill="#E8842C" />
     </svg>
   );
 }
