@@ -1,19 +1,24 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Spinner from "@/components/Spinner";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function sendLink() {
+    if (busy) return;
     setError(null);
+    setBusy(true);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
     });
+    setBusy(false);
     if (error) setError(error.message);
     else setSent(true);
   }
@@ -32,14 +37,18 @@ export default function Login() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !busy && sendLink()}
             placeholder="you@email.com"
-            className="w-full rounded-xl border border-ink/20 bg-surface p-3 outline-none focus:border-activity"
+            disabled={busy}
+            className="w-full rounded-xl border border-ink/20 bg-surface p-3 outline-none focus:border-activity disabled:opacity-50"
           />
           <button
             onClick={sendLink}
-            className="w-full rounded-xl bg-charcoal p-3 font-medium text-white hover:bg-charcoal/90"
+            disabled={busy || !email}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-charcoal p-3 font-medium text-white hover:bg-charcoal/90 disabled:opacity-50"
           >
-            Send sign-in link
+            {busy && <Spinner className="h-4 w-4" />}
+            {busy ? "Sending…" : "Send sign-in link"}
           </button>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

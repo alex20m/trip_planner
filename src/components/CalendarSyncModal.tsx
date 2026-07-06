@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useOnline } from "@/hooks/useOnline";
+import Spinner from "@/components/Spinner";
 
 export default function CalendarSyncModal({
   tripId,
@@ -102,8 +103,9 @@ export default function CalendarSyncModal({
           <button
             onClick={rotate}
             disabled={!online || rotating}
-            className="text-xs text-ink/50 hover:text-red-600 disabled:opacity-40"
+            className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-red-600 disabled:opacity-40"
           >
+            {rotating && <Spinner className="h-3 w-3" />}
             {rotating ? "Creating…" : "Create new link (revoke the old one)"}
           </button>
           <button onClick={onClose} className="rounded-xl border border-ink/20 px-4 py-2 text-sm font-medium">

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Spinner from "@/components/Spinner";
 
 type InviteInfo = { email: string; role: string; status: string; tripName: string };
 
@@ -12,6 +13,7 @@ export default function InvitePage() {
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "declined" | "needsLogin" | "error">("loading");
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     fetch(`/api/invites/${token}`)
@@ -35,44 +37,55 @@ export default function InvitePage() {
   }, [token]);
 
   async function accept() {
+    setBusy(true);
     const res = await fetch(`/api/invites/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "accept" })
     });
     if (res.status === 401) {
+      setBusy(false);
       setState("needsLogin");
       return;
     }
     const body = await res.json();
     if (res.ok) router.push(`/trips/${body.tripId}`);
     else {
+      setBusy(false);
       setState("error");
       setMessage(body.error);
     }
   }
 
   async function decline() {
+    setBusy(true);
     await fetch(`/api/invites/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "decline" })
     });
+    setBusy(false);
     setState("declined");
   }
 
   async function loginThenAccept(email: string) {
+    setBusy(true);
     const supabase = createClient();
     await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/invite/${token}` }
     });
+    setBusy(false);
     setMessage("Check your inbox — sign in and come back here to accept.");
   }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-6 text-center">
-      {state === "loading" && <p className="text-ink/50">Loading…</p>}
+      {state === "loading" && (
+        <div className="flex justify-center">
+          <Spinner className="h-6 w-6 text-ink/40" />
+        </div>
+      )}
       {state === "error" && <p className="text-ink/70">{message}</p>}
       {state === "declined" && <p className="text-ink/70">You have declined the invitation.</p>}
       {(state === "ready" || state === "needsLogin") && info && (
@@ -83,10 +96,20 @@ export default function InvitePage() {
           </p>
           {state === "ready" ? (
             <div className="flex justify-center gap-3">
-              <button onClick={decline} className="rounded-xl border border-ink/20 px-5 py-2.5 font-medium">
+              <button
+                onClick={decline}
+                disabled={busy}
+                className="flex items-center gap-2 rounded-xl border border-ink/20 px-5 py-2.5 font-medium disabled:opacity-50"
+              >
+                {busy && <Spinner className="h-4 w-4" />}
                 Decline
               </button>
-              <button onClick={accept} className="rounded-xl bg-charcoal px-5 py-2.5 font-medium text-white">
+              <button
+                onClick={accept}
+                disabled={busy}
+                className="flex items-center gap-2 rounded-xl bg-charcoal px-5 py-2.5 font-medium text-white disabled:opacity-50"
+              >
+                {busy && <Spinner className="h-4 w-4" />}
                 Accept
               </button>
             </div>
@@ -95,8 +118,10 @@ export default function InvitePage() {
               <p className="mb-3 text-sm text-ink/60">Sign in first to accept:</p>
               <button
                 onClick={() => loginThenAccept(info.email)}
-                className="rounded-xl bg-charcoal px-5 py-2.5 font-medium text-white"
+                disabled={busy}
+                className="flex items-center gap-2 rounded-xl bg-charcoal px-5 py-2.5 font-medium text-white disabled:opacity-50"
               >
+                {busy && <Spinner className="h-4 w-4" />}
                 Send sign-in link to {info.email}
               </button>
               {message && <p className="mt-3 text-sm text-stay">{message}</p>}

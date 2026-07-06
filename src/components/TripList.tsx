@@ -5,6 +5,7 @@ import { useOnline } from "@/hooks/useOnline";
 import { createClient } from "@/lib/supabase/client";
 import { idbGet, idbSet, prefetchAllTrips } from "@/lib/offlineStore";
 import OfflineBanner from "@/components/OfflineBanner";
+import Spinner from "@/components/Spinner";
 
 type TripStub = { id: string; name: string; created_at: string };
 
@@ -59,7 +60,10 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
         )}
       </ul>
       {caching && (
-        <p className="mt-3 text-xs text-ink/40">Saving trips for offline reading…</p>
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-ink/40">
+          <Spinner className="h-3 w-3" />
+          Saving trips for offline reading…
+        </p>
       )}
     </>
   );

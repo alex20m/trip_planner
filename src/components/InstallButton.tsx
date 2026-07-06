@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Spinner from "@/components/Spinner";
 
 type Platform = "ios" | "android" | "desktop" | "other";
 
@@ -28,6 +29,7 @@ export default function InstallButton() {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<Platform>("other");
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     const isStandalone =
@@ -57,8 +59,10 @@ export default function InstallButton() {
 
   async function nativeInstall() {
     if (!deferred) return;
+    setInstalling(true);
     await deferred.prompt();
     await deferred.userChoice;
+    setInstalling(false);
     setDeferred(null);
     setOpen(false);
   }
@@ -87,9 +91,11 @@ export default function InstallButton() {
               <>
                 <button
                   onClick={nativeInstall}
-                  className="mb-3 w-full rounded-xl bg-charcoal p-3 font-medium text-white hover:bg-charcoal/90"
+                  disabled={installing}
+                  className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-charcoal p-3 font-medium text-white hover:bg-charcoal/90 disabled:opacity-50"
                 >
-                  Install now
+                  {installing && <Spinner className="h-4 w-4" />}
+                  {installing ? "Installing…" : "Install now"}
                 </button>
                 <p className="text-xs text-ink/50">
                   Or do it manually: open your browser menu and choose “Install app” / “Add to Home screen”.
