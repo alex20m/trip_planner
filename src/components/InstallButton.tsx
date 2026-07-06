@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Spinner from "@/components/Spinner";
+import { LogoMark } from "@/components/Logo";
 
 type Platform = "ios" | "android" | "desktop" | "other";
 
@@ -82,7 +83,10 @@ export default function InstallButton() {
           onClick={() => setOpen(false)}
         >
           <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-1 text-lg font-bold">Install PlanPal</h2>
+            <h2 className="mb-1 flex items-center gap-2 text-lg font-bold">
+              <LogoMark className="h-6 w-6" />
+              Install PlanPal
+            </h2>
             <p className="mb-4 text-sm text-ink/60">
               Add PlanPal to your home screen or dock for a full-screen, app-like experience that also works offline.
             </p>
