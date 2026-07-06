@@ -36,9 +36,13 @@ export default function EventModal({
     setError(null);
     // Accommodation is saved at UTC midnight so the calendar date is preserved exactly in the .ics export.
     const start_at = isStay ? (startDate ? `${startDate}T00:00:00Z` : "") : start;
-    const end_at = isStay ? (endDate ? `${endDate}T00:00:00Z` : null) : end || null;
-    if (!title.trim() || !start_at) {
-      setError(isStay ? "Title and check-in date are required." : "Title and start time are required.");
+    const end_at = isStay ? (endDate ? `${endDate}T00:00:00Z` : "") : end || null;
+    if (!title.trim() || !start_at || (isStay && !end_at)) {
+      setError(isStay ? "Title, check-in date, and check-out date are required." : "Title and start time are required.");
+      return;
+    }
+    if (isStay && end_at && end_at <= start_at) {
+      setError("Check-out date must be after check-in date.");
       return;
     }
     setSaving(true);
@@ -87,7 +91,7 @@ export default function EventModal({
               key={t}
               onClick={() => setType(t)}
               className={`flex-1 rounded-lg border-2 px-2 py-1.5 text-sm font-medium ${
-                type === t ? EVENT_COLORS[t].border + " " + EVENT_COLORS[t].bg : "border-ink/10 text-ink/50"
+                type === t ? EVENT_COLORS[t].border + " " + EVENT_COLORS[t].bg : "border-ink/20 text-ink/70 hover:border-ink/40"
               }`}
             >
               {EVENT_COLORS[t].label}
@@ -99,18 +103,18 @@ export default function EventModal({
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title"
             className="w-full rounded-xl border border-ink/20 p-2.5 outline-none focus:border-activity" />
           {isStay ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="text-sm text-ink/60">Check-in
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-ink/20 p-2.5" />
               </label>
-              <label className="text-sm text-ink/60">Check-out (optional)
+              <label className="text-sm text-ink/60">Check-out
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-ink/20 p-2.5" />
               </label>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="text-sm text-ink/60">Start
                 <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-ink/20 p-2.5" />
