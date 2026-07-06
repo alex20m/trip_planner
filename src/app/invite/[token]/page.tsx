@@ -86,7 +86,7 @@ export default function InvitePage() {
               <button onClick={decline} className="rounded-xl border border-ink/20 px-5 py-2.5 font-medium">
                 Decline
               </button>
-              <button onClick={accept} className="rounded-xl bg-ink px-5 py-2.5 font-medium text-white">
+              <button onClick={accept} className="rounded-xl bg-charcoal px-5 py-2.5 font-medium text-white">
                 Accept
               </button>
             </div>
@@ -95,7 +95,7 @@ export default function InvitePage() {
               <p className="mb-3 text-sm text-ink/60">Sign in first to accept:</p>
               <button
                 onClick={() => loginThenAccept(info.email)}
-                className="rounded-xl bg-ink px-5 py-2.5 font-medium text-white"
+                className="rounded-xl bg-charcoal px-5 py-2.5 font-medium text-white"
               >
                 Send sign-in link to {info.email}
               </button>

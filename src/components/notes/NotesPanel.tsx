@@ -89,9 +89,9 @@ export default function NotesPanel({
             onChange={(e) => setNewSection(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addSection()}
             placeholder="New section, e.g. Packing list"
-            className="flex-1 rounded-xl border border-ink/20 bg-white p-2.5 text-sm outline-none focus:border-activity"
+            className="flex-1 rounded-xl border border-ink/20 bg-surface p-2.5 text-sm outline-none focus:border-activity"
           />
-          <button onClick={addSection} className="rounded-xl border border-ink/20 bg-white px-4 text-sm font-medium hover:border-ink/40">
+          <button onClick={addSection} className="rounded-xl border border-ink/20 bg-surface px-4 text-sm font-medium hover:border-ink/40">
             Add
           </button>
         </div>
@@ -117,7 +117,7 @@ function SectionCard({
 }) {
   const [draft, setDraft] = useState("");
   return (
-    <div className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="font-semibold">{section.title}</h3>
         {editable && (

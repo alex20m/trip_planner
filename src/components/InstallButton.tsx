@@ -67,17 +67,17 @@ export default function InstallButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm font-medium hover:border-ink/40"
+        className="rounded-lg border border-ink/20 bg-surface px-3 py-1.5 text-sm font-medium hover:border-ink/40"
       >
         Install app
       </button>
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
           onClick={() => setOpen(false)}
         >
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="mb-1 text-lg font-bold">Install PlanPal</h2>
             <p className="mb-4 text-sm text-ink/60">
               Add PlanPal to your home screen or dock for a full-screen, app-like experience that also works offline.
@@ -87,7 +87,7 @@ export default function InstallButton() {
               <>
                 <button
                   onClick={nativeInstall}
-                  className="mb-3 w-full rounded-xl bg-ink p-3 font-medium text-white hover:bg-ink/90"
+                  className="mb-3 w-full rounded-xl bg-charcoal p-3 font-medium text-white hover:bg-charcoal/90"
                 >
                   Install now
                 </button>

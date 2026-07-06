@@ -45,13 +45,13 @@ export default function NewTripForm() {
           onKeyDown={(e) => e.key === "Enter" && online && !busy && create()}
           placeholder="New trip, e.g. Rome 2026"
           disabled={!online || busy}
-          className="flex-1 rounded-xl border border-ink/20 bg-white p-3 outline-none focus:border-activity disabled:opacity-50"
+          className="flex-1 rounded-xl border border-ink/20 bg-surface p-3 outline-none focus:border-activity disabled:opacity-50"
         />
         <button
           onClick={create}
           disabled={!online || busy}
           title={online ? undefined : "Requires internet"}
-          className="rounded-xl bg-ink px-5 font-medium text-white hover:bg-ink/90 disabled:opacity-40"
+          className="rounded-xl bg-charcoal px-5 font-medium text-white hover:bg-charcoal/90 disabled:opacity-40"
         >
           {busy ? "Creating…" : "Create"}
         </button>

@@ -51,7 +51,7 @@ export default function WeekView({
           const isToday = isSameDay(day, new Date());
 
           return (
-            <div key={+day} className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm">
+            <div key={+day} className="overflow-hidden rounded-2xl border border-ink/10 bg-surface shadow-sm">
               <div className={`flex items-baseline gap-2 border-b border-ink/10 px-3 py-2 ${isToday ? "bg-activity/5" : ""}`}>
                 <span className="text-[11px] uppercase tracking-wide text-ink/50">
                   {format(day, "EEE", { locale: enUS })}
@@ -103,9 +103,9 @@ export default function WeekView({
       </div>
 
       {/* Time-grid view: full week at a glance — used from tablet width up */}
-      <div className="hidden overflow-x-auto rounded-2xl border border-ink/10 bg-white shadow-sm sm:block">
+      <div className="hidden overflow-x-auto rounded-2xl border border-ink/10 bg-surface shadow-sm sm:block">
         <div className="min-w-[720px]">
-        {/* Dagrubriker */}
+          {/* Dagrubriker */}
         <div className="grid grid-cols-[52px_repeat(7,1fr)] border-b border-ink/10">
           <div />
           {days.map((d) => (

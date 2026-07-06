@@ -46,7 +46,7 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
             <Link
               href={`/trips/${t.id}`}
               prefetch
-              className="block rounded-xl border border-ink/10 bg-white p-4 font-medium shadow-sm hover:border-ink/30"
+              className="block rounded-xl border border-ink/10 bg-surface p-4 font-medium shadow-sm hover:border-ink/30"
             >
               {t.name}
             </Link>
