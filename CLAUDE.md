@@ -6,9 +6,38 @@ All work must be isolated, reproducible, and branch-based:
 
 - Do not commit directly to `main`.
 - Do all work in a dedicated branch/worktree.
-- Keep changes scoped to one task.
+- Keep changes scoped to one task — do not bundle unrelated fixes into the same branch.
 
 Do not stop after planning. Start implementing immediately and only ask if blocked.
+
+---
+
+## Parallel Workflow
+
+Multiple tasks may be in flight at once (different agents/sessions or the same
+agent multitasking). To keep them from colliding:
+
+- **One task = one worktree = one branch = one MR.** Never share a worktree or
+  branch across tasks, even "quick" ones.
+- **Unique names.** Derive `<task-name>` / `<branch-name>` from the task itself
+  (e.g. `fix/calendar-404`, `feat/trip-sharing`), not generic names like `fix`
+  or `update`. Two parallel tasks must never produce the same worktree path or
+  branch name.
+- **Check before creating.** Run `git worktree list` and `git branch -a`
+  first so a new task doesn't collide with one already in progress.
+- **Always branch from fresh `origin/main`.** Run `git fetch origin` right
+  before creating the worktree so parallel tasks start from the same
+  up-to-date base and don't inherit each other's in-progress work.
+- **Assume shared files may be touched by other in-flight tasks.** Keep
+  diffs small and scoped so rebasing is cheap; rebase onto `origin/main`
+  often (not just at the end) to surface conflicts early instead of in one
+  large resolution at the end.
+- **Isolate runtime state per worktree.** Each worktree gets its own
+  `node_modules`/install step and its own dev-server port/env file — never
+  point two worktrees at the same running dev server, port, or `.env.local`.
+- **If a task's MR is already merged**, don't stack follow-up work on the old
+  branch/worktree. Recreate the branch from the latest `origin/main` (same
+  branch name is fine) and open a new MR — see "Follow-up changes later".
 
 ---
 
@@ -28,6 +57,14 @@ Do not stop after planning. Start implementing immediately and only ask if block
 git fetch origin
 git worktree add ../<task-name> -b <branch-name> origin/main
 ```
+
+### Commit conventions
+
+- Write commit messages that explain *why*, not just what.
+- Prefer several small, logical commits over one giant commit when a task
+  naturally splits (e.g. "add migration" / "add API endpoint" / "add tests").
+- Never amend or force-push commits that are already pushed and part of an
+  open MR unless explicitly asked.
 
 ### Finish task
 
@@ -56,6 +93,7 @@ Open an MR from `<branch-name>` to `main` and wait for CI/CD to run.
 
 - Check the pipeline/PR status and do NOT remove the worktree or stop the agent until all checks pass.
 - If CI fails, iterate in the same worktree/branch and re-run the pipeline.
+- Only merge once explicitly asked to; getting CI green is not the same as being told to merge.
 
 ### Delete worktree
 
@@ -65,6 +103,10 @@ git worktree prune
 ```
 
 Run this from the main repo, not from inside the worktree.
+
+Periodically run `git worktree list` to spot stale/abandoned worktrees left
+over from finished or dropped tasks, and clean them up so paths stay free for
+new work.
 
 ### Follow-up changes later
 
@@ -77,7 +119,7 @@ Use the same `<branch-name>` as before, but create a new worktree instead of reo
 
 Goal:
 
-The user should always be able to inspect, delete, or switch branches without encountering “used by worktree” errors.
+The user should always be able to inspect, delete, or switch branches without encountering "used by worktree" errors.
 
 ## Efficiency rules
 
@@ -86,4 +128,3 @@ The user should always be able to inspect, delete, or switch branches without en
 - Avoid repeated file reads.
 - Ask before broad architectural exploration.
 - Prefer targeted grep/search over repo summarization.
-
