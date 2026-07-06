@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { addDays, format, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { NoteSection, Trip, TripEvent, TripRole } from "@/lib/types";
 import { canEdit, parseDateOnly, EVENT_COLORS } from "@/lib/types";
 import { useOnline } from "@/hooks/useOnline";
+import { createClient } from "@/lib/supabase/client";
 import { idbGet, idbSet, tripSnapshotKey, type TripSnapshot } from "@/lib/offlineStore";
 import WeekView from "@/components/calendar/WeekView";
 import EventModal from "@/components/EventModal";
@@ -27,10 +29,12 @@ export default function TripView({
   initialSections: NoteSection[];
 }) {
   const online = useOnline();
+  const router = useRouter();
   const [trip, setTrip] = useState(initialTrip);
   const [events, setEvents] = useState(initialEvents);
   const [sections, setSections] = useState(initialSections);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [deletingTrip, setDeletingTrip] = useState(false);
   const tripStart = useMemo(() => parseDateOnly(trip.start_date), [trip.start_date]);
   const tripEnd = useMemo(() => parseDateOnly(trip.end_date), [trip.end_date]);
   const firstWeek = useMemo(() => startOfWeek(tripStart, { weekStartsOn: 1 }), [tripStart]);
@@ -97,6 +101,21 @@ export default function TripView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, sections]);
 
+  async function deleteTrip() {
+    if (!confirm(`Delete "${trip.name}"? This removes its events, notes, and sharing for everyone. This cannot be undone.`)) {
+      return;
+    }
+    setDeletingTrip(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("trips").delete().eq("id", trip.id);
+    if (error) {
+      setDeletingTrip(false);
+      alert(error.message);
+      return;
+    }
+    router.push("/");
+  }
+
   return (
     <main className="mx-auto max-w-5xl p-4 pb-32 sm:p-6 sm:pb-24">
       <header className="mb-4 flex flex-wrap items-center gap-3">
@@ -144,6 +163,16 @@ export default function TripView({
               className="rounded-lg bg-charcoal px-3 py-1.5 text-sm font-medium text-white hover:bg-charcoal/90 disabled:opacity-40"
             >
               + Event
+            </button>
+          )}
+          {role === "owner" && (
+            <button
+              onClick={() => online && !deletingTrip && deleteTrip()}
+              disabled={!online || deletingTrip}
+              title={online ? undefined : "Requires internet"}
+              className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+            >
+              {deletingTrip ? "Deleting…" : "Delete trip"}
             </button>
           )}
         </div>

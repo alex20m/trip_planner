@@ -42,6 +42,20 @@ test("a newly created trip appears back in the trip list", async ({ page }) => {
   await expect(page.getByRole("link", { name: tripName })).toBeVisible();
 });
 
+test("a trip can be deleted by its owner and disappears from the trip list", async ({ page }) => {
+  await page.goto("/");
+  const tripName = `Deletable Trip ${Date.now()}`;
+  await page.getByPlaceholder(/new trip/i).fill(tripName);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page).toHaveURL(/\/trips\/[0-9a-f-]+/);
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Delete trip" }).click();
+
+  await expect(page).toHaveURL("/");
+  await expect(page.getByRole("link", { name: tripName })).not.toBeVisible();
+});
+
 test("a trip is created with the given date range, and the dates can be edited afterwards", async ({ page }) => {
   await page.goto("/");
   const tripName = `Dated Trip ${Date.now()}`;
