@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import SwRegister from "@/components/SwRegister";
-import ThemeToggle from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "PlanPal",
@@ -36,9 +35,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {THEME_INIT_SCRIPT}
         </Script>
         {children}
-        <div className="fixed bottom-4 right-4 z-40">
-          <ThemeToggle />
-        </div>
         <SwRegister />
       </body>
     </html>

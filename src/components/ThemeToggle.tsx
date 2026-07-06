@@ -2,10 +2,10 @@
 import { useEffect, useState } from "react";
 import { applyTheme, getStoredTheme, THEME_KEY, type Theme } from "@/lib/theme";
 
-const OPTIONS: { value: Theme; label: string; icon: string }[] = [
-  { value: "system", label: "System", icon: "💻" },
-  { value: "light", label: "Light", icon: "☀️" },
-  { value: "dark", label: "Dark", icon: "🌙" }
+const OPTIONS: { value: Theme; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" }
 ];
 
 export default function ThemeToggle() {
@@ -41,12 +41,11 @@ export default function ThemeToggle() {
           type="button"
           onClick={() => choose(o.value)}
           aria-pressed={theme === o.value}
-          title={o.label}
-          className={`rounded-md px-2 py-1 text-sm ${
+          className={`rounded-md px-3 py-1.5 text-sm font-medium ${
             theme === o.value ? "bg-charcoal text-white" : "text-ink/60 hover:text-ink"
           }`}
         >
-          {o.icon}
+          {o.label}
         </button>
       ))}
     </div>
