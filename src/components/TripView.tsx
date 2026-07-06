@@ -125,7 +125,7 @@ export default function TripView({
               onClick={() => setSyncing(true)}
               className="rounded-lg border border-ink/20 bg-surface px-3 py-1.5 text-sm font-medium hover:border-ink/40"
             >
-              Sync
+              Sync calendar
             </button>
           )}
           <button

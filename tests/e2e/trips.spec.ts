@@ -19,7 +19,7 @@ test("create a trip, add an event, and read it back via the calendar feed", asyn
   await expect(page.getByRole("heading", { name: "New event" })).not.toBeVisible();
 
   // Subscribe via the calendar sync link and confirm the event round-trips through the .ics feed
-  await page.getByRole("button", { name: "Sync" }).click();
+  await page.getByRole("button", { name: "Sync calendar" }).click();
   const calendarUrl = await page.locator("input[readonly]").inputValue();
   expect(calendarUrl).toContain("/api/calendar/");
 
