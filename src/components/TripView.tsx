@@ -14,7 +14,6 @@ import CalendarSyncModal from "@/components/CalendarSyncModal";
 import EditTripDatesModal from "@/components/EditTripDatesModal";
 import OfflineBanner from "@/components/OfflineBanner";
 import NotesPanel from "@/components/notes/NotesPanel";
-import ThemeToggle from "@/components/ThemeToggle";
 
 export default function TripView({
   trip: initialTrip,
@@ -121,7 +120,6 @@ export default function TripView({
           <span className="text-xs text-ink/50">{tripDateLabel}</span>
         )}
         <div className="ml-auto flex gap-2">
-          <ThemeToggle />
           {trip.calendar_token && (
             <button
               onClick={() => setSyncing(true)}

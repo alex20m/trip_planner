@@ -25,11 +25,9 @@ export default async function Home() {
         </h1>
         <div className="flex items-center gap-3">
           <InstallButton />
-          <form action="/auth/callback?signout=1" method="post">
-            <Link href="/login" className="truncate text-sm text-ink/60 hover:text-ink">
-              {user.email}
-            </Link>
-          </form>
+          <Link href="/settings" className="text-sm text-ink/60 hover:text-ink">
+            Settings
+          </Link>
         </div>
       </header>
 
