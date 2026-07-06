@@ -6,8 +6,14 @@ export interface Trip {
   name: string;
   owner_id: string;
   created_at: string;
+  start_date: string;
+  end_date: string;
   calendar_token?: string;
 }
+
+// Parses a "YYYY-MM-DD" date-only string as local midnight (not UTC),
+// matching how date-fns functions like startOfWeek/addDays operate.
+export const parseDateOnly = (s: string) => new Date(`${s}T00:00:00`);
 
 export interface TripEvent {
   id: string;

@@ -4,18 +4,19 @@ import Link from "next/link";
 import { addDays, format, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { NoteSection, Trip, TripEvent, TripRole } from "@/lib/types";
-import { canEdit, EVENT_COLORS } from "@/lib/types";
+import { canEdit, parseDateOnly, EVENT_COLORS } from "@/lib/types";
 import { useOnline } from "@/hooks/useOnline";
 import { idbGet, idbSet, tripSnapshotKey, type TripSnapshot } from "@/lib/offlineStore";
 import WeekView from "@/components/calendar/WeekView";
 import EventModal from "@/components/EventModal";
 import ShareModal from "@/components/ShareModal";
 import CalendarSyncModal from "@/components/CalendarSyncModal";
+import EditTripDatesModal from "@/components/EditTripDatesModal";
 import OfflineBanner from "@/components/OfflineBanner";
 import NotesPanel from "@/components/notes/NotesPanel";
 
 export default function TripView({
-  trip,
+  trip: initialTrip,
   role,
   initialEvents,
   initialSections
@@ -26,16 +27,21 @@ export default function TripView({
   initialSections: NoteSection[];
 }) {
   const online = useOnline();
+  const [trip, setTrip] = useState(initialTrip);
   const [events, setEvents] = useState(initialEvents);
   const [sections, setSections] = useState(initialSections);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [weekStart, setWeekStart] = useState(() => {
-    const first = initialEvents[0] ? new Date(initialEvents[0].start_at) : new Date();
-    return startOfWeek(first, { weekStartsOn: 1 });
-  });
+  const tripStart = useMemo(() => parseDateOnly(trip.start_date), [trip.start_date]);
+  const tripEnd = useMemo(() => parseDateOnly(trip.end_date), [trip.end_date]);
+  const firstWeek = useMemo(() => startOfWeek(tripStart, { weekStartsOn: 1 }), [tripStart]);
+  const lastWeek = useMemo(() => startOfWeek(tripEnd, { weekStartsOn: 1 }), [tripEnd]);
+  const [weekStart, setWeekStart] = useState(() =>
+    startOfWeek(parseDateOnly(initialTrip.start_date), { weekStartsOn: 1 })
+  );
   const [editing, setEditing] = useState<TripEvent | "new" | null>(null);
   const [sharing, setSharing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [editingDates, setEditingDates] = useState(false);
 
   // Editing and sharing require a connection; offline is always read-only.
   const editable = canEdit(role) && online;
@@ -45,6 +51,16 @@ export default function TripView({
       `${format(weekStart, "d MMM", { locale: enUS })} – ${format(addDays(weekStart, 6), "d MMM yyyy", { locale: enUS })}`,
     [weekStart]
   );
+
+  const tripDateLabel = useMemo(
+    () => `${format(tripStart, "d MMM", { locale: enUS })} – ${format(tripEnd, "d MMM yyyy", { locale: enUS })}`,
+    [tripStart, tripEnd]
+  );
+
+  // Keep the visible week inside the trip's date range, e.g. after the dates are edited.
+  useEffect(() => {
+    setWeekStart((w) => (w < firstWeek ? firstWeek : w > lastWeek ? lastWeek : w));
+  }, [firstWeek, lastWeek]);
 
   // While online: save a fresh snapshot to IndexedDB after every change.
   // While offline: load the last known snapshot if the server gave us nothing.
@@ -91,6 +107,18 @@ export default function TripView({
         <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs uppercase tracking-wide text-ink/60">
           {role === "owner" ? "owner" : role === "edit" ? "edit" : "view"}
         </span>
+        {role === "owner" ? (
+          <button
+            onClick={() => online && setEditingDates(true)}
+            disabled={!online}
+            title={online ? "Edit trip dates" : "Requires internet"}
+            className="rounded-lg border border-ink/20 bg-surface px-2 py-1 text-xs font-medium text-ink/60 hover:border-ink/40 disabled:opacity-40"
+          >
+            {tripDateLabel} ✎
+          </button>
+        ) : (
+          <span className="text-xs text-ink/50">{tripDateLabel}</span>
+        )}
         <div className="ml-auto flex gap-2">
           {trip.calendar_token && (
             <button
@@ -124,9 +152,23 @@ export default function TripView({
       <OfflineBanner savedAt={savedAt} />
 
       <div className="mb-3 flex items-center gap-3">
-        <button onClick={() => setWeekStart(addDays(weekStart, -7))} className="rounded-lg border border-ink/20 bg-surface px-2 py-1 hover:border-ink/40" aria-label="Previous week">‹</button>
+        <button
+          onClick={() => weekStart > firstWeek && setWeekStart(addDays(weekStart, -7))}
+          disabled={weekStart <= firstWeek}
+          className="rounded-lg border border-ink/20 bg-surface px-2 py-1 hover:border-ink/40 disabled:opacity-40"
+          aria-label="Previous week"
+        >
+          ‹
+        </button>
         <span className="min-w-40 text-sm font-medium">{weekLabel}</span>
-        <button onClick={() => setWeekStart(addDays(weekStart, 7))} className="rounded-lg border border-ink/20 bg-surface px-2 py-1 hover:border-ink/40" aria-label="Next week">›</button>
+        <button
+          onClick={() => weekStart < lastWeek && setWeekStart(addDays(weekStart, 7))}
+          disabled={weekStart >= lastWeek}
+          className="rounded-lg border border-ink/20 bg-surface px-2 py-1 hover:border-ink/40 disabled:opacity-40"
+          aria-label="Next week"
+        >
+          ›
+        </button>
         <div className="ml-auto hidden gap-3 text-xs sm:flex">
           {(Object.keys(EVENT_COLORS) as (keyof typeof EVENT_COLORS)[]).map((t) => (
             <span key={t} className="flex items-center gap-1.5">
@@ -140,6 +182,8 @@ export default function TripView({
       <WeekView
         weekStart={weekStart}
         events={events}
+        rangeStart={tripStart}
+        rangeEnd={tripEnd}
         onSelect={(e) => (editable ? setEditing(e) : undefined)}
       />
 
@@ -164,6 +208,9 @@ export default function TripView({
       {sharing && <ShareModal tripId={trip.id} myRole={role} onClose={() => setSharing(false)} />}
       {syncing && trip.calendar_token && (
         <CalendarSyncModal tripId={trip.id} token={trip.calendar_token} onClose={() => setSyncing(false)} />
+      )}
+      {editingDates && (
+        <EditTripDatesModal trip={trip} onClose={() => setEditingDates(false)} onSaved={(updated) => setTrip(updated)} />
       )}
     </main>
   );
