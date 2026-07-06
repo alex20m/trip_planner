@@ -3,6 +3,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Spinner from "@/components/Spinner";
 import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -26,6 +27,9 @@ export default function Login() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-6">
+      <div className="mb-2 flex justify-end">
+        <ThemeToggle />
+      </div>
       <h1 className="mb-2">
         <Logo className="h-10 w-10" textClassName="text-3xl" />
       </h1>
