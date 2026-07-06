@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
+import { ChevronLeftIcon, LogOutIcon } from "@/components/Icons";
 
 export default async function Settings() {
   const supabase = createClient();
@@ -12,7 +13,7 @@ export default async function Settings() {
     <main className="mx-auto max-w-2xl px-5 py-10 sm:px-6 sm:py-14">
       <header className="mb-10 flex items-center gap-3">
         <Link href="/" className="btn-ghost btn-icon" aria-label="Back">
-          &larr;
+          <ChevronLeftIcon className="h-5 w-5" />
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
       </header>
@@ -24,10 +25,14 @@ export default async function Settings() {
 
       <section>
         <h2 className="label mb-2">Account</h2>
-        <div className="card flex items-center justify-between gap-3 p-3">
+        <div className="card flex items-center justify-between gap-3 p-4">
           <span className="text-sm">{user.email}</span>
           <form action="/auth/callback?signout=1" method="post">
-            <button type="submit" className="text-sm text-ink/55 transition-colors hover:text-ink">
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 text-sm text-ink/55 transition-colors hover:text-ink"
+            >
+              <LogOutIcon className="h-4 w-4" />
               Sign out
             </button>
           </form>

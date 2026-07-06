@@ -5,11 +5,13 @@ import { addDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import { useOnline } from "@/hooks/useOnline";
 import Spinner from "@/components/Spinner";
+import { PlusIcon } from "@/components/Icons";
 
 const today = () => format(new Date(), "yyyy-MM-dd");
 const defaultEnd = () => format(addDays(new Date(), 6), "yyyy-MM-dd");
 
 export default function NewTripForm() {
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(defaultEnd);
@@ -17,6 +19,15 @@ export default function NewTripForm() {
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   const online = useOnline();
+
+  function close() {
+    if (busy) return;
+    setOpen(false);
+    setError(null);
+    setName("");
+    setStartDate(today());
+    setEndDate(defaultEnd());
+  }
 
   async function create() {
     if (!name.trim() || busy) return;
@@ -52,48 +63,68 @@ export default function NewTripForm() {
   }
 
   return (
-    <div>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && online && !busy && create()}
-          placeholder="New trip, e.g. Rome 2026"
-          disabled={!online || busy}
-          className="field flex-1"
-        />
-        <label className="flex items-center gap-2 text-sm text-ink/60">
-          Start
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            disabled={!online || busy}
-            className="field"
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm text-ink/60">
-          End
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            disabled={!online || busy}
-            className="field"
-          />
-        </label>
-        <button
-          onClick={create}
-          disabled={!online || busy}
-          title={online ? undefined : "Requires internet"}
-          className="btn-primary px-5"
-        >
-          {busy && <Spinner className="h-4 w-4" />}
-          {busy ? "Creating…" : "Create"}
-        </button>
-      </div>
+    <>
+      <button
+        onClick={() => online && setOpen(true)}
+        disabled={!online}
+        title={online ? undefined : "Requires internet"}
+        className="btn-primary w-full sm:w-auto"
+      >
+        <PlusIcon className="h-4 w-4" />
+        New trip
+      </button>
       {!online && <p className="mt-2 text-xs text-travel">Creating new trips requires an internet connection.</p>}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-    </div>
+
+      {open && (
+        <div className="modal-backdrop" onClick={close}>
+          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mb-4 text-lg font-semibold tracking-tight">New trip</h2>
+            <div className="space-y-3">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && create()}
+                placeholder="Trip name, e.g. Rome 2026"
+                disabled={busy}
+                autoFocus
+                className="field"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <label className="label">
+                  Start
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    disabled={busy}
+                    className="field mt-1"
+                  />
+                </label>
+                <label className="label">
+                  End
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    disabled={busy}
+                    className="field mt-1"
+                  />
+                </label>
+              </div>
+            </div>
+            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={close} disabled={busy} className="btn-secondary">
+                Cancel
+              </button>
+              <button onClick={create} disabled={busy || !name.trim()} className="btn-primary">
+                {busy && <Spinner className="h-3.5 w-3.5" />}
+                {busy ? "Creating…" : "Create trip"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

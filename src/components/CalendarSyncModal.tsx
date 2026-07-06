@@ -3,6 +3,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useOnline } from "@/hooks/useOnline";
 import Spinner from "@/components/Spinner";
+import { CheckIcon, ChevronRightIcon } from "@/components/Icons";
 
 export default function CalendarSyncModal({
   tripId,
@@ -54,10 +55,10 @@ export default function CalendarSyncModal({
           {/* Apple / iCloud */}
           <a
             href={webcalUrl}
-            className="flex items-center justify-between rounded-xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
+            className="flex items-center justify-between rounded-2xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
           >
             <span> Add to Apple / iCloud Calendar</span>
-            <span className="text-ink/35">›</span>
+            <ChevronRightIcon className="h-4 w-4 text-ink/35" />
           </a>
 
           {/* Outlook */}
@@ -65,10 +66,10 @@ export default function CalendarSyncModal({
             href={outlookUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between rounded-xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
+            className="flex items-center justify-between rounded-2xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
           >
             <span>📅 Add to Outlook.com</span>
-            <span className="text-ink/35">›</span>
+            <ChevronRightIcon className="h-4 w-4 text-ink/35" />
           </a>
 
           {/* Google */}
@@ -76,24 +77,24 @@ export default function CalendarSyncModal({
             href={googleUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between rounded-xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
+            className="flex items-center justify-between rounded-2xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
           >
             <span>🗓 Add to Google Calendar</span>
-            <span className="text-ink/35">›</span>
+            <ChevronRightIcon className="h-4 w-4 text-ink/35" />
           </a>
         </div>
 
-        {/* Manuell URL */}
-        <div className="mt-3 rounded-xl bg-ink/5 p-3">
+        {/* Manual URL */}
+        <div className="mt-3 rounded-2xl bg-ink/5 p-3">
           <p className="mb-1 text-xs font-medium text-ink/60">Or copy the link manually:</p>
           <div className="flex gap-2">
             <input
               readOnly
               value={httpsUrl}
-              className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-surface p-2 text-xs"
+              className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-surface p-2 text-xs"
             />
             <button onClick={copy} className="btn-primary btn-sm">
-              {copied ? "✓" : "Copy"}
+              {copied ? <CheckIcon className="h-3.5 w-3.5" /> : "Copy"}
             </button>
           </div>
           <p className="mt-2 text-[11px] leading-snug text-ink/50">

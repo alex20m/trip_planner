@@ -1,15 +1,23 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { format } from "date-fns";
+import { enUS } from "date-fns/locale";
 import { useOnline } from "@/hooks/useOnline";
 import { createClient } from "@/lib/supabase/client";
 import { idbGet, idbSet, prefetchAllTrips } from "@/lib/offlineStore";
+import { parseDateOnly } from "@/lib/types";
 import OfflineBanner from "@/components/OfflineBanner";
 import Spinner from "@/components/Spinner";
+import { ChevronRightIcon } from "@/components/Icons";
 
-type TripStub = { id: string; name: string; created_at: string };
+type TripStub = { id: string; name: string; start_date?: string; end_date?: string; created_at: string };
 
 const KEY = "trips-list";
+
+function dateRange(startDate: string, endDate: string) {
+  return `${format(parseDateOnly(startDate), "d MMM", { locale: enUS })} – ${format(parseDateOnly(endDate), "d MMM yyyy", { locale: enUS })}`;
+}
 
 export default function TripList({ initialTrips }: { initialTrips: TripStub[] }) {
   const online = useOnline();
@@ -47,15 +55,20 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
             <Link
               href={`/trips/${t.id}`}
               prefetch
-              className="card group flex items-center justify-between p-4 font-medium transition-all duration-150 hover:-translate-y-0.5 hover:border-ink/20 hover:shadow-md"
+              className="card group flex items-center justify-between gap-3 p-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-ink/20 hover:shadow-md"
             >
-              {t.name}
-              <span aria-hidden="true" className="text-ink/25 transition-colors group-hover:text-ink/50">→</span>
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{t.name}</span>
+                {t.start_date && t.end_date && (
+                  <span className="mt-0.5 block text-xs text-ink/45">{dateRange(t.start_date, t.end_date)}</span>
+                )}
+              </span>
+              <ChevronRightIcon className="h-4 w-4 shrink-0 text-ink/25 transition-colors group-hover:text-ink/50" />
             </Link>
           </li>
         ))}
         {trips.length === 0 && (
-          <li className="rounded-2xl border border-dashed border-ink/15 p-10 text-center text-sm text-ink/45">
+          <li className="rounded-3xl border border-dashed border-ink/15 p-10 text-center text-sm text-ink/45">
             No trips yet. Create your first one above.
           </li>
         )}

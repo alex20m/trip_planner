@@ -55,8 +55,8 @@ describe("TripView — deleting a trip", () => {
 
     render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
 
-    const button = screen.getByRole("button", { name: "Delete trip" });
-    await userEvent.click(button);
+    await userEvent.click(screen.getByRole("button", { name: "More trip options" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Delete trip" }));
 
     expect(window.confirm).toHaveBeenCalled();
     expect(deleteEq).toHaveBeenCalledWith("id", "trip-1");
@@ -67,16 +67,17 @@ describe("TripView — deleting a trip", () => {
     vi.spyOn(window, "confirm").mockReturnValue(false);
     render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Delete trip" }));
+    await userEvent.click(screen.getByRole("button", { name: "More trip options" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Delete trip" }));
 
     expect(deleteEq).not.toHaveBeenCalled();
   });
 
-  it("does not show a Delete trip button to editors or viewers", () => {
+  it("does not show trip options to editors or viewers", () => {
     render(<TripView trip={trip} role="edit" initialEvents={[]} initialSections={[]} />);
-    expect(screen.queryByRole("button", { name: "Delete trip" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More trip options" })).not.toBeInTheDocument();
 
     render(<TripView trip={trip} role="read" initialEvents={[]} initialSections={[]} />);
-    expect(screen.queryByRole("button", { name: "Delete trip" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More trip options" })).not.toBeInTheDocument();
   });
 });

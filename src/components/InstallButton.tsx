@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Spinner from "@/components/Spinner";
 import { LogoMark } from "@/components/Logo";
+import { DownloadIcon } from "@/components/Icons";
 
 type Platform = "ios" | "android" | "desktop" | "other";
 
@@ -71,6 +72,7 @@ export default function InstallButton() {
   return (
     <>
       <button onClick={() => setOpen(true)} className="btn-secondary btn-sm">
+        <DownloadIcon className="h-3.5 w-3.5" />
         Install app
       </button>
 
