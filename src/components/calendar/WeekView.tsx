@@ -16,13 +16,22 @@ const COLORS = {
 export default function WeekView({
   weekStart,
   events,
+  rangeStart,
+  rangeEnd,
   onSelect
 }: {
   weekStart: Date;
   events: TripEvent[];
+  rangeStart: Date;
+  rangeEnd: Date;
   onSelect?: (e: TripEvent) => void;
 }) {
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  // Only render the days of this week that actually fall within the trip's date range.
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(
+    (d) => d >= rangeStart && d <= rangeEnd
+  );
+  const gridStart = days[0] ?? weekStart;
+  const gridStyle = { gridTemplateColumns: `52px repeat(${days.length}, 1fr)` };
   const weekEnd = addDays(weekStart, 7);
 
   const timed = events.filter(
@@ -106,7 +115,7 @@ export default function WeekView({
       <div className="hidden overflow-x-auto rounded-2xl border border-ink/10 bg-surface shadow-sm sm:block">
         <div className="min-w-[720px]">
           {/* Dagrubriker */}
-        <div className="grid grid-cols-[52px_repeat(7,1fr)] border-b border-ink/10">
+        <div className="grid border-b border-ink/10" style={gridStyle}>
           <div />
           {days.map((d) => (
             <div key={+d} className="border-l border-ink/5 p-2 text-center">
@@ -122,14 +131,17 @@ export default function WeekView({
 
         {/* Accommodation: all-day row without a time */}
         {stays.length > 0 && (
-          <div className="relative grid grid-cols-[52px_repeat(7,1fr)] border-b border-ink/10 py-1">
+          <div className="relative grid border-b border-ink/10 py-1" style={gridStyle}>
             <div className="px-2 pt-1 text-[10px] uppercase tracking-wide text-ink/40">Stays</div>
-            <div className="relative col-span-7 col-start-2 grid grid-cols-7 gap-y-1">
+            <div
+              className="relative grid gap-y-1"
+              style={{ gridColumn: `2 / ${days.length + 2}`, gridTemplateColumns: `repeat(${days.length}, 1fr)` }}
+            >
               {stays.map((e) => {
                 const s = new Date(e.start_at);
                 const en = e.end_at ? new Date(e.end_at) : s;
-                const startCol = Math.max(0, differenceInCalendarDays(s, weekStart));
-                const endCol = Math.min(6, differenceInCalendarDays(en, weekStart));
+                const startCol = Math.max(0, differenceInCalendarDays(s, gridStart));
+                const endCol = Math.min(days.length - 1, differenceInCalendarDays(en, gridStart));
                 return (
                   <button
                     key={e.id}
@@ -146,7 +158,7 @@ export default function WeekView({
         )}
 
         {/* Tidsgrid */}
-        <div className="grid grid-cols-[52px_repeat(7,1fr)]">
+        <div className="grid" style={gridStyle}>
           <div>
             {Array.from({ length: END_HOUR - START_HOUR }, (_, i) => (
               <div key={i} style={{ height: HOUR_PX }} className="pr-1.5 text-right text-[10px] text-ink/40">

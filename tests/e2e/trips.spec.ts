@@ -41,3 +41,24 @@ test("a newly created trip appears back in the trip list", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: tripName })).toBeVisible();
 });
+
+test("a trip is created with the given date range, and the dates can be edited afterwards", async ({ page }) => {
+  await page.goto("/");
+  const tripName = `Dated Trip ${Date.now()}`;
+  await page.getByPlaceholder(/new trip/i).fill(tripName);
+  await page.getByLabel("Start").fill("2026-09-01");
+  await page.getByLabel("End").fill("2026-09-03");
+  await page.getByRole("button", { name: "Create" }).click();
+
+  await expect(page).toHaveURL(/\/trips\/[0-9a-f-]+/);
+  const dateButton = page.getByRole("button", { name: /1 Sep.*3 Sep 2026/ });
+  await expect(dateButton).toBeVisible();
+
+  // Editing the trip's dates updates the label shown in the planner.
+  await dateButton.click();
+  await page.getByLabel("Start").fill("2026-09-02");
+  await page.getByLabel("End").fill("2026-09-05");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page.getByRole("button", { name: /2 Sep.*5 Sep 2026/ })).toBeVisible();
+});
