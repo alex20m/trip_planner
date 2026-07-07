@@ -60,6 +60,14 @@ describe("NewTripForm", () => {
     expect(screen.getByText(/end date must be on or after/i)).toBeInTheDocument();
   });
 
+  it("stacks the date fields on narrow screens so they cannot overlap", async () => {
+    render(<NewTripForm />);
+    await userEvent.click(screen.getByRole("button", { name: "New trip" }));
+
+    const grid = screen.getByLabelText("Start").closest("div");
+    expect(grid).toHaveClass("grid-cols-1", "sm:grid-cols-2");
+  });
+
   it("does not create a trip for a blank name", async () => {
     render(<NewTripForm />);
     await userEvent.click(screen.getByRole("button", { name: "New trip" }));
