@@ -72,10 +72,12 @@ export default function EditTripDatesModal({
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-        <div className="mt-5 flex gap-2">
-          <button onClick={onClose} disabled={saving} className="btn-secondary ml-auto">
-            Cancel
-          </button>
+        <div className="mt-5 flex justify-end gap-2">
+          {!saving && (
+            <button onClick={onClose} className="btn-secondary">
+              Cancel
+            </button>
+          )}
           <button onClick={save} disabled={saving} className="btn-primary">
             {saving && <Spinner className="h-3.5 w-3.5" />}
             {saving ? "Saving…" : "Save"}

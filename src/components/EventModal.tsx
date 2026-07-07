@@ -142,20 +142,26 @@ export default function EventModal({
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-        <div className="mt-5 flex gap-2">
-          {event && (
+        <div className="mt-5 flex items-center gap-2">
+          {event && !saving && (
             <button onClick={remove} disabled={busy} className="btn-danger">
               {deleting && <Spinner className="h-3.5 w-3.5" />}
               {deleting ? "Deleting…" : "Delete"}
             </button>
           )}
-          <button onClick={onClose} disabled={busy} className="btn-secondary ml-auto">
-            Cancel
-          </button>
-          <button onClick={save} disabled={busy} className="btn-primary">
-            {saving && <Spinner className="h-3.5 w-3.5" />}
-            {saving ? "Saving…" : "Save"}
-          </button>
+          <div className="ml-auto flex gap-2">
+            {!busy && (
+              <button onClick={onClose} className="btn-secondary">
+                Cancel
+              </button>
+            )}
+            {!deleting && (
+              <button onClick={save} disabled={busy} className="btn-primary">
+                {saving && <Spinner className="h-3.5 w-3.5" />}
+                {saving ? "Saving…" : "Save"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import EditTripDatesModal from "@/components/EditTripDatesModal";
 import type { Trip } from "@/lib/types";
@@ -50,6 +50,21 @@ describe("EditTripDatesModal", () => {
     expect(updateSingle).toHaveBeenCalled();
     expect(onSaved).toHaveBeenCalledWith(updated);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("hides the Cancel button and shows a saving state while saving", async () => {
+    let resolveUpdate!: (v: unknown) => void;
+    updateSingle.mockReturnValue(new Promise((resolve) => (resolveUpdate = resolve)));
+    const onSaved = vi.fn();
+
+    render(<EditTripDatesModal trip={trip} onClose={vi.fn()} onSaved={onSaved} />);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("button", { name: /saving/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+
+    resolveUpdate({ data: trip, error: null });
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
   it("keeps the date fields side by side on one line", () => {
