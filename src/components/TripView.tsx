@@ -9,6 +9,7 @@ import { canEdit, parseDateOnly, EVENT_COLORS } from "@/lib/types";
 import { useOnline } from "@/hooks/useOnline";
 import { createClient } from "@/lib/supabase/client";
 import { idbGet, idbSet, tripSnapshotKey, type TripSnapshot } from "@/lib/offlineStore";
+import { markTripDeleted, unmarkTripDeleted } from "@/lib/optimistic";
 import WeekView from "@/components/calendar/WeekView";
 import EventModal from "@/components/EventModal";
 import EventDetail from "@/components/EventDetail";
@@ -106,18 +107,28 @@ export default function TripView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, sections]);
 
-  async function deleteTrip() {
+  function deleteTrip() {
     if (!confirm(`Delete "${trip.name}"? This removes its events, notes, and sharing for everyone. This cannot be undone.`)) {
       return;
     }
     setDeletingTrip(true);
+    // Optimistic: hide the trip and navigate home immediately, then delete in
+    // the background. TripList reads this marker so the trip doesn't reappear
+    // while the server catches up.
+    markTripDeleted(trip.id);
     const supabase = createClient();
-    const { error } = await supabase.from("trips").delete().eq("id", trip.id);
-    if (error) {
-      setDeletingTrip(false);
-      alert(error.message);
-      return;
-    }
+    supabase
+      .from("trips")
+      .delete()
+      .eq("id", trip.id)
+      .then(({ error }) => {
+        if (error) {
+          // Roll back the optimistic hide and let the user know it failed.
+          unmarkTripDeleted(trip.id);
+          alert(`Couldn't delete "${trip.name}": ${error.message}`);
+          router.refresh();
+        }
+      });
     router.push("/");
   }
 

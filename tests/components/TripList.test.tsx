@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import TripList from "@/components/TripList";
+import { markTripDeleted } from "@/lib/optimistic";
 
 const idbSet = vi.fn().mockResolvedValue(undefined);
 const idbGet = vi.fn();
@@ -27,6 +28,7 @@ describe("TripList", () => {
     idbSet.mockClear();
     idbGet.mockReset();
     prefetchAllTrips.mockClear();
+    window.sessionStorage.clear();
   });
 
   it("renders each trip as a link to its trip page", () => {
@@ -51,6 +53,39 @@ describe("TripList", () => {
     render(<TripList initialTrips={[{ id: "1", name: "Rome", created_at: "2026-01-01" }]} />);
     expect(idbSet).toHaveBeenCalledWith("trips-list", expect.objectContaining({ trips: expect.any(Array) }));
     expect(prefetchAllTrips).toHaveBeenCalled();
+  });
+
+  it("hides a trip that was just deleted optimistically, even if the server still returns it", async () => {
+    // Server list still includes "1" because the background delete hasn't propagated.
+    markTripDeleted("1");
+
+    render(
+      <TripList
+        initialTrips={[
+          { id: "1", name: "Rome", created_at: "2026-01-01" },
+          { id: "2", name: "Paris", created_at: "2026-02-01" }
+        ]}
+      />
+    );
+
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Rome" })).not.toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Paris" })).toBeInTheDocument();
+    // The deleted trip is excluded from the offline cache too.
+    expect(idbSet).toHaveBeenCalledWith(
+      "trips-list",
+      expect.objectContaining({ trips: [expect.objectContaining({ id: "2" })] })
+    );
+  });
+
+  it("stops hiding a trip once the server list no longer returns it", async () => {
+    markTripDeleted("1");
+
+    // Server has now dropped "1"; the pending marker should be reconciled away.
+    render(<TripList initialTrips={[{ id: "2", name: "Paris", created_at: "2026-02-01" }]} />);
+
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem("optimistically-deleted-trips")).toBeNull()
+    );
   });
 
   it("falls back to the cached trip list when offline", async () => {
