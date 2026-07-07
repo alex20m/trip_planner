@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { idbGet, idbSet, tripSnapshotKey, type TripSnapshot } from "@/lib/offlineStore";
 import WeekView from "@/components/calendar/WeekView";
 import EventModal from "@/components/EventModal";
+import EventDetail from "@/components/EventDetail";
 import ShareModal from "@/components/ShareModal";
 import CalendarSyncModal from "@/components/CalendarSyncModal";
 import EditTripDatesModal from "@/components/EditTripDatesModal";
@@ -46,6 +47,7 @@ export default function TripView({
     startOfWeek(parseDateOnly(initialTrip.start_date), { weekStartsOn: 1 })
   );
   const [editing, setEditing] = useState<TripEvent | "new" | null>(null);
+  const [viewing, setViewing] = useState<TripEvent | null>(null);
   const [sharing, setSharing] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [editingDates, setEditingDates] = useState(false);
@@ -245,13 +247,24 @@ export default function TripView({
             events={events}
             rangeStart={tripStart}
             rangeEnd={tripEnd}
-            onSelect={(e) => (editable ? setEditing(e) : undefined)}
+            onSelect={(e) => setViewing(e)}
           />
         </>
       ) : (
         <NotesPanel tripId={trip.id} sections={sections} setSections={setSections} editable={editable} />
       )}
 
+      {viewing && (
+        <EventDetail
+          event={viewing}
+          canEdit={editable}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            setEditing(viewing);
+            setViewing(null);
+          }}
+        />
+      )}
       {editing && (
         <EventModal
           tripId={trip.id}
