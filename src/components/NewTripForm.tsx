@@ -76,7 +76,7 @@ export default function NewTripForm() {
       {!online && <p className="mt-2 text-xs text-travel">Creating new trips requires an internet connection.</p>}
 
       {open && (
-        <div className="modal-backdrop" onClick={close}>
+        <div className="modal-backdrop items-center" onClick={close}>
           <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
             <h2 className="mb-4 text-lg font-semibold tracking-tight">New trip</h2>
             <div className="space-y-3">
