@@ -46,6 +46,7 @@ describe("TripView — deleting a trip", () => {
     deleteEq.mockResolvedValue({ error: null });
     idbGet.mockResolvedValue(undefined);
     idbSet.mockResolvedValue(undefined);
+    window.sessionStorage.clear();
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
@@ -61,6 +62,24 @@ describe("TripView — deleting a trip", () => {
     expect(window.confirm).toHaveBeenCalled();
     expect(deleteEq).toHaveBeenCalledWith("id", "trip-1");
     expect(push).toHaveBeenCalledWith("/");
+  });
+
+  it("navigates home optimistically before the network delete resolves", async () => {
+    const push = vi.fn();
+    vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), refresh: vi.fn() } as any);
+
+    // A delete that never resolves during this test.
+    deleteEq.mockReturnValue(new Promise(() => {}));
+
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "More trip options" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Delete trip" }));
+
+    // Even though the delete is still pending, we've already navigated and
+    // recorded the optimistic deletion.
+    expect(push).toHaveBeenCalledWith("/");
+    expect(JSON.parse(window.sessionStorage.getItem("optimistically-deleted-trips")!)).toContain("trip-1");
   });
 
   it("does not delete when the confirmation is dismissed", async () => {

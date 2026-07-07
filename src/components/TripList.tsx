@@ -6,6 +6,7 @@ import { enUS } from "date-fns/locale";
 import { useOnline } from "@/hooks/useOnline";
 import { createClient } from "@/lib/supabase/client";
 import { idbGet, idbSet, prefetchAllTrips } from "@/lib/offlineStore";
+import { reconcileDeletedTrips } from "@/lib/optimistic";
 import { parseDateOnly } from "@/lib/types";
 import OfflineBanner from "@/components/OfflineBanner";
 import Spinner from "@/components/Spinner";
@@ -27,13 +28,18 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
 
   useEffect(() => {
     if (online) {
-      idbSet(KEY, { trips: initialTrips, savedAt: Date.now() }).then(() => setSavedAt(Date.now()));
+      // Hide trips the user just deleted optimistically until the server list
+      // stops returning them (the delete has propagated).
+      const pending = reconcileDeletedTrips(initialTrips.map((t) => t.id));
+      const visible = pending.length ? initialTrips.filter((t) => !pending.includes(t.id)) : initialTrips;
+      setTrips(visible);
+      idbSet(KEY, { trips: visible, savedAt: Date.now() }).then(() => setSavedAt(Date.now()));
       // Background prefetch: cache EVERY trip's calendar + notes so they can
       // be opened offline, not just the ones already visited.
-      if (initialTrips.length > 0) {
+      if (visible.length > 0) {
         setCaching(true);
         const supabase = createClient();
-        prefetchAllTrips(supabase, initialTrips).finally(() => setCaching(false));
+        prefetchAllTrips(supabase, visible).finally(() => setCaching(false));
       }
     } else {
       idbGet<{ trips: TripStub[]; savedAt: number }>(KEY).then((cached) => {
