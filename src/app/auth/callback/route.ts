@@ -15,5 +15,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   await supabase.auth.signOut();
-  return NextResponse.redirect(new URL("/login", request.url));
+  // 303 See Other so the browser follows the redirect as a GET; the default
+  // 307 would re-issue this POST against /login, which has no POST handler.
+  return NextResponse.redirect(new URL("/login", request.url), { status: 303 });
 }
