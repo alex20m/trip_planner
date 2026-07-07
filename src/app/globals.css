@@ -69,6 +69,22 @@ h2 {
   .label {
     @apply text-xs font-medium text-ink/55;
   }
+  /* iOS WebKit (every iOS browser, including Chrome) renders date fields with
+     the native picker's intrinsic width and a centered value, which overflows
+     narrow containers instead of respecting width:100%. Opt out of the native
+     styling and pin the min sizes so the fields shrink to fit. */
+  input[type="date"].field,
+  input[type="datetime-local"].field {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    min-height: 2.625rem;
+    @apply px-3;
+  }
+  input[type="date"].field::-webkit-date-and-time-value,
+  input[type="datetime-local"].field::-webkit-date-and-time-value {
+    text-align: left;
+  }
 
   /* Surfaces */
   .card {
