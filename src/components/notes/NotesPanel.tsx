@@ -122,7 +122,7 @@ export default function NotesPanel({
             onKeyDown={(e) => e.key === "Enter" && addSection()}
             placeholder="New section, e.g. Packing list"
             disabled={addingSection}
-            className="field flex-1 text-sm"
+            className="field flex-1"
           />
           <button onClick={addSection} disabled={addingSection} className="btn-secondary">
             {addingSection ? <Spinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-4 w-4" />}
@@ -208,7 +208,7 @@ function SectionCard({
           }}
           placeholder="Type and press Enter…"
           disabled={busy}
-          className="mt-2 w-full rounded-xl border border-transparent bg-ink/5 p-2 text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface disabled:opacity-50"
+          className="mt-2 w-full rounded-xl border border-transparent bg-ink/5 p-2 text-base sm:text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface disabled:opacity-50"
         />
       )}
     </div>
