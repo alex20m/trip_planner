@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import EventModal from "@/components/EventModal";
 
@@ -68,5 +68,23 @@ describe("EventModal", () => {
 
     expect(insertSingle).toHaveBeenCalled();
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("hides the Cancel button and shows a saving state while saving", async () => {
+    let resolveInsert!: (v: unknown) => void;
+    insertSingle.mockReturnValue(new Promise((resolve) => (resolveInsert = resolve)));
+    const onSaved = vi.fn();
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={onSaved} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    const startInput = screen.getByText("Start").querySelector("input")!;
+    fireEvent.change(startInput, { target: { value: "2026-07-10T10:00" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("button", { name: /saving/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+
+    resolveInsert({ data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null }, error: null });
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 });

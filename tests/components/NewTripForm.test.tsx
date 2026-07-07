@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
 import NewTripForm from "@/components/NewTripForm";
@@ -44,6 +44,24 @@ describe("NewTripForm", () => {
 
     expect(insertSingle).toHaveBeenCalled();
     expect(push).toHaveBeenCalledWith("/trips/trip-123");
+  });
+
+  it("hides the Cancel button and shows a creating state while saving", async () => {
+    let resolveInsert!: (v: unknown) => void;
+    insertSingle.mockReturnValue(new Promise((resolve) => (resolveInsert = resolve)));
+    const push = vi.fn();
+    vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() } as any);
+
+    render(<NewTripForm />);
+    await userEvent.click(screen.getByRole("button", { name: "New trip" }));
+    await userEvent.type(screen.getByPlaceholderText(/trip name/i), "Rome 2026");
+    await userEvent.click(screen.getByRole("button", { name: "Create trip" }));
+
+    expect(await screen.findByRole("button", { name: /creating/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+
+    resolveInsert({ data: { id: "trip-123" }, error: null });
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/trips/trip-123"));
   });
 
   it("rejects an end date before the start date", async () => {
