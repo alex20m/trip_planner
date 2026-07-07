@@ -64,7 +64,7 @@ h2 {
 
   /* Form fields */
   .field {
-    @apply w-full rounded-2xl border border-ink/15 bg-surface px-4 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink/35 focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:opacity-50;
+    @apply w-full rounded-2xl border border-ink/15 bg-surface px-4 py-2.5 text-base sm:text-sm text-ink outline-none transition-colors placeholder:text-ink/35 focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:opacity-50;
   }
   .label {
     @apply text-xs font-medium text-ink/55;

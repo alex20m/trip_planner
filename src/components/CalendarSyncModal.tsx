@@ -91,7 +91,7 @@ export default function CalendarSyncModal({
             <input
               readOnly
               value={httpsUrl}
-              className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-surface p-2 text-xs"
+              className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-surface p-2 text-base sm:text-xs"
             />
             <button onClick={copy} className="btn-primary btn-sm">
               {copied ? <CheckIcon className="h-3.5 w-3.5" /> : "Copy"}
