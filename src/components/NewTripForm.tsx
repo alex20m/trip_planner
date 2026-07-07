@@ -114,9 +114,11 @@ export default function NewTripForm() {
             </div>
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={close} disabled={busy} className="btn-secondary">
-                Cancel
-              </button>
+              {!busy && (
+                <button onClick={close} className="btn-secondary">
+                  Cancel
+                </button>
+              )}
               <button onClick={create} disabled={busy || !name.trim()} className="btn-primary">
                 {busy && <Spinner className="h-3.5 w-3.5" />}
                 {busy ? "Creating…" : "Create trip"}
