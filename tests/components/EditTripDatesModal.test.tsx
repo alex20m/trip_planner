@@ -52,11 +52,11 @@ describe("EditTripDatesModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("stacks the date fields on narrow screens so they cannot overlap", () => {
+  it("keeps the date fields side by side on one line", () => {
     render(<EditTripDatesModal trip={trip} onClose={vi.fn()} onSaved={vi.fn()} />);
 
     const grid = screen.getByLabelText("Start").closest("div");
-    expect(grid).toHaveClass("grid-cols-1", "sm:grid-cols-2");
+    expect(grid).toHaveClass("grid-cols-2");
   });
 
   it("rejects an end date before the start date without saving", async () => {
