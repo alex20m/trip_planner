@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { TripRole } from "@/lib/types";
 import { ROLE_RANK } from "@/lib/types";
 import Spinner from "@/components/Spinner";
+import { CheckIcon } from "@/components/Icons";
 
 export default function ShareModal({
   tripId,
@@ -46,24 +47,31 @@ export default function ShareModal({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="namn@epost.fi"
+            placeholder="friend@example.com"
             className="field"
           />
           <div className="flex gap-2">
             <button
               onClick={() => setRole("read")}
-              className={role === "read" ? "option border-ink bg-ink/5" : "option-off"}
+              className={`flex items-center justify-center gap-1.5 ${role === "read" ? "option border-ink bg-ink/5" : "option-off"}`}
             >
+              {role === "read" && <CheckIcon className="h-3.5 w-3.5" />}
               View
             </button>
             <button
               onClick={() => canGiveEdit && setRole("edit")}
               disabled={!canGiveEdit}
-              className={`disabled:opacity-40 ${role === "edit" ? "option border-ink bg-ink/5" : "option-off"}`}
+              className={`flex items-center justify-center gap-1.5 disabled:opacity-40 ${role === "edit" ? "option border-ink bg-ink/5" : "option-off"}`}
             >
+              {role === "edit" && <CheckIcon className="h-3.5 w-3.5" />}
               Edit
             </button>
           </div>
+          <p className="text-xs text-ink/50">
+            {role === "read"
+              ? "They can view the calendar and notes, but can't make changes."
+              : "They can add and edit events and notes, but can't share or delete the trip."}
+          </p>
           {!canGiveEdit && (
             <p className="text-xs text-ink/50">You have view access, so you can only share with view access.</p>
           )}

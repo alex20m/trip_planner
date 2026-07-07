@@ -3,6 +3,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Note, NoteSection } from "@/lib/types";
 import Spinner from "@/components/Spinner";
+import { PlusIcon, TrashIcon, XIcon } from "@/components/Icons";
 
 export default function NotesPanel({
   tripId,
@@ -96,8 +97,7 @@ export default function NotesPanel({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="mb-3 text-lg font-semibold tracking-tight">Notes</h2>
+    <section>
       <div className="grid gap-4 sm:grid-cols-2">
         {sections.map((s) => (
           <SectionCard
@@ -125,7 +125,7 @@ export default function NotesPanel({
             className="field flex-1 text-sm"
           />
           <button onClick={addSection} disabled={addingSection} className="btn-secondary">
-            {addingSection && <Spinner className="h-3.5 w-3.5" />}
+            {addingSection ? <Spinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-4 w-4" />}
             Add
           </button>
         </div>
@@ -162,10 +162,10 @@ function SectionCard({
           <button
             onClick={onDeleteSection}
             disabled={busy}
+            title="Remove section"
             className="flex items-center gap-1.5 text-xs text-ink/40 transition-colors hover:text-red-600 disabled:opacity-50"
           >
-            {busy && <Spinner className="h-3 w-3" />}
-            Remove
+            {busy ? <Spinner className="h-3 w-3" /> : <TrashIcon className="h-3.5 w-3.5" />}
           </button>
         )}
       </div>
@@ -179,13 +179,17 @@ function SectionCard({
                 checked={n.done}
                 onChange={() => editable && onToggle(n)}
                 disabled={!editable || notePending}
-                className="mt-0.5 accent-activity"
+                className="mt-0.5 accent-accent"
               />
               <span className={n.done ? "text-ink/35 line-through" : ""}>{n.content}</span>
               {notePending && <Spinner className="h-3 w-3 text-ink/30" />}
               {editable && !notePending && (
-                <button onClick={() => onDeleteNote(n)} className="ml-auto hidden text-ink/30 transition-colors hover:text-red-600 group-hover:block">
-                  ✕
+                <button
+                  onClick={() => onDeleteNote(n)}
+                  aria-label="Delete note"
+                  className="ml-auto hidden text-ink/30 transition-colors hover:text-red-600 group-hover:block"
+                >
+                  <XIcon className="h-3.5 w-3.5" />
                 </button>
               )}
             </li>
@@ -204,7 +208,7 @@ function SectionCard({
           }}
           placeholder="Type and press Enter…"
           disabled={busy}
-          className="mt-2 w-full rounded-lg border border-transparent bg-ink/5 p-2 text-sm outline-none transition-colors focus:border-activity/40 focus:bg-surface disabled:opacity-50"
+          className="mt-2 w-full rounded-xl border border-transparent bg-ink/5 p-2 text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface disabled:opacity-50"
         />
       )}
     </div>

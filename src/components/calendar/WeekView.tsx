@@ -2,6 +2,7 @@
 import { addDays, differenceInCalendarDays, format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { TripEvent } from "@/lib/types";
+import { BedIcon } from "@/components/Icons";
 
 const HOUR_PX = 44;
 const START_HOUR = 6;
@@ -76,7 +77,7 @@ export default function WeekView({
                     onClick={() => onSelect?.(e)}
                     className={`flex w-full items-center gap-2 border-l-4 px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-ink/[0.02] ${COLORS.accommodation}`}
                   >
-                    <span>🛏</span>
+                    <BedIcon className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{e.title}</span>
                   </button>
                 ))}
@@ -114,7 +115,7 @@ export default function WeekView({
       {/* Time-grid view: full week at a glance — used from tablet width up */}
       <div className="card hidden overflow-x-auto sm:block">
         <div className="min-w-[720px]">
-          {/* Dagrubriker */}
+          {/* Day headers */}
         <div className="grid border-b border-ink/10" style={gridStyle}>
           <div />
           {days.map((d) => (
@@ -147,9 +148,10 @@ export default function WeekView({
                     key={e.id}
                     onClick={() => onSelect?.(e)}
                     style={{ gridColumn: `${startCol + 1} / ${endCol + 2}` }}
-                    className={`mx-0.5 truncate rounded-lg border-l-4 px-2 py-1 text-left text-xs font-medium shadow-sm transition-transform hover:-translate-y-px ${COLORS.accommodation}`}
+                    className={`mx-0.5 flex items-center gap-1 truncate rounded-lg border-l-4 px-2 py-1 text-left text-xs font-medium shadow-sm transition-transform hover:-translate-y-px ${COLORS.accommodation}`}
                   >
-                    🛏 {e.title}
+                    <BedIcon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{e.title}</span>
                   </button>
                 );
               })}
@@ -157,7 +159,7 @@ export default function WeekView({
           </div>
         )}
 
-        {/* Tidsgrid */}
+        {/* Time grid */}
         <div className="grid" style={gridStyle}>
           <div>
             {Array.from({ length: END_HOUR - START_HOUR }, (_, i) => (

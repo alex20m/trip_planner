@@ -4,6 +4,13 @@ import { createClient } from "@/lib/supabase/client";
 import type { EventType, TripEvent } from "@/lib/types";
 import { EVENT_COLORS } from "@/lib/types";
 import Spinner from "@/components/Spinner";
+import { BedIcon, CompassIcon, PlaneIcon } from "@/components/Icons";
+
+const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
+  activity: CompassIcon,
+  travel: PlaneIcon,
+  accommodation: BedIcon
+};
 
 const toLocal = (iso: string | null) =>
   iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
@@ -86,15 +93,23 @@ export default function EventModal({
         <h2 className="mb-4 text-lg font-semibold tracking-tight">{event ? "Edit event" : "New event"}</h2>
 
         <div className="mb-3 flex gap-2">
-          {(Object.keys(EVENT_COLORS) as EventType[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setType(t)}
-              className={type === t ? `option ${EVENT_COLORS[t].border} ${EVENT_COLORS[t].bg}` : "option-off"}
-            >
-              {EVENT_COLORS[t].label}
-            </button>
-          ))}
+          {(Object.keys(EVENT_COLORS) as EventType[]).map((t) => {
+            const Icon = TYPE_ICONS[t];
+            return (
+              <button
+                key={t}
+                onClick={() => setType(t)}
+                className={
+                  type === t
+                    ? `option flex items-center justify-center gap-1.5 ${EVENT_COLORS[t].border} ${EVENT_COLORS[t].bg}`
+                    : "option-off flex items-center justify-center gap-1.5"
+                }
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {EVENT_COLORS[t].label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="space-y-3">

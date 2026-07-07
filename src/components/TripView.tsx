@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addDays, format, startOfWeek } from "date-fns";
@@ -16,6 +16,7 @@ import CalendarSyncModal from "@/components/CalendarSyncModal";
 import EditTripDatesModal from "@/components/EditTripDatesModal";
 import OfflineBanner from "@/components/OfflineBanner";
 import NotesPanel from "@/components/notes/NotesPanel";
+import { ChevronLeftIcon, ChevronRightIcon, MoreIcon, PencilIcon, PlusIcon, RefreshIcon, ShareIcon, TrashIcon } from "@/components/Icons";
 
 export default function TripView({
   trip: initialTrip,
@@ -35,6 +36,8 @@ export default function TripView({
   const [sections, setSections] = useState(initialSections);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [deletingTrip, setDeletingTrip] = useState(false);
+  const [tab, setTab] = useState<"calendar" | "notes">("calendar");
+  const [menuOpen, setMenuOpen] = useState(false);
   const tripStart = useMemo(() => parseDateOnly(trip.start_date), [trip.start_date]);
   const tripEnd = useMemo(() => parseDateOnly(trip.end_date), [trip.end_date]);
   const firstWeek = useMemo(() => startOfWeek(tripStart, { weekStartsOn: 1 }), [tripStart]);
@@ -118,106 +121,136 @@ export default function TripView({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 pb-32 sm:px-6 sm:py-8 sm:pb-24">
-      <header className="mb-5 flex flex-wrap items-center gap-3">
-        <Link
-          href="/"
-          className="btn-ghost btn-icon"
-          aria-label="Back"
-        >
-          ←
-        </Link>
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{trip.name}</h1>
-        <span className="chip">
-          {role === "owner" ? "owner" : role === "edit" ? "edit" : "view"}
-        </span>
-        {role === "owner" ? (
-          <button
-            onClick={() => online && setEditingDates(true)}
-            disabled={!online}
-            title={online ? "Edit trip dates" : "Requires internet"}
-            className="chip transition-colors hover:bg-ink/10 disabled:opacity-40"
-          >
-            {tripDateLabel} ✎
-          </button>
-        ) : (
-          <span className="chip">{tripDateLabel}</span>
-        )}
-        <div className="ml-auto flex gap-2">
-          {trip.calendar_token && (
-            <button onClick={() => setSyncing(true)} className="btn-secondary btn-sm">
-              Sync calendar
-            </button>
-          )}
-          <button
-            onClick={() => online && setSharing(true)}
-            disabled={!online}
-            title={online ? undefined : "Requires internet"}
-            className="btn-secondary btn-sm"
-          >
-            Share
-          </button>
-          {canEdit(role) && (
+      <header className="mb-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/" className="btn-ghost btn-icon" aria-label="Back to trips">
+            <ChevronLeftIcon className="h-5 w-5" />
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{trip.name}</h1>
+          <span className="chip">{role === "owner" ? "Owner" : role === "edit" ? "Can edit" : "View only"}</span>
+
+          <div className="ml-auto flex items-center gap-2">
             <button
-              onClick={() => editable && setEditing("new")}
-              disabled={!editable}
-              title={editable ? undefined : "Requires internet"}
-              className="btn-primary btn-sm"
+              onClick={() => online && setSharing(true)}
+              disabled={!online}
+              title={online ? "Share trip" : "Requires internet"}
+              className="btn-secondary btn-icon"
+              aria-label="Share trip"
             >
-              + Event
+              <ShareIcon className="h-4 w-4" />
             </button>
-          )}
-          {role === "owner" && (
+            {canEdit(role) && (
+              <button
+                onClick={() => editable && setEditing("new")}
+                disabled={!editable}
+                title={editable ? undefined : "Requires internet"}
+                className="btn-primary btn-sm"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add event
+              </button>
+            )}
+            {role === "owner" && (
+              <TripMenu
+                online={online}
+                hasSyncLink={!!trip.calendar_token}
+                deleting={deletingTrip}
+                open={menuOpen}
+                setOpen={setMenuOpen}
+                onSync={() => setSyncing(true)}
+                onDelete={deleteTrip}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3">
+          {role === "owner" ? (
             <button
-              onClick={() => online && !deletingTrip && deleteTrip()}
-              disabled={!online || deletingTrip}
-              title={online ? undefined : "Requires internet"}
-              className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+              onClick={() => online && setEditingDates(true)}
+              disabled={!online}
+              title={online ? "Edit trip dates" : "Requires internet"}
+              className="chip gap-1.5 transition-colors hover:bg-ink/10 disabled:opacity-40"
             >
-              {deletingTrip ? "Deleting…" : "Delete trip"}
+              {tripDateLabel}
+              <PencilIcon className="h-3 w-3" />
             </button>
+          ) : (
+            <span className="chip">{tripDateLabel}</span>
           )}
         </div>
       </header>
 
       <OfflineBanner savedAt={savedAt} />
 
-      <div className="mb-4 flex items-center gap-3">
+      <div
+        role="tablist"
+        aria-label="Trip sections"
+        className="mb-4 inline-flex rounded-full border border-ink/10 bg-surface p-1 shadow-soft"
+      >
         <button
-          onClick={() => weekStart > firstWeek && setWeekStart(addDays(weekStart, -7))}
-          disabled={weekStart <= firstWeek}
-          className="btn-secondary btn-icon"
-          aria-label="Previous week"
+          role="tab"
+          aria-selected={tab === "calendar"}
+          onClick={() => setTab("calendar")}
+          className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-150 ${
+            tab === "calendar" ? "bg-charcoal text-white" : "text-ink/55 hover:text-ink"
+          }`}
         >
-          ‹
+          Calendar
         </button>
-        <span className="min-w-40 text-sm font-medium text-ink/80">{weekLabel}</span>
         <button
-          onClick={() => weekStart < lastWeek && setWeekStart(addDays(weekStart, 7))}
-          disabled={weekStart >= lastWeek}
-          className="btn-secondary btn-icon"
-          aria-label="Next week"
+          role="tab"
+          aria-selected={tab === "notes"}
+          onClick={() => setTab("notes")}
+          className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-150 ${
+            tab === "notes" ? "bg-charcoal text-white" : "text-ink/55 hover:text-ink"
+          }`}
         >
-          ›
+          Notes{sections.length > 0 ? ` (${sections.length})` : ""}
         </button>
-        <div className="ml-auto hidden gap-3 text-xs text-ink/60 sm:flex">
-          {(Object.keys(EVENT_COLORS) as (keyof typeof EVENT_COLORS)[]).map((t) => (
-            <span key={t} className="flex items-center gap-1.5">
-              <i className={`h-2.5 w-2.5 rounded-full border-2 ${EVENT_COLORS[t].border} ${EVENT_COLORS[t].bg}`} />
-              {EVENT_COLORS[t].label}
-            </span>
-          ))}
-        </div>
       </div>
 
-      <WeekView
-        weekStart={weekStart}
-        events={events}
-        rangeStart={tripStart}
-        rangeEnd={tripEnd}
-        onSelect={(e) => (editable ? setEditing(e) : undefined)}
-      />
+      {tab === "calendar" ? (
+        <>
+          <div className="mb-4 flex items-center gap-3">
+            <button
+              onClick={() => weekStart > firstWeek && setWeekStart(addDays(weekStart, -7))}
+              disabled={weekStart <= firstWeek}
+              className="btn-secondary btn-icon"
+              aria-label="Previous week"
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+            </button>
+            <span className="min-w-40 text-sm font-medium text-ink/80">{weekLabel}</span>
+            <button
+              onClick={() => weekStart < lastWeek && setWeekStart(addDays(weekStart, 7))}
+              disabled={weekStart >= lastWeek}
+              className="btn-secondary btn-icon"
+              aria-label="Next week"
+            >
+              <ChevronRightIcon className="h-4 w-4" />
+            </button>
+            <div className="ml-auto hidden gap-3 text-xs text-ink/60 sm:flex">
+              {(Object.keys(EVENT_COLORS) as (keyof typeof EVENT_COLORS)[]).map((t) => (
+                <span key={t} className="flex items-center gap-1.5">
+                  <i className={`h-2.5 w-2.5 rounded-full border-2 ${EVENT_COLORS[t].border} ${EVENT_COLORS[t].bg}`} />
+                  {EVENT_COLORS[t].label}
+                </span>
+              ))}
+            </div>
+          </div>
 
-      <NotesPanel tripId={trip.id} sections={sections} setSections={setSections} editable={editable} />
+          <WeekView
+            weekStart={weekStart}
+            events={events}
+            rangeStart={tripStart}
+            rangeEnd={tripEnd}
+            onSelect={(e) => (editable ? setEditing(e) : undefined)}
+          />
+        </>
+      ) : (
+        <NotesPanel tripId={trip.id} sections={sections} setSections={setSections} editable={editable} />
+      )}
 
       {editing && (
         <EventModal
@@ -243,5 +276,82 @@ export default function TripView({
         <EditTripDatesModal trip={trip} onClose={() => setEditingDates(false)} onSaved={(updated) => setTrip(updated)} />
       )}
     </main>
+  );
+}
+
+function TripMenu({
+  online,
+  hasSyncLink,
+  deleting,
+  open,
+  setOpen,
+  onSync,
+  onDelete
+}: {
+  online: boolean;
+  hasSyncLink: boolean;
+  deleting: boolean;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  onSync: () => void;
+  onDelete: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open, setOpen]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="btn-secondary btn-icon"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="More trip options"
+      >
+        <MoreIcon className="h-4 w-4" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-ink/10 bg-surface p-1.5 shadow-panel"
+        >
+          {hasSyncLink && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onSync();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-ink hover:bg-ink/5"
+            >
+              <RefreshIcon className="h-4 w-4 text-ink/50" />
+              Sync calendar
+            </button>
+          )}
+          <button
+            role="menuitem"
+            onClick={() => {
+              if (online && !deleting) {
+                setOpen(false);
+                onDelete();
+              }
+            }}
+            disabled={!online || deleting}
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-40 dark:text-red-400"
+          >
+            <TrashIcon className="h-4 w-4" />
+            {deleting ? "Deleting…" : "Delete trip"}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
