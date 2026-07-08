@@ -95,7 +95,7 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
   for (const e of events) {
     const updatedAt = (e as TripEvent & { updated_at?: string }).updated_at;
     const seq = updatedAt ? Math.floor(new Date(updatedAt).getTime() / 1000) : 0;
-    const prefix = e.type === "travel" ? "✈ " : e.type === "accommodation" ? "🛏 " : "";
+    const prefix = e.type === "travel" ? "🧭 " : e.type === "accommodation" ? "🛏 " : "";
 
     lines.push("BEGIN:VEVENT");
     lines.push("UID:" + e.id + "@" + host);
