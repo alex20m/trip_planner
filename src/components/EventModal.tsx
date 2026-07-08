@@ -33,6 +33,7 @@ export default function EventModal({
   const [startDate, setStartDate] = useState(event?.start_at?.slice(0, 10) ?? "");
   const [endDate, setEndDate] = useState(event?.end_at?.slice(0, 10) ?? "");
   const [location, setLocation] = useState(event?.location ?? "");
+  const [description, setDescription] = useState(event?.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -60,7 +61,8 @@ export default function EventModal({
       type,
       start_at: new Date(start_at).toISOString(),
       end_at: end_at ? new Date(end_at).toISOString() : null,
-      location: location.trim() || null
+      location: location.trim() || null,
+      description: description.trim() || null
     };
     const q = event
       ? supabase.from("trip_events").update(payload).eq("id", event.id).select().single()
@@ -138,6 +140,13 @@ export default function EventModal({
             </div>
           )}
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)" className="field" />
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Notes (optional)"
+            rows={3}
+            className="field resize-y"
+          />
         </div>
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
