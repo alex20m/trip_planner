@@ -132,4 +132,27 @@ describe("WeekView", () => {
 
     expect(screen.getAllByText(/Check-in from 15:00/).length).toBeGreaterThan(0);
   });
+
+  it("shows a stay's location in the preview without opening the event", () => {
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[
+          makeEvent({
+            id: "stay1",
+            title: "Hotel Sunrise",
+            type: "accommodation",
+            start_at: "2026-08-05T12:00:00Z",
+            end_at: "2026-08-07T10:00:00Z",
+            location: "123 Beach Road"
+          })
+        ]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+      />
+    );
+
+    // Location text appears in the stay preview (agenda + time-grid views) without a modal.
+    expect(screen.getAllByText(/123 Beach Road/).length).toBeGreaterThan(0);
+  });
 });
