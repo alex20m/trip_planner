@@ -118,25 +118,29 @@ export default function EventModal({
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="field" />
           {isStay ? (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <label className="label">Check-in
+              <div className="date-field">
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                  className="field mt-1" />
-              </label>
-              <label className="label">Check-out
+                  placeholder="Check-in" className={`field${startDate ? " has-value" : ""}`} />
+                {!startDate && <span className="date-placeholder">Check-in</span>}
+              </div>
+              <div className="date-field">
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                  className="field mt-1" />
-              </label>
+                  placeholder="Check-out" className={`field${endDate ? " has-value" : ""}`} />
+                {!endDate && <span className="date-placeholder">Check-out</span>}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <label className="label">Start
+              <div className="date-field">
                 <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)}
-                  className="field mt-1" />
-              </label>
-              <label className="label">End (optional)
+                  placeholder="Start" className={`field${start ? " has-value" : ""}`} />
+                {!start && <span className="date-placeholder">Start</span>}
+              </div>
+              <div className="date-field">
                 <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)}
-                  className="field mt-1" />
-              </label>
+                  placeholder="End (optional)" className={`field${end ? " has-value" : ""}`} />
+                {!end && <span className="date-placeholder">End (optional)</span>}
+              </div>
             </div>
           )}
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)" className="field" />

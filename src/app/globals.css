@@ -69,6 +69,22 @@ h2 {
   .label {
     @apply text-xs font-medium text-ink/55;
   }
+  /* Native date fields can't show a real placeholder, so we overlay our own
+     text and hide the greyed mm/dd/yyyy format string until the field is
+     focused or filled. */
+  .date-field {
+    @apply relative;
+  }
+  .date-placeholder {
+    @apply pointer-events-none absolute inset-y-0 left-3 flex items-center text-base sm:text-sm text-ink/35;
+  }
+  input[type="date"].field:not(.has-value):not(:focus)::-webkit-datetime-edit,
+  input[type="datetime-local"].field:not(.has-value):not(:focus)::-webkit-datetime-edit {
+    color: transparent;
+  }
+  .date-field:focus-within .date-placeholder {
+    @apply hidden;
+  }
   /* One box of the segmented sign-in code input. */
   .code-box {
     @apply h-14 min-w-0 flex-1 rounded-2xl border border-ink/15 bg-surface text-center text-2xl font-semibold tabular-nums text-ink caret-accent outline-none transition-all focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:opacity-50 sm:h-16;
