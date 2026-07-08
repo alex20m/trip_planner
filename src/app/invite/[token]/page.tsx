@@ -13,7 +13,8 @@ export default function InvitePage() {
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "declined" | "needsLogin" | "error">("loading");
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
+  // Which action is in flight — only that button gets a spinner, both stay disabled.
+  const [busy, setBusy] = useState<"accept" | "decline" | "login" | null>(null);
 
   useEffect(() => {
     fetch(`/api/invites/${token}`)
@@ -37,45 +38,45 @@ export default function InvitePage() {
   }, [token]);
 
   async function accept() {
-    setBusy(true);
+    setBusy("accept");
     const res = await fetch(`/api/invites/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "accept" })
     });
     if (res.status === 401) {
-      setBusy(false);
+      setBusy(null);
       setState("needsLogin");
       return;
     }
     const body = await res.json();
     if (res.ok) router.push(`/trips/${body.tripId}`);
     else {
-      setBusy(false);
+      setBusy(null);
       setState("error");
       setMessage(body.error);
     }
   }
 
   async function decline() {
-    setBusy(true);
+    setBusy("decline");
     await fetch(`/api/invites/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "decline" })
     });
-    setBusy(false);
+    setBusy(null);
     setState("declined");
   }
 
   async function loginThenAccept(email: string) {
-    setBusy(true);
+    setBusy("login");
     const supabase = createClient();
     await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/invite/${token}` }
     });
-    setBusy(false);
+    setBusy(null);
     setMessage("Check your inbox — sign in and come back here to accept.");
   }
 
@@ -96,20 +97,20 @@ export default function InvitePage() {
           </p>
           {state === "ready" ? (
             <div className="flex justify-center gap-3">
-              <button onClick={decline} disabled={busy} className="btn-secondary px-5">
-                {busy && <Spinner className="h-4 w-4" />}
+              <button onClick={decline} disabled={busy !== null} className="btn-secondary px-5">
+                {busy === "decline" && <Spinner className="h-4 w-4" />}
                 Decline
               </button>
-              <button onClick={accept} disabled={busy} className="btn-primary px-5">
-                {busy && <Spinner className="h-4 w-4" />}
+              <button onClick={accept} disabled={busy !== null} className="btn-primary px-5">
+                {busy === "accept" && <Spinner className="h-4 w-4" />}
                 Accept
               </button>
             </div>
           ) : (
             <div>
               <p className="mb-3 text-sm text-ink/55">Sign in first to accept:</p>
-              <button onClick={() => loginThenAccept(info.email)} disabled={busy} className="btn-primary px-5">
-                {busy && <Spinner className="h-4 w-4" />}
+              <button onClick={() => loginThenAccept(info.email)} disabled={busy !== null} className="btn-primary px-5">
+                {busy === "login" && <Spinner className="h-4 w-4" />}
                 Send sign-in link to {info.email}
               </button>
               {message && <p className="mt-3 text-sm text-stay">{message}</p>}
