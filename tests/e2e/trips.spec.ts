@@ -19,7 +19,7 @@ test("create a trip, add an event, and read it back via the calendar feed", asyn
   // Add an event
   await page.getByRole("button", { name: "Add event" }).click();
   await page.getByPlaceholder("Title").fill("Flight to Rome");
-  await page.getByLabel("Start").fill("2026-08-01T10:00");
+  await page.getByPlaceholder("Start").fill("2026-08-01T10:00");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "New event" })).not.toBeVisible();
 
