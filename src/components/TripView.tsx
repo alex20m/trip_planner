@@ -74,9 +74,14 @@ export default function TripView({
 
   // While online: save a fresh snapshot to IndexedDB after every change.
   // While offline: load the last known snapshot if the server gave us nothing.
+  // `online` starts as true for the first render pass even when the device is
+  // offline (useOnline can't read navigator.onLine until after mount), so a
+  // cached page opened in flight mode would otherwise overwrite the last good
+  // snapshot with its stale server-rendered props — and a fresh timestamp.
+  // Re-checking navigator.onLine at write time closes that window.
   useEffect(() => {
     const key = tripSnapshotKey(trip.id);
-    if (online) {
+    if (online && navigator.onLine) {
       const snapshot: TripSnapshot = {
         trip: { id: trip.id, name: trip.name },
         role,
@@ -85,7 +90,7 @@ export default function TripView({
         savedAt: Date.now()
       };
       idbSet(key, snapshot).then(() => setSavedAt(snapshot.savedAt));
-    } else {
+    } else if (!online) {
       idbGet<TripSnapshot>(key).then((snap) => {
         if (snap) {
           setEvents(snap.events as TripEvent[]);
@@ -100,7 +105,7 @@ export default function TripView({
 
   // Also save continuously as events/sections change while online.
   useEffect(() => {
-    if (!online) return;
+    if (!online || !navigator.onLine) return;
     const key = tripSnapshotKey(trip.id);
     const snapshot: TripSnapshot = { trip: { id: trip.id, name: trip.name }, role, events, sections, savedAt: Date.now() };
     idbSet(key, snapshot).then(() => setSavedAt(snapshot.savedAt));
