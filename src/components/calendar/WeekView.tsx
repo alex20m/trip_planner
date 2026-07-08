@@ -81,6 +81,9 @@ export default function WeekView({
                       <BedIcon className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">{e.title}</span>
                     </span>
+                    {e.location && (
+                      <span className="mt-0.5 block truncate text-xs font-medium opacity-75">{e.location}</span>
+                    )}
                     <EventNote text={e.description} />
                   </button>
                 ))}
@@ -152,6 +155,9 @@ export default function WeekView({
                   >
                     <BedIcon className="h-3 w-3 shrink-0" />
                     <span className="max-w-[70%] shrink-0 truncate">{e.title}</span>
+                    {e.location && (
+                      <span className="truncate font-normal opacity-70">· {e.location}</span>
+                    )}
                     {e.description && (
                       <span className="truncate font-normal italic opacity-70">· {e.description}</span>
                     )}
