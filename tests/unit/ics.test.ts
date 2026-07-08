@@ -33,7 +33,7 @@ describe("buildICS", () => {
 
   it("prefixes travel events and leaves activities unprefixed", () => {
     const ics = buildICS({ id: "trip-1", name: "Trip" },[event({ type: "travel", title: "Flight" })], "example.com");
-    expect(ics).toContain("SUMMARY:✈ Flight");
+    expect(ics).toContain("SUMMARY:🧭 Flight");
   });
 
   it("renders accommodation as an all-day event ending the day after checkout", () => {
