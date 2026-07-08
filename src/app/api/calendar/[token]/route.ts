@@ -14,7 +14,7 @@ export async function GET(req: Request, { params }: { params: { token: string } 
 
   const { data: trip } = await admin
     .from("trips")
-    .select("id, name")
+    .select("id, name, start_date, end_date")
     .eq("calendar_token", params.token)
     .single();
 
@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: { params: { token: string } 
     .order("start_at");
 
   const host = new URL(req.url).host;
-  const ics = buildICS(trip.name, events ?? [], host);
+  const ics = buildICS(trip, events ?? [], host);
 
   return new Response(ics, {
     headers: {

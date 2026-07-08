@@ -51,7 +51,15 @@ function fold(line: string): string {
   return out.join("\r\n");
 }
 
-export function buildICS(tripName: string, events: TripEvent[], host: string): string {
+export interface IcsTrip {
+  id: string;
+  name: string;
+  // "YYYY-MM-DD"; optional so feeds keep working if a trip predates the date columns.
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
+export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): string {
   const now = fmtUTC(new Date().toISOString());
   const lines: string[] = [
     "BEGIN:VCALENDAR",
@@ -59,10 +67,30 @@ export function buildICS(tripName: string, events: TripEvent[], host: string): s
     "PRODID:-//PlanPal//EN//",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    fold("X-WR-CALNAME:" + esc(tripName)),
+    fold("X-WR-CALNAME:" + esc(trip.name)),
     "X-PUBLISHED-TTL:PT15M",
     "REFRESH-INTERVAL;VALUE=DURATION:PT15M"
   ];
+
+  // One all-day event per trip day: an at-a-glance "on the trip" marker.
+  // TRANSP:TRANSPARENT keeps the days from counting as busy/blocked time.
+  if (trip.start_date && trip.end_date) {
+    const end = new Date(`${trip.end_date}T00:00:00Z`);
+    const d = new Date(`${trip.start_date}T00:00:00Z`);
+    // Cap at a year of markers in case the dates are ever wildly apart.
+    for (let i = 0; d <= end && i < 366; d.setUTCDate(d.getUTCDate() + 1), i++) {
+      const iso = d.toISOString();
+      lines.push("BEGIN:VEVENT");
+      lines.push("UID:trip-day-" + fmtDate(iso) + "-" + trip.id + "@" + host);
+      lines.push("DTSTAMP:" + now);
+      lines.push("SEQUENCE:0");
+      lines.push("DTSTART;VALUE=DATE:" + fmtDate(iso));
+      lines.push("DTEND;VALUE=DATE:" + addDaysDate(iso, 1));
+      lines.push("TRANSP:TRANSPARENT");
+      lines.push(fold("SUMMARY:" + esc("🧳 " + trip.name)));
+      lines.push("END:VEVENT");
+    }
+  }
 
   for (const e of events) {
     const updatedAt = (e as TripEvent & { updated_at?: string }).updated_at;
