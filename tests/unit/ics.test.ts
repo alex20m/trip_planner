@@ -88,26 +88,25 @@ describe("buildICS", () => {
     expect(ics).not.toContain("LAST-MODIFIED");
   });
 
-  it("adds a transparent all-day marker event for each day of the trip", () => {
+  it("adds a single transparent all-day marker event spanning the whole trip", () => {
     const ics = buildICS(
       { id: "trip-1", name: "Rome 2026", start_date: "2026-08-01", end_date: "2026-08-03" },
       [],
       "example.com"
     );
     const dayEvents = ics.split("BEGIN:VEVENT").length - 1;
-    expect(dayEvents).toBe(3);
-    expect(ics).toContain("UID:trip-day-20260801-trip-1@example.com");
-    expect(ics).toContain("UID:trip-day-20260803-trip-1@example.com");
+    expect(dayEvents).toBe(1);
+    expect(ics).toContain("UID:trip-span-trip-1@example.com");
     expect(ics).toContain("DTSTART;VALUE=DATE:20260801");
-    // All-day DTEND is exclusive: the 3 Aug marker ends on 4 Aug.
+    // All-day DTEND is exclusive: the marker ends the day after the last trip day.
     expect(ics).toContain("DTEND;VALUE=DATE:20260804");
     expect(ics).toContain("TRANSP:TRANSPARENT");
     expect(ics).toContain("SUMMARY:🧳 Rome 2026");
   });
 
-  it("emits no day markers when the trip has no date range", () => {
+  it("emits no trip marker when the trip has no date range", () => {
     const ics = buildICS({ id: "trip-1", name: "Trip" }, [], "example.com");
-    expect(ics).not.toContain("trip-day-");
+    expect(ics).not.toContain("trip-span-");
     expect(ics).not.toContain("TRANSP:TRANSPARENT");
   });
 

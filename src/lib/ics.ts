@@ -72,24 +72,19 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
     "REFRESH-INTERVAL;VALUE=DURATION:PT15M"
   ];
 
-  // One all-day event per trip day: an at-a-glance "on the trip" marker.
+  // Single all-day event spanning the whole trip: an at-a-glance "on the trip" marker.
   // TRANSP:TRANSPARENT keeps the days from counting as busy/blocked time.
+  // DTEND is exclusive in iCal, i.e. last day + 1.
   if (trip.start_date && trip.end_date) {
-    const end = new Date(`${trip.end_date}T00:00:00Z`);
-    const d = new Date(`${trip.start_date}T00:00:00Z`);
-    // Cap at a year of markers in case the dates are ever wildly apart.
-    for (let i = 0; d <= end && i < 366; d.setUTCDate(d.getUTCDate() + 1), i++) {
-      const iso = d.toISOString();
-      lines.push("BEGIN:VEVENT");
-      lines.push("UID:trip-day-" + fmtDate(iso) + "-" + trip.id + "@" + host);
-      lines.push("DTSTAMP:" + now);
-      lines.push("SEQUENCE:0");
-      lines.push("DTSTART;VALUE=DATE:" + fmtDate(iso));
-      lines.push("DTEND;VALUE=DATE:" + addDaysDate(iso, 1));
-      lines.push("TRANSP:TRANSPARENT");
-      lines.push(fold("SUMMARY:" + esc("🧳 " + trip.name)));
-      lines.push("END:VEVENT");
-    }
+    lines.push("BEGIN:VEVENT");
+    lines.push("UID:trip-span-" + trip.id + "@" + host);
+    lines.push("DTSTAMP:" + now);
+    lines.push("SEQUENCE:0");
+    lines.push("DTSTART;VALUE=DATE:" + fmtDate(`${trip.start_date}T00:00:00Z`));
+    lines.push("DTEND;VALUE=DATE:" + addDaysDate(`${trip.end_date}T00:00:00Z`, 1));
+    lines.push("TRANSP:TRANSPARENT");
+    lines.push(fold("SUMMARY:" + esc("🧳 " + trip.name)));
+    lines.push("END:VEVENT");
   }
 
   for (const e of events) {
