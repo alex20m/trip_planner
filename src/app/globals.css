@@ -131,7 +131,7 @@ h2 {
 
   /* Modals */
   .modal-backdrop {
-    @apply fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center;
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm;
   }
   .modal-panel {
     @apply w-full max-w-md rounded-3xl border border-ink/10 bg-surface p-5 shadow-panel;
