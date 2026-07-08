@@ -6,11 +6,16 @@ import NotesPanel from "@/components/notes/NotesPanel";
 import type { NoteSection } from "@/lib/types";
 
 const updateEq = vi.fn();
+const insert = vi.fn();
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     from: () => ({
-      update: (values: unknown) => ({ eq: (...args: unknown[]) => updateEq(values, ...args) })
+      update: (values: unknown) => ({ eq: (...args: unknown[]) => updateEq(values, ...args) }),
+      insert: (values: unknown) => {
+        insert(values);
+        return { select: () => ({ single: () => Promise.resolve({ data: null }) }) };
+      }
     })
   })
 }));
@@ -34,6 +39,7 @@ function Harness() {
 describe("NotesPanel — toggling a note", () => {
   beforeEach(() => {
     updateEq.mockReset();
+    insert.mockReset();
   });
 
   it("checks the box immediately, without a spinner, while the update is in flight", async () => {
@@ -56,5 +62,38 @@ describe("NotesPanel — toggling a note", () => {
     await userEvent.click(screen.getByRole("checkbox"));
 
     await waitFor(() => expect(screen.getByRole("checkbox")).not.toBeChecked());
+  });
+});
+
+describe("NotesPanel — adding a note", () => {
+  beforeEach(() => {
+    insert.mockReset();
+  });
+
+  it("shows an Add button only once the user has typed a note, and adds on click", async () => {
+    render(<Harness />);
+
+    // No Add-note button until there is text to add.
+    expect(screen.queryByRole("button", { name: "Add note" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByPlaceholderText("Type a note…"), "Sunscreen");
+
+    const addButton = screen.getByRole("button", { name: "Add note" });
+    expect(addButton).toBeInTheDocument();
+
+    await userEvent.click(addButton);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ content: "Sunscreen" }));
+  });
+});
+
+describe("NotesPanel — adding a section", () => {
+  it("guides the user instead of inserting when the section name is empty", async () => {
+    insert.mockReset();
+    render(<Harness />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Add/ }));
+
+    expect(insert).not.toHaveBeenCalled();
+    expect(screen.getByText("Give the section a name first.")).toBeInTheDocument();
   });
 });
