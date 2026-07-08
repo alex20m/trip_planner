@@ -29,7 +29,7 @@ export default function Login() {
   }
 
   async function verifyCode() {
-    if (verifying || code.trim().length !== 6) return;
+    if (verifying || code.trim().length < 6) return;
     setError(null);
     setVerifying(true);
     const supabase = createClient();
@@ -53,19 +53,22 @@ export default function Login() {
           <p className="rounded-xl border border-stay/20 bg-stay/10 p-4 text-sm text-stay">
             Check your inbox — click the link, or enter the 6-digit code below.
           </p>
+          {/* Codes are 6 digits (Supabase "Email OTP length", see SETUP.md), but the
+              field tolerates up to 10 so a project still sending longer codes doesn't
+              lock users out by silently truncating what they paste. */}
           <input
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
             onKeyDown={(e) => e.key === "Enter" && verifyCode()}
             placeholder="6-digit code"
             disabled={verifying}
-            maxLength={6}
+            maxLength={10}
             className="field text-center text-lg tracking-[0.3em]"
           />
-          <button onClick={verifyCode} disabled={verifying || code.trim().length !== 6} className="btn-primary w-full">
+          <button onClick={verifyCode} disabled={verifying || code.trim().length < 6} className="btn-primary w-full">
             {verifying && <Spinner className="h-4 w-4" />}
             {verifying ? "Verifying…" : "Verify code"}
           </button>

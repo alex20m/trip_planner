@@ -7,6 +7,8 @@ Stack: Next.js 14 (App Router) · Supabase (Postgres + Auth) · Resend (email) �
 1. Create a project at https://supabase.com (region: `eu-north-1` Stockholm is closest for Finland).
 2. Open **SQL Editor** → paste the whole of `supabase/migrations/0001_init.sql` → Run. Then do the same with `supabase/migrations/0002_calendar_sync.sql`.
 3. **Authentication → Providers → Email**: make sure Email is enabled. Magic link works out of the box.
+   - Set **Email OTP length** to **6** (the sign-in screen asks for a 6-digit code; local dev already uses `otp_length = 6` in `supabase/config.toml`). If the hosted project sends 8-digit codes, this setting is the culprit.
+   - The **Magic Link** email template must contain `{{ .Token }}` so the code is included alongside the link.
 4. **Authentication → URL Configuration**:
    - Site URL: `http://localhost:3000` (switch to the Vercel domain later)
    - Redirect URLs: add `http://localhost:3000/auth/callback` and `https://YOUR-APP.vercel.app/auth/callback`
@@ -86,7 +88,8 @@ Each trip exposes an iCalendar feed at `/api/calendar/<token>`. Click **Sync** i
 
 - Roles: `owner` > `edit` > `read`. Stored in `trip_members`.
 - **Re-share at most at your own level** is enforced by a DB trigger (`enforce_invite_role`) on insert into `trip_invites` – so it can't be bypassed via the API.
-- RLS policies: `read` can only SELECT events/notes; `edit`/`owner` can write; only `owner` can delete the trip or other members.
+- RLS policies: `read` can only SELECT events/notes; `edit`/`owner` can write, including the trip's own name and dates; only `owner` can delete the trip or other members.
+- Calendar sync is available to **every** member, `read` included — subscribing to the .ics feed and rotating the link don't modify trip content.
 - Invitation flow: `POST /api/invites` → row in `trip_invites` with a unique token → Resend email with accept/decline links → `/invite/[token]`. Accepting requires sign-in (RPC `accept_invite`); declining works without sign-in.
 
 ## Quick functional test

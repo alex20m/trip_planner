@@ -51,7 +51,7 @@ describe("Login", () => {
     expect(push).toHaveBeenCalledWith("/");
   });
 
-  it("strips non-digits and caps the code at 6 characters", async () => {
+  it("strips non-digits from the code", async () => {
     render(<Login />);
     await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
     await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
@@ -59,6 +59,24 @@ describe("Login", () => {
     const codeInput = screen.getByPlaceholderText("6-digit code") as HTMLInputElement;
     await userEvent.type(codeInput, "12a3456bc");
     expect(codeInput.value).toBe("123456");
+  });
+
+  it("keeps a pasted 8-digit code intact and verifies with the full token", async () => {
+    verifyOtp.mockResolvedValue({ error: null });
+    const push = vi.fn();
+    vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() } as any);
+
+    render(<Login />);
+    await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
+
+    const codeInput = screen.getByPlaceholderText("6-digit code") as HTMLInputElement;
+    await userEvent.click(codeInput);
+    await userEvent.paste("12345678");
+    expect(codeInput.value).toBe("12345678");
+
+    await userEvent.click(screen.getByRole("button", { name: "Verify code" }));
+    expect(verifyOtp).toHaveBeenCalledWith({ email: "person@example.com", token: "12345678", type: "email" });
   });
 
   it("disables Verify code until 6 digits are entered", async () => {
