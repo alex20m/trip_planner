@@ -114,4 +114,16 @@ describe("TripView — deleting a trip", () => {
     render(<TripView trip={trip} role="read" initialEvents={[]} initialSections={[]} />);
     expect(screen.queryByTitle("Edit trip dates")).not.toBeInTheDocument();
   });
+
+  it("hides the Add event button on the Notes tab and shows it again on Calendar", async () => {
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    expect(screen.getByRole("button", { name: "Add event" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /Notes/ }));
+    expect(screen.queryByRole("button", { name: "Add event" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Calendar" }));
+    expect(screen.getByRole("button", { name: "Add event" })).toBeInTheDocument();
+  });
 });

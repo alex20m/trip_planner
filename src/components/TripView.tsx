@@ -159,7 +159,7 @@ export default function TripView({
           )}
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {canEdit(role) && (
+            {canEdit(role) && tab === "calendar" && (
               <button
                 onClick={() => editable && setEditing("new")}
                 disabled={!editable}
