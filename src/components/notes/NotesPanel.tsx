@@ -18,6 +18,7 @@ export default function NotesPanel({
 }) {
   const [newSection, setNewSection] = useState("");
   const [addingSection, setAddingSection] = useState(false);
+  const [sectionHint, setSectionHint] = useState(false);
   const [pendingNotes, setPendingNotes] = useState<Set<string>>(new Set());
   const [pendingSections, setPendingSections] = useState<Set<string>>(new Set());
   const supabase = createClient();
@@ -39,7 +40,12 @@ export default function NotesPanel({
   }
 
   async function addSection() {
-    if (!newSection.trim() || addingSection) return;
+    if (addingSection) return;
+    if (!newSection.trim()) {
+      setSectionHint(true);
+      return;
+    }
+    setSectionHint(false);
     setAddingSection(true);
     const { data } = await supabase
       .from("note_sections")
@@ -117,19 +123,28 @@ export default function NotesPanel({
         {sections.length === 0 && <p className="text-sm text-ink/40">No sections yet.</p>}
       </div>
       {editable && (
-        <div className="mt-4 flex max-w-sm gap-2">
-          <input
-            value={newSection}
-            onChange={(e) => setNewSection(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addSection()}
-            placeholder="New section, e.g. Packing list"
-            disabled={addingSection}
-            className="field flex-1"
-          />
-          <button onClick={addSection} disabled={addingSection} className="btn-secondary">
-            {addingSection ? <Spinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-4 w-4" />}
-            Add
-          </button>
+        <div className="mt-4 max-w-sm">
+          <div className="flex gap-2">
+            <input
+              value={newSection}
+              onChange={(e) => {
+                setNewSection(e.target.value);
+                if (sectionHint) setSectionHint(false);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && addSection()}
+              placeholder="New section, e.g. Packing list"
+              disabled={addingSection}
+              aria-invalid={sectionHint}
+              className="field flex-1"
+            />
+            <button onClick={addSection} disabled={addingSection} className="btn-secondary">
+              {addingSection ? <Spinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-4 w-4" />}
+              Add
+            </button>
+          </div>
+          {sectionHint && (
+            <p className="mt-1.5 text-xs text-red-600">Give the section a name first.</p>
+          )}
         </div>
       )}
     </section>
@@ -156,6 +171,11 @@ function SectionCard({
   onDeleteSection: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  function submitNote() {
+    if (!draft.trim() || busy) return;
+    onAdd(draft);
+    setDraft("");
+  }
   return (
     <div className="card p-4">
       <div className="mb-2 flex items-center justify-between">
@@ -199,19 +219,27 @@ function SectionCard({
         })}
       </ul>
       {editable && (
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !busy) {
-              onAdd(draft);
-              setDraft("");
-            }
-          }}
-          placeholder="Type and press Enter…"
-          disabled={busy}
-          className="mt-2 w-full rounded-xl border border-transparent bg-ink/5 p-2 text-base sm:text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface disabled:opacity-50"
-        />
+        <div className="mt-2 flex gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submitNote()}
+            placeholder="Type a note…"
+            disabled={busy}
+            className="w-full flex-1 rounded-xl border border-transparent bg-ink/5 p-2 text-base sm:text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface disabled:opacity-50"
+          />
+          {draft.trim() && (
+            <button
+              onClick={submitNote}
+              disabled={busy}
+              aria-label="Add note"
+              className="btn-secondary shrink-0"
+            >
+              {busy ? <Spinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-4 w-4" />}
+              Add
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
