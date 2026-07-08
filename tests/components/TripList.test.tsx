@@ -88,6 +88,23 @@ describe("TripList", () => {
     );
   });
 
+  it("does not overwrite the cached list when the device is offline but the online state is still the stale initial true", async () => {
+    // Opening a cached page in flight mode: useOnline still reports its
+    // initial `true` during the first effect pass while navigator.onLine is
+    // already false. Writing here would clobber the cached list (and stamp a
+    // fresh savedAt) with stale server-rendered props.
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => false });
+    try {
+      render(<TripList initialTrips={[{ id: "1", name: "Stale Rome", created_at: "2026-01-01" }]} />);
+
+      await waitFor(() => expect(idbGet).not.toHaveBeenCalled());
+      expect(idbSet).not.toHaveBeenCalled();
+      expect(prefetchAllTrips).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => true });
+    }
+  });
+
   it("falls back to the cached trip list when offline", async () => {
     online = false;
     idbGet.mockResolvedValue({ trips: [{ id: "9", name: "Cached Trip", created_at: "2026-01-01" }], savedAt: 42 });

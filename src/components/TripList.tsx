@@ -26,8 +26,13 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [caching, setCaching] = useState(false);
 
+  // `online` starts as true for the first render pass even when the device is
+  // offline (useOnline can't read navigator.onLine until after mount). Without
+  // the extra navigator.onLine check, opening a cached page in flight mode
+  // would overwrite the cached list with stale server-rendered props and stamp
+  // it with a fresh savedAt.
   useEffect(() => {
-    if (online) {
+    if (online && navigator.onLine) {
       // Hide trips the user just deleted optimistically until the server list
       // stops returning them (the delete has propagated).
       const pending = reconcileDeletedTrips(initialTrips.map((t) => t.id));
@@ -41,7 +46,7 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
         const supabase = createClient();
         prefetchAllTrips(supabase, visible).finally(() => setCaching(false));
       }
-    } else {
+    } else if (!online) {
       idbGet<{ trips: TripStub[]; savedAt: number }>(KEY).then((cached) => {
         if (cached) {
           setTrips(cached.trips);

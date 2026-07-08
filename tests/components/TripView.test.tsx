@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
 import TripView from "@/components/TripView";
@@ -38,6 +38,71 @@ const trip: Trip = {
   start_date: "2026-08-01",
   end_date: "2026-08-07"
 };
+
+describe("TripView — offline snapshots", () => {
+  beforeEach(() => {
+    online = true;
+    idbGet.mockReset();
+    idbGet.mockResolvedValue(undefined);
+    idbSet.mockClear();
+  });
+
+  afterEach(() => {
+    // Restore jsdom's default navigator.onLine (true).
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => true });
+  });
+
+  it("saves a snapshot to IndexedDB while online", async () => {
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    await waitFor(() =>
+      expect(idbSet).toHaveBeenCalledWith(
+        "trip-trip-1",
+        expect.objectContaining({ trip: { id: "trip-1", name: "Rome 2026" }, savedAt: expect.any(Number) })
+      )
+    );
+  });
+
+  it("does not overwrite the snapshot when the device is offline but the online state is still the stale initial true", async () => {
+    // Reproduces opening a cached page in flight mode: useOnline still reports
+    // its initial `true` during the first effect pass, while navigator.onLine
+    // is already false. Writing here would clobber the last good snapshot with
+    // stale server-rendered props and a fresh timestamp.
+    online = true;
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => false });
+
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    await waitFor(() => expect(idbGet).not.toHaveBeenCalled());
+    expect(idbSet).not.toHaveBeenCalled();
+  });
+
+  it("loads the last snapshot from IndexedDB when offline", async () => {
+    online = false;
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => false });
+    idbGet.mockResolvedValue({
+      trip: { id: "trip-1", name: "Rome 2026" },
+      role: "owner",
+      events: [],
+      sections: [
+        {
+          id: "s1",
+          trip_id: "trip-1",
+          title: "Packing list",
+          sort_order: 0,
+          notes: [{ id: "n1", section_id: "s1", content: "Passport", done: false, sort_order: 0 }]
+        }
+      ],
+      savedAt: 1700000000000
+    });
+
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    await userEvent.click(screen.getByRole("tab", { name: /notes/i }));
+    expect(await screen.findByText("Passport")).toBeInTheDocument();
+    expect(idbSet).not.toHaveBeenCalled();
+  });
+});
 
 describe("TripView — deleting a trip", () => {
   beforeEach(() => {
