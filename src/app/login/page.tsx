@@ -3,7 +3,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Spinner from "@/components/Spinner";
+import CodeInput from "@/components/CodeInput";
 import Logo from "@/components/Logo";
+
+const CODE_LENGTH = 6;
 
 export default function Login() {
   const router = useRouter();
@@ -28,18 +31,24 @@ export default function Login() {
     else setSent(true);
   }
 
-  async function verifyCode() {
-    if (verifying || code.trim().length < 6) return;
+  // `next` lets the auto-submit pass the freshly completed code without waiting
+  // for the code state to flush.
+  async function verifyCode(next?: string) {
+    const token = (next ?? code).trim();
+    if (verifying || token.length !== CODE_LENGTH) return;
     setError(null);
     setVerifying(true);
     const supabase = createClient();
     // Same email carries both the magic link and this 6-digit code — verifying
     // the code signs in directly on whatever origin the user is on, without
     // going through /auth/callback or the redirect-URL allowlist at all.
-    const { error } = await supabase.auth.verifyOtp({ email, token: code.trim(), type: "email" });
-    setVerifying(false);
-    if (error) setError(error.message);
-    else router.push("/");
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+    if (error) {
+      setVerifying(false);
+      setError(error.message);
+    } else {
+      router.push("/");
+    }
   }
 
   return (
@@ -49,30 +58,28 @@ export default function Login() {
       </h1>
       <p className="mb-8 text-ink/55">Sign in with a magic link or code sent to your email.</p>
       {sent ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="rounded-xl border border-stay/20 bg-stay/10 p-4 text-sm text-stay">
-            Check your inbox — click the link, or enter the 6-digit code below.
+            Check your inbox — click the link, or enter the {CODE_LENGTH}-digit code below.
           </p>
-          {/* Codes are 6 digits (Supabase "Email OTP length", see SETUP.md), but the
-              field tolerates up to 10 so a project still sending longer codes doesn't
-              lock users out by silently truncating what they paste. */}
-          <input
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
+          {/* Codes are exactly 6 digits (Supabase "Email OTP length", see SETUP.md).
+              Entering the last digit auto-submits, so verifying is usually one paste. */}
+          <CodeInput
+            length={CODE_LENGTH}
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
-            onKeyDown={(e) => e.key === "Enter" && verifyCode()}
-            placeholder="6-digit code"
+            onChange={setCode}
+            onComplete={(c) => verifyCode(c)}
             disabled={verifying}
-            maxLength={10}
-            className="field text-center text-lg tracking-[0.3em]"
           />
-          <button onClick={verifyCode} disabled={verifying || code.trim().length < 6} className="btn-primary w-full">
+          <button
+            onClick={() => verifyCode()}
+            disabled={verifying || code.trim().length !== CODE_LENGTH}
+            className="btn-primary w-full"
+          >
             {verifying && <Spinner className="h-4 w-4" />}
             {verifying ? "Verifying…" : "Verify code"}
           </button>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-center text-sm text-red-600">{error}</p>}
           <button
             onClick={() => {
               setSent(false);

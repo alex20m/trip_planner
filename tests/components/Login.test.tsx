@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
 import Login from "@/app/login/page";
@@ -16,101 +16,103 @@ vi.mock("@/lib/supabase/client", () => ({
   })
 }));
 
+// Fill the email and request the code, landing on the code-entry step.
+async function reachCodeStep() {
+  await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
+  await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
+}
+
+const digits = () => screen.getAllByLabelText(/^Digit \d$/) as HTMLInputElement[];
+
 describe("Login", () => {
   beforeEach(() => {
     signInWithOtp.mockReset().mockResolvedValue({ error: null });
     verifyOtp.mockReset();
   });
 
-  it("sends a magic link and then shows the code entry step", async () => {
+  it("sends a magic link and then shows the 6-box code entry step", async () => {
     render(<Login />);
-
-    await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
+    await reachCodeStep();
 
     expect(signInWithOtp).toHaveBeenCalledWith({
       email: "person@example.com",
       options: { emailRedirectTo: expect.stringContaining("/auth/callback") }
     });
-    expect(screen.getByPlaceholderText("6-digit code")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "6-digit verification code" })).toBeInTheDocument();
+    expect(digits()).toHaveLength(6);
   });
 
-  it("verifies a 6-digit code and redirects home", async () => {
+  it("auto-advances focus as each digit is typed", async () => {
+    render(<Login />);
+    await reachCodeStep();
+
+    await userEvent.click(digits()[0]);
+    await userEvent.keyboard("1");
+
+    expect(digits()[0].value).toBe("1");
+    expect(digits()[1]).toHaveFocus();
+  });
+
+  it("pasting a 6-digit code auto-submits and redirects home", async () => {
     verifyOtp.mockResolvedValue({ error: null });
     const push = vi.fn();
     vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() } as any);
 
     render(<Login />);
-    await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
+    await reachCodeStep();
 
-    await userEvent.type(screen.getByPlaceholderText("6-digit code"), "123456");
-    await userEvent.click(screen.getByRole("button", { name: "Verify code" }));
+    await userEvent.click(digits()[0]);
+    await userEvent.paste("123456");
 
-    expect(verifyOtp).toHaveBeenCalledWith({ email: "person@example.com", token: "123456", type: "email" });
-    expect(push).toHaveBeenCalledWith("/");
+    await waitFor(() => {
+      expect(verifyOtp).toHaveBeenCalledWith({ email: "person@example.com", token: "123456", type: "email" });
+      expect(push).toHaveBeenCalledWith("/");
+    });
   });
 
-  it("strips non-digits from the code", async () => {
-    render(<Login />);
-    await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
-
-    const codeInput = screen.getByPlaceholderText("6-digit code") as HTMLInputElement;
-    await userEvent.type(codeInput, "12a3456bc");
-    expect(codeInput.value).toBe("123456");
-  });
-
-  it("keeps a pasted 8-digit code intact and verifies with the full token", async () => {
+  it("strips non-digits and keeps only the first 6 digits when pasting", async () => {
     verifyOtp.mockResolvedValue({ error: null });
-    const push = vi.fn();
-    vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() } as any);
+    vi.mocked(useRouter).mockReturnValue({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() } as any);
 
     render(<Login />);
-    await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
+    await reachCodeStep();
 
-    const codeInput = screen.getByPlaceholderText("6-digit code") as HTMLInputElement;
-    await userEvent.click(codeInput);
-    await userEvent.paste("12345678");
-    expect(codeInput.value).toBe("12345678");
+    await userEvent.click(digits()[0]);
+    await userEvent.paste("12a34-567");
 
-    await userEvent.click(screen.getByRole("button", { name: "Verify code" }));
-    expect(verifyOtp).toHaveBeenCalledWith({ email: "person@example.com", token: "12345678", type: "email" });
+    expect(digits().map((d) => d.value).join("")).toBe("123456");
   });
 
-  it("disables Verify code until 6 digits are entered", async () => {
+  it("keeps Verify code disabled until all 6 digits are present", async () => {
     render(<Login />);
-    await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
+    await reachCodeStep();
 
     const verifyButton = screen.getByRole("button", { name: "Verify code" });
     expect(verifyButton).toBeDisabled();
 
-    await userEvent.type(screen.getByPlaceholderText("6-digit code"), "123");
+    await userEvent.click(digits()[0]);
+    await userEvent.paste("123");
     expect(verifyButton).toBeDisabled();
   });
 
   it("shows an error message when verification fails", async () => {
     verifyOtp.mockResolvedValue({ error: { message: "Invalid code" } });
     render(<Login />);
+    await reachCodeStep();
 
-    await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
-    await userEvent.type(screen.getByPlaceholderText("6-digit code"), "123456");
-    await userEvent.click(screen.getByRole("button", { name: "Verify code" }));
+    await userEvent.click(digits()[0]);
+    await userEvent.paste("123456");
 
-    expect(screen.getByText("Invalid code")).toBeInTheDocument();
+    expect(await screen.findByText("Invalid code")).toBeInTheDocument();
   });
 
   it("lets the user go back and use a different email", async () => {
     render(<Login />);
-    await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
+    await reachCodeStep();
 
     await userEvent.click(screen.getByRole("button", { name: "Use a different email" }));
 
     expect(screen.getByPlaceholderText("you@email.com")).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("6-digit code")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "6-digit verification code" })).not.toBeInTheDocument();
   });
 });
