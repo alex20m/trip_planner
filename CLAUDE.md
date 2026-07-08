@@ -23,6 +23,9 @@ user says otherwise for that specific task:
 - Once CI/the pipeline goes green on that MR, merge it automatically.
   Getting CI green **is** sufficient authorization to merge — do not stop
   and ask first.
+- After a PR is merged, delete its remote branch. This is a standing
+  authorization to delete that specific branch — no separate confirmation
+  needed.
 - Do not auto-merge if the MR has merge conflicts with `main` (not
   mergeable), even if CI is green. Rebase onto `origin/main` and resolve
   the conflicts in the same branch, then re-check CI before merging. If
