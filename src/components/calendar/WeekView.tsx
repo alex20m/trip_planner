@@ -70,12 +70,12 @@ export default function WeekView({
                   {format(day, "d MMM", { locale: enUS })}
                 </span>
               </div>
-              <div className="divide-y divide-ink/5">
+              <div className="space-y-1.5 p-2">
                 {dayStays.map((e) => (
                   <button
                     key={e.id}
                     onClick={() => onSelect?.(e)}
-                    className={`flex w-full items-center gap-2 border-l-4 px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-ink/[0.02] ${COLORS.accommodation}`}
+                    className={`flex w-full items-center gap-2 rounded-xl border-l-4 px-3 py-2 text-left text-sm font-semibold transition-transform active:scale-[0.99] ${COLORS.accommodation}`}
                   >
                     <BedIcon className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{e.title}</span>
@@ -88,23 +88,19 @@ export default function WeekView({
                     <button
                       key={e.id}
                       onClick={() => onSelect?.(e)}
-                      className={`flex w-full items-start gap-3 border-l-4 px-3 py-2.5 text-left transition-colors hover:bg-ink/[0.02] ${COLORS[e.type]}`}
+                      className={`w-full rounded-xl border-l-4 px-3 py-2 text-left transition-transform active:scale-[0.99] ${COLORS[e.type]}`}
                     >
-                      <span className="w-12 shrink-0 pt-0.5 text-xs font-medium opacity-70">{format(s, "HH:mm")}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{e.title}</span>
-                        {(en || e.location) && (
-                          <span className="block truncate text-xs opacity-70">
-                            {en ? `–${format(en, "HH:mm")}` : ""}
-                            {e.location ? ` · ${e.location}` : ""}
-                          </span>
-                        )}
+                      <span className="block truncate text-sm font-semibold leading-snug">{e.title}</span>
+                      <span className="mt-0.5 block truncate text-xs font-medium tabular-nums opacity-75">
+                        {format(s, "HH:mm")}
+                        {en ? `–${format(en, "HH:mm")}` : ""}
+                        {e.location ? ` · ${e.location}` : ""}
                       </span>
                     </button>
                   );
                 })}
                 {dayStays.length === 0 && dayTimed.length === 0 && (
-                  <p className="px-3 py-3 text-sm text-ink/30">No events</p>
+                  <p className="px-1.5 py-1 text-sm text-ink/30">No events</p>
                 )}
               </div>
             </div>
@@ -187,10 +183,10 @@ export default function WeekView({
                       key={e.id}
                       onClick={() => onSelect?.(e)}
                       style={{ top: Math.max(0, top), height }}
-                      className={`absolute inset-x-0.5 overflow-hidden rounded-lg border-l-4 px-1.5 py-0.5 text-left text-xs font-medium leading-tight shadow-sm transition-transform hover:z-10 hover:-translate-y-px ${COLORS[e.type]}`}
+                      className={`absolute inset-x-0.5 flex flex-col items-start justify-start overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-xs leading-tight shadow-sm transition-transform hover:z-10 hover:-translate-y-px ${COLORS[e.type]}`}
                     >
-                      <span className="block truncate">{e.title}</span>
-                      <span className="block truncate text-[10px] opacity-70">
+                      <span className="block w-full truncate font-semibold">{e.title}</span>
+                      <span className="block w-full truncate text-[10px] font-medium tabular-nums opacity-70">
                         {format(s, "HH:mm")}
                         {en ? `–${format(en, "HH:mm")}` : ""}
                         {e.location ? ` · ${e.location}` : ""}

@@ -135,19 +135,21 @@ export default function TripView({
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 pb-32 sm:px-6 sm:py-8 sm:pb-24">
       <header className="mb-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href="/" className="btn-ghost btn-icon" aria-label="Back to trips">
-            <ChevronLeftIcon className="h-5 w-5" />
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{trip.name}</h1>
-          <span className="chip">{role === "owner" ? "Owner" : role === "edit" ? "Can edit" : "View only"}</span>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/" className="btn-ghost btn-icon shrink-0" aria-label="Back to trips">
+              <ChevronLeftIcon className="h-5 w-5" />
+            </Link>
+            <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight sm:text-3xl">{trip.name}</h1>
+            <span className="chip shrink-0">{role === "owner" ? "Owner" : role === "edit" ? "Can edit" : "View only"}</span>
+          </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2 sm:ml-auto">
             <button
               onClick={() => online && setSharing(true)}
               disabled={!online}
               title={online ? "Share trip" : "Requires internet"}
-              className="btn-secondary btn-icon"
+              className="btn-secondary btn-icon shrink-0"
               aria-label="Share trip"
             >
               <ShareIcon className="h-4 w-4" />
@@ -157,7 +159,7 @@ export default function TripView({
                 onClick={() => editable && setEditing("new")}
                 disabled={!editable}
                 title={editable ? undefined : "Requires internet"}
-                className="btn-primary btn-sm"
+                className="btn-primary btn-sm flex-1 sm:flex-none"
               >
                 <PlusIcon className="h-4 w-4" />
                 Add event
