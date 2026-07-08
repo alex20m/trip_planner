@@ -4,22 +4,18 @@ import userEvent from "@testing-library/user-event";
 import EventModal from "@/components/EventModal";
 
 const insertSingle = vi.fn();
+const insert = vi.fn(() => ({ select: () => ({ single: insertSingle }) }));
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
-    from: () => ({
-      insert: () => ({
-        select: () => ({
-          single: insertSingle
-        })
-      })
-    })
+    from: () => ({ insert })
   })
 }));
 
 describe("EventModal", () => {
   beforeEach(() => {
     insertSingle.mockReset();
+    insert.mockClear();
   });
 
   it("requires a check-out date for a Stay event", async () => {
@@ -68,6 +64,23 @@ describe("EventModal", () => {
 
     expect(insertSingle).toHaveBeenCalled();
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("saves the notes entered for an event", async () => {
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null },
+      error: null
+    });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    const startInput = screen.getByText("Start").querySelector("input")!;
+    fireEvent.change(startInput, { target: { value: "2026-07-10T10:00" } });
+    await userEvent.type(screen.getByPlaceholderText("Notes (optional)"), "Bring tickets");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ description: "Bring tickets" }));
   });
 
   it("hides the Cancel button and shows a saving state while saving", async () => {
