@@ -83,14 +83,14 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
     lines.push("DTSTART;VALUE=DATE:" + fmtDate(`${trip.start_date}T00:00:00Z`));
     lines.push("DTEND;VALUE=DATE:" + addDaysDate(`${trip.end_date}T00:00:00Z`, 1));
     lines.push("TRANSP:TRANSPARENT");
-    lines.push(fold("SUMMARY:" + esc("🧳 " + trip.name)));
+    lines.push(fold("SUMMARY:" + esc("🌍 " + trip.name)));
     lines.push("END:VEVENT");
   }
 
   for (const e of events) {
     const updatedAt = (e as TripEvent & { updated_at?: string }).updated_at;
     const seq = updatedAt ? Math.floor(new Date(updatedAt).getTime() / 1000) : 0;
-    const prefix = e.type === "travel" ? "🧭 " : e.type === "accommodation" ? "🛏 " : "";
+    const prefix = e.type === "travel" ? "🧳 " : e.type === "accommodation" ? "🛏 " : "";
 
     lines.push("BEGIN:VEVENT");
     lines.push("UID:" + e.id + "@" + host);

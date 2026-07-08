@@ -33,7 +33,7 @@ describe("buildICS", () => {
 
   it("prefixes travel events and leaves activities unprefixed", () => {
     const ics = buildICS({ id: "trip-1", name: "Trip" },[event({ type: "travel", title: "Flight" })], "example.com");
-    expect(ics).toContain("SUMMARY:🧭 Flight");
+    expect(ics).toContain("SUMMARY:🧳 Flight");
   });
 
   it("renders accommodation as an all-day event ending the day after checkout", () => {
@@ -101,7 +101,7 @@ describe("buildICS", () => {
     // All-day DTEND is exclusive: the marker ends the day after the last trip day.
     expect(ics).toContain("DTEND;VALUE=DATE:20260804");
     expect(ics).toContain("TRANSP:TRANSPARENT");
-    expect(ics).toContain("SUMMARY:🧳 Rome 2026");
+    expect(ics).toContain("SUMMARY:🌍 Rome 2026");
   });
 
   it("emits no trip marker when the trip has no date range", () => {
