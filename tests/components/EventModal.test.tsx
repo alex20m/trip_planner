@@ -27,7 +27,7 @@ describe("EventModal", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Stay" }));
     await userEvent.type(screen.getByPlaceholderText("Title"), "Hotel Rome");
-    const checkInInput = screen.getByText("Check-in").querySelector("input")!;
+    const checkInInput = screen.getByPlaceholderText("Check-in");
     fireEvent.change(checkInInput, { target: { value: "2026-07-10" } });
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -40,8 +40,8 @@ describe("EventModal", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Stay" }));
     await userEvent.type(screen.getByPlaceholderText("Title"), "Hotel Rome");
-    const checkInInput = screen.getByText("Check-in").querySelector("input")!;
-    const checkOutInput = screen.getByText("Check-out").querySelector("input")!;
+    const checkInInput = screen.getByPlaceholderText("Check-in");
+    const checkOutInput = screen.getByPlaceholderText("Check-out");
     fireEvent.change(checkInInput, { target: { value: "2026-07-10" } });
     fireEvent.change(checkOutInput, { target: { value: "2026-07-10" } });
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -60,8 +60,8 @@ describe("EventModal", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Stay" }));
     await userEvent.type(screen.getByPlaceholderText("Title"), "Hotel Rome");
-    const checkInInput = screen.getByText("Check-in").querySelector("input")!;
-    const checkOutInput = screen.getByText("Check-out").querySelector("input")!;
+    const checkInInput = screen.getByPlaceholderText("Check-in");
+    const checkOutInput = screen.getByPlaceholderText("Check-out");
     fireEvent.change(checkInInput, { target: { value: "2026-07-10" } });
     fireEvent.change(checkOutInput, { target: { value: "2026-07-12" } });
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -77,7 +77,7 @@ describe("EventModal", () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={onSaved} />);
 
     await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
-    const startInput = screen.getByText("Start").querySelector("input")!;
+    const startInput = screen.getByPlaceholderText("Start");
     fireEvent.change(startInput, { target: { value: "2026-07-10T10:00" } });
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
