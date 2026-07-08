@@ -34,7 +34,7 @@ export default function CalendarSyncModal({
   }
 
   async function rotate() {
-    if (!confirm("Create a new link? The old one will stop working in every calendar that subscribes to it.")) return;
+    if (!confirm("Revoke this link and create a new one? The old link will stop working in every calendar that subscribes to it.")) return;
     setRotating(true);
     const supabase = createClient();
     const { data } = await supabase.rpc("rotate_calendar_token", { p_trip: tripId });
@@ -102,22 +102,22 @@ export default function CalendarSyncModal({
           </p>
         </div>
 
-        <div className="mt-4 flex items-center justify-between">
+        <p className="mt-4 text-[11px] leading-snug text-ink/40">
+          Anyone with the link can read this trip&apos;s calendar. Don&apos;t share it publicly — revoke it below if it leaks.
+        </p>
+        <div className="mt-4 flex items-center justify-between gap-2">
           <button
             onClick={rotate}
             disabled={!online || rotating}
-            className="flex items-center gap-1.5 text-xs text-ink/50 transition-colors hover:text-red-600 disabled:opacity-40"
+            className="btn-secondary flex items-center gap-1.5 text-red-600 hover:border-red-600/30 hover:bg-red-600/[0.04] disabled:opacity-40"
           >
             {rotating && <Spinner className="h-3 w-3" />}
-            {rotating ? "Creating…" : "Create new link (revoke the old one)"}
+            {rotating ? "Revoking…" : "Revoke link"}
           </button>
-          <button onClick={onClose} className="btn-secondary">
+          <button onClick={onClose} className="btn-primary">
             Close
           </button>
         </div>
-        <p className="mt-3 text-[11px] leading-snug text-ink/40">
-          Anyone with the link can read this trip&apos;s calendar. Don&apos;t share it publicly — create a new link if it leaks.
-        </p>
       </div>
     </div>
   );
