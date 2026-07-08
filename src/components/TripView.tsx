@@ -165,10 +165,12 @@ export default function TripView({
                 disabled={!editable}
                 title={editable ? "Add event" : "Requires internet"}
                 aria-label="Add event"
-                className="btn-primary btn-icon sm:aspect-auto sm:px-3.5 sm:py-1.5"
+                className="btn-primary btn-sm"
               >
                 <PlusIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Add event</span>
+                <span>
+                  Add<span className="hidden sm:inline"> event</span>
+                </span>
               </button>
             )}
             {/* Sharing and calendar sync are open to every member (viewers
