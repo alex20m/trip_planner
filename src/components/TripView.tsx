@@ -140,45 +140,10 @@ export default function TripView({
             <ChevronLeftIcon className="h-5 w-5" />
           </Link>
           <h1 className="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight sm:text-3xl">{trip.name}</h1>
-          {canEdit(role) && (
-            <button
-              onClick={() => editable && setEditing("new")}
-              disabled={!editable}
-              title={editable ? "Add event" : "Requires internet"}
-              aria-label="Add event"
-              className="btn-primary btn-icon shrink-0 sm:aspect-auto sm:px-3.5 sm:py-1.5"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Add event</span>
-            </button>
-          )}
-          <button
-            onClick={() => online && setSharing(true)}
-            disabled={!online}
-            title={online ? "Share trip" : "Requires internet"}
-            className="btn-secondary btn-icon shrink-0"
-            aria-label="Share trip"
-          >
-            <ShareIcon className="h-4 w-4" />
-          </button>
-          {/* Every member (viewers included) can sync the trip to their calendar;
-              deleting the trip stays owner-only. */}
-          {(role === "owner" || !!trip.calendar_token) && (
-            <TripMenu
-              online={online}
-              hasSyncLink={!!trip.calendar_token}
-              canDelete={role === "owner"}
-              deleting={deletingTrip}
-              open={menuOpen}
-              setOpen={setMenuOpen}
-              onSync={() => setSyncing(true)}
-              onDelete={deleteTrip}
-            />
-          )}
+          <span className="chip shrink-0">{role === "owner" ? "Owner" : role === "edit" ? "Can edit" : "View only"}</span>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="chip">{role === "owner" ? "Owner" : role === "edit" ? "Can edit" : "View only"}</span>
+        <div className="mt-3 flex items-center gap-2">
           {canEdit(role) ? (
             <button
               onClick={() => online && setEditingDates(true)}
@@ -192,6 +157,44 @@ export default function TripView({
           ) : (
             <span className="chip">{tripDateLabel}</span>
           )}
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {canEdit(role) && (
+              <button
+                onClick={() => editable && setEditing("new")}
+                disabled={!editable}
+                title={editable ? "Add event" : "Requires internet"}
+                aria-label="Add event"
+                className="btn-primary btn-icon sm:aspect-auto sm:px-3.5 sm:py-1.5"
+              >
+                <PlusIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">Add event</span>
+              </button>
+            )}
+            <button
+              onClick={() => online && setSharing(true)}
+              disabled={!online}
+              title={online ? "Share trip" : "Requires internet"}
+              className="btn-secondary btn-icon"
+              aria-label="Share trip"
+            >
+              <ShareIcon className="h-4 w-4" />
+            </button>
+            {/* Every member (viewers included) can sync the trip to their calendar;
+                deleting the trip stays owner-only. */}
+            {(role === "owner" || !!trip.calendar_token) && (
+              <TripMenu
+                online={online}
+                hasSyncLink={!!trip.calendar_token}
+                canDelete={role === "owner"}
+                deleting={deletingTrip}
+                open={menuOpen}
+                setOpen={setMenuOpen}
+                onSync={() => setSyncing(true)}
+                onDelete={deleteTrip}
+              />
+            )}
+          </div>
         </div>
       </header>
 
