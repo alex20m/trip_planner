@@ -143,19 +143,21 @@ export default function TripView({
           <span className="chip shrink-0">{role === "owner" ? "Owner" : role === "edit" ? "Can edit" : "View only"}</span>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex items-center gap-2">
           {canEdit(role) ? (
             <button
               onClick={() => online && setEditingDates(true)}
               disabled={!online}
               title={online ? "Edit trip dates" : "Requires internet"}
-              className="chip gap-1.5 transition-colors hover:bg-ink/10 disabled:opacity-40"
+              className="chip min-w-0 gap-1.5 transition-colors hover:bg-ink/10 disabled:opacity-40"
             >
-              {tripDateLabel}
-              <PencilIcon className="h-3 w-3" />
+              <span className="truncate">{tripDateLabel}</span>
+              <PencilIcon className="h-3 w-3 shrink-0" />
             </button>
           ) : (
-            <span className="chip">{tripDateLabel}</span>
+            <span className="chip min-w-0">
+              <span className="truncate">{tripDateLabel}</span>
+            </span>
           )}
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
