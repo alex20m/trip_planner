@@ -57,7 +57,7 @@ export default function CalendarSyncModal({
             href={webcalUrl}
             className="flex items-center justify-between rounded-2xl border border-ink/10 bg-surface px-4 py-3 text-sm font-medium transition-colors hover:border-ink/25 hover:bg-ink/[0.02]"
           >
-            <span> Add to Apple / iCloud Calendar</span>
+            <span>📆 Add to Apple / iCloud Calendar</span>
             <ChevronRightIcon className="h-4 w-4 text-ink/35" />
           </a>
 

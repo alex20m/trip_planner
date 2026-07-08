@@ -67,17 +67,19 @@ export default function NotesPanel({
     markSectionPending(sectionId, false);
   }
 
+  // Optimistic: check/uncheck instantly (no spinner), roll back if the server rejects it.
   async function toggleNote(note: Note) {
-    markNotePending(note.id, true);
-    await supabase.from("notes").update({ done: !note.done }).eq("id", note.id);
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === note.section_id
-          ? { ...s, notes: s.notes.map((n) => (n.id === note.id ? { ...n, done: !n.done } : n)) }
-          : s
-      )
-    );
-    markNotePending(note.id, false);
+    const setDone = (done: boolean) =>
+      setSections((prev) =>
+        prev.map((s) =>
+          s.id === note.section_id
+            ? { ...s, notes: s.notes.map((n) => (n.id === note.id ? { ...n, done } : n)) }
+            : s
+        )
+      );
+    setDone(!note.done);
+    const { error } = await supabase.from("notes").update({ done: !note.done }).eq("id", note.id);
+    if (error) setDone(note.done);
   }
 
   async function deleteNote(note: Note) {
