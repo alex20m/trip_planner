@@ -72,7 +72,9 @@ export default function EventDetail({
           {event.description && (
             <div>
               <dt className="label">Notes</dt>
-              <dd className="mt-0.5 whitespace-pre-wrap break-words text-ink/80">{event.description}</dd>
+              <dd className="mt-1.5 whitespace-pre-wrap break-words rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5 leading-relaxed text-ink/80">
+                {event.description}
+              </dd>
             </div>
           )}
         </dl>

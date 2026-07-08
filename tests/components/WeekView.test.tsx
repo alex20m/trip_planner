@@ -55,4 +55,81 @@ describe("WeekView", () => {
 
     expect(screen.getAllByText("Museum visit").length).toBeGreaterThan(0);
   });
+
+  it("shows the event's note on the agenda card", () => {
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[makeEvent({ start_at: "2026-08-06T12:00:00Z", description: "Bring the tickets" })]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+      />
+    );
+
+    expect(screen.getAllByText("Bring the tickets").length).toBeGreaterThan(0);
+  });
+
+  it("hides the note in the time grid when the event is too short to fit it", () => {
+    // 30-minute event → ~22px block: the note must be dropped, not stretch the block.
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[
+          makeEvent({
+            start_at: "2026-08-06T12:00:00Z",
+            end_at: "2026-08-06T12:30:00Z",
+            description: "Reservation under Alex"
+          })
+        ]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+      />
+    );
+
+    // The agenda card still shows the note (its layout isn't time-scaled),
+    // so exactly one copy renders — none inside the time grid.
+    expect(screen.getAllByText("Reservation under Alex")).toHaveLength(1);
+  });
+
+  it("shows the note in the time grid when the event is long enough", () => {
+    // 2-hour event → 88px block: room for the truncated note line.
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[
+          makeEvent({
+            start_at: "2026-08-06T12:00:00Z",
+            end_at: "2026-08-06T14:00:00Z",
+            description: "Reservation under Alex"
+          })
+        ]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+      />
+    );
+
+    // One copy on the agenda card, one inside the time grid.
+    expect(screen.getAllByText("Reservation under Alex")).toHaveLength(2);
+  });
+
+  it("shows a stay's note on its agenda card", () => {
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[
+          makeEvent({
+            type: "accommodation",
+            title: "Hotel Aurora",
+            start_at: "2026-08-05T00:00:00Z",
+            end_at: "2026-08-07T00:00:00Z",
+            description: "Check-in from 15:00"
+          })
+        ]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+      />
+    );
+
+    expect(screen.getAllByText(/Check-in from 15:00/).length).toBeGreaterThan(0);
+  });
 });
