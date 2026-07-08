@@ -143,7 +143,7 @@ export default function TripView({
           <span className="chip shrink-0">{role === "owner" ? "Owner" : role === "edit" ? "Can edit" : "View only"}</span>
         </div>
 
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {canEdit(role) ? (
             <button
               onClick={() => online && setEditingDates(true)}
@@ -168,9 +168,7 @@ export default function TripView({
                 className="btn-primary btn-sm"
               >
                 <PlusIcon className="h-4 w-4" />
-                <span>
-                  Add<span className="hidden sm:inline"> event</span>
-                </span>
+                <span>Add event</span>
               </button>
             )}
             {/* Sharing and calendar sync are open to every member (viewers
