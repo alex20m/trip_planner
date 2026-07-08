@@ -171,29 +171,19 @@ export default function TripView({
                 <span className="hidden sm:inline">Add event</span>
               </button>
             )}
-            <button
-              onClick={() => online && setSharing(true)}
-              disabled={!online}
-              title={online ? "Share trip" : "Requires internet"}
-              className="btn-secondary btn-icon"
-              aria-label="Share trip"
-            >
-              <ShareIcon className="h-4 w-4" />
-            </button>
-            {/* Every member (viewers included) can sync the trip to their calendar;
-                deleting the trip stays owner-only. */}
-            {(role === "owner" || !!trip.calendar_token) && (
-              <TripMenu
-                online={online}
-                hasSyncLink={!!trip.calendar_token}
-                canDelete={role === "owner"}
-                deleting={deletingTrip}
-                open={menuOpen}
-                setOpen={setMenuOpen}
-                onSync={() => setSyncing(true)}
-                onDelete={deleteTrip}
-              />
-            )}
+            {/* Sharing and calendar sync are open to every member (viewers
+                included); deleting the trip stays owner-only. */}
+            <TripMenu
+              online={online}
+              hasSyncLink={!!trip.calendar_token}
+              canDelete={role === "owner"}
+              deleting={deletingTrip}
+              open={menuOpen}
+              setOpen={setMenuOpen}
+              onShare={() => setSharing(true)}
+              onSync={() => setSyncing(true)}
+              onDelete={deleteTrip}
+            />
           </div>
         </div>
       </header>
@@ -314,6 +304,7 @@ function TripMenu({
   deleting,
   open,
   setOpen,
+  onShare,
   onSync,
   onDelete
 }: {
@@ -323,6 +314,7 @@ function TripMenu({
   deleting: boolean;
   open: boolean;
   setOpen: (v: boolean) => void;
+  onShare: () => void;
   onSync: () => void;
   onDelete: () => void;
 }) {
@@ -353,6 +345,20 @@ function TripMenu({
           role="menu"
           className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-ink/10 bg-surface p-1.5 shadow-panel"
         >
+          <button
+            role="menuitem"
+            onClick={() => {
+              if (!online) return;
+              setOpen(false);
+              onShare();
+            }}
+            disabled={!online}
+            title={online ? undefined : "Requires internet"}
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-ink hover:bg-ink/5 disabled:opacity-40"
+          >
+            <ShareIcon className="h-4 w-4 text-ink/50" />
+            Share trip
+          </button>
           {hasSyncLink && (
             <button
               role="menuitem"
