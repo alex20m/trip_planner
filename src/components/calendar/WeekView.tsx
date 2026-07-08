@@ -2,7 +2,7 @@
 import { addDays, differenceInCalendarDays, format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { TripEvent } from "@/lib/types";
-import { BedIcon } from "@/components/Icons";
+import { BedIcon, NoteIcon } from "@/components/Icons";
 
 const HOUR_PX = 44;
 const START_HOUR = 6;
@@ -75,10 +75,13 @@ export default function WeekView({
                   <button
                     key={e.id}
                     onClick={() => onSelect?.(e)}
-                    className={`flex w-full items-center gap-2 rounded-xl border-l-4 px-3 py-2 text-left text-sm font-semibold transition-transform active:scale-[0.99] ${COLORS.accommodation}`}
+                    className={`w-full rounded-xl border-l-4 px-3 py-2 text-left transition-transform active:scale-[0.99] ${COLORS.accommodation}`}
                   >
-                    <BedIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{e.title}</span>
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      <BedIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{e.title}</span>
+                    </span>
+                    <EventNote text={e.description} />
                   </button>
                 ))}
                 {dayTimed.map((e) => {
@@ -96,6 +99,7 @@ export default function WeekView({
                         {en ? `–${format(en, "HH:mm")}` : ""}
                         {e.location ? ` · ${e.location}` : ""}
                       </span>
+                      <EventNote text={e.description} />
                     </button>
                   );
                 })}
@@ -147,7 +151,10 @@ export default function WeekView({
                     className={`mx-0.5 flex items-center gap-1 truncate rounded-lg border-l-4 px-2 py-1 text-left text-xs font-medium shadow-sm transition-transform hover:-translate-y-px ${COLORS.accommodation}`}
                   >
                     <BedIcon className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{e.title}</span>
+                    <span className="max-w-[70%] shrink-0 truncate">{e.title}</span>
+                    {e.description && (
+                      <span className="truncate font-normal italic opacity-70">· {e.description}</span>
+                    )}
                   </button>
                 );
               })}
@@ -191,6 +198,15 @@ export default function WeekView({
                         {en ? `–${format(en, "HH:mm")}` : ""}
                         {e.location ? ` · ${e.location}` : ""}
                       </span>
+                      {/* The block's height encodes the event's duration, so the note
+                          must never stretch it: show one truncated line, and only when
+                          the block is tall enough to fit it cleanly. */}
+                      {e.description && height >= 50 && (
+                        <span className="mt-0.5 flex w-full min-w-0 items-center gap-1 text-[10px] italic opacity-70">
+                          <NoteIcon className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{e.description}</span>
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -200,5 +216,17 @@ export default function WeekView({
       </div>
       </div>
     </>
+  );
+}
+
+// Note preview on agenda cards: clamped to two lines so a long note never
+// balloons the card — the full text lives in the event detail view.
+function EventNote({ text }: { text: string | null }) {
+  if (!text) return null;
+  return (
+    <span className="mt-1 flex items-start gap-1.5 text-xs font-normal italic leading-snug opacity-70">
+      <NoteIcon className="mt-px h-3 w-3 shrink-0" />
+      <span className="line-clamp-2 min-w-0 break-words">{text}</span>
+    </span>
   );
 }
