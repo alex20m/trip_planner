@@ -54,7 +54,7 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
 
   return (
     <>
-      <OfflineBanner savedAt={savedAt} />
+      <OfflineBanner savedAt={savedAt} className="mt-4" />
       <ul className="mt-6 space-y-2.5">
         {trips.map((t) => (
           <li key={t.id}>
