@@ -135,52 +135,15 @@ export default function TripView({
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 pb-32 sm:px-6 sm:py-8 sm:pb-24">
       <header className="mb-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href="/" className="btn-ghost btn-icon" aria-label="Back to trips">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link href="/" className="btn-ghost btn-icon -ml-2 shrink-0" aria-label="Back to trips">
             <ChevronLeftIcon className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{trip.name}</h1>
-          <span className="chip">{role === "owner" ? "Owner" : role === "edit" ? "Can edit" : "View only"}</span>
-
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={() => online && setSharing(true)}
-              disabled={!online}
-              title={online ? "Share trip" : "Requires internet"}
-              className="btn-secondary btn-icon"
-              aria-label="Share trip"
-            >
-              <ShareIcon className="h-4 w-4" />
-            </button>
-            {canEdit(role) && (
-              <button
-                onClick={() => editable && setEditing("new")}
-                disabled={!editable}
-                title={editable ? undefined : "Requires internet"}
-                className="btn-primary btn-sm"
-              >
-                <PlusIcon className="h-4 w-4" />
-                Add event
-              </button>
-            )}
-            {/* Every member (viewers included) can sync the trip to their calendar;
-                deleting the trip stays owner-only. */}
-            {(role === "owner" || !!trip.calendar_token) && (
-              <TripMenu
-                online={online}
-                hasSyncLink={!!trip.calendar_token}
-                canDelete={role === "owner"}
-                deleting={deletingTrip}
-                open={menuOpen}
-                setOpen={setMenuOpen}
-                onSync={() => setSyncing(true)}
-                onDelete={deleteTrip}
-              />
-            )}
-          </div>
+          <h1 className="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight sm:text-3xl">{trip.name}</h1>
+          <span className="chip shrink-0">{role === "owner" ? "Owner" : role === "edit" ? "Can edit" : "View only"}</span>
         </div>
 
-        <div className="mt-3">
+        <div className="mt-3 flex items-center gap-2">
           {canEdit(role) ? (
             <button
               onClick={() => online && setEditingDates(true)}
@@ -194,6 +157,36 @@ export default function TripView({
           ) : (
             <span className="chip">{tripDateLabel}</span>
           )}
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {canEdit(role) && (
+              <button
+                onClick={() => editable && setEditing("new")}
+                disabled={!editable}
+                title={editable ? "Add event" : "Requires internet"}
+                aria-label="Add event"
+                className="btn-primary btn-sm"
+              >
+                <PlusIcon className="h-4 w-4" />
+                <span>
+                  Add<span className="hidden sm:inline"> event</span>
+                </span>
+              </button>
+            )}
+            {/* Sharing and calendar sync are open to every member (viewers
+                included); deleting the trip stays owner-only. */}
+            <TripMenu
+              online={online}
+              hasSyncLink={!!trip.calendar_token}
+              canDelete={role === "owner"}
+              deleting={deletingTrip}
+              open={menuOpen}
+              setOpen={setMenuOpen}
+              onShare={() => setSharing(true)}
+              onSync={() => setSyncing(true)}
+              onDelete={deleteTrip}
+            />
+          </div>
         </div>
       </header>
 
@@ -228,7 +221,7 @@ export default function TripView({
 
       {tab === "calendar" ? (
         <>
-          <div className="mb-4 flex items-center gap-3">
+          <div className="mb-4 flex items-center justify-between gap-3 sm:justify-start">
             <button
               onClick={() => weekStart > firstWeek && setWeekStart(addDays(weekStart, -7))}
               disabled={weekStart <= firstWeek}
@@ -237,7 +230,7 @@ export default function TripView({
             >
               <ChevronLeftIcon className="h-4 w-4" />
             </button>
-            <span className="min-w-40 text-sm font-medium text-ink/80">{weekLabel}</span>
+            <span className="min-w-40 text-center text-sm font-medium text-ink/80 sm:text-left">{weekLabel}</span>
             <button
               onClick={() => weekStart < lastWeek && setWeekStart(addDays(weekStart, 7))}
               disabled={weekStart >= lastWeek}
@@ -313,6 +306,7 @@ function TripMenu({
   deleting,
   open,
   setOpen,
+  onShare,
   onSync,
   onDelete
 }: {
@@ -322,6 +316,7 @@ function TripMenu({
   deleting: boolean;
   open: boolean;
   setOpen: (v: boolean) => void;
+  onShare: () => void;
   onSync: () => void;
   onDelete: () => void;
 }) {
@@ -352,6 +347,20 @@ function TripMenu({
           role="menu"
           className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-ink/10 bg-surface p-1.5 shadow-panel"
         >
+          <button
+            role="menuitem"
+            onClick={() => {
+              if (!online) return;
+              setOpen(false);
+              onShare();
+            }}
+            disabled={!online}
+            title={online ? undefined : "Requires internet"}
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-ink hover:bg-ink/5 disabled:opacity-40"
+          >
+            <ShareIcon className="h-4 w-4 text-ink/50" />
+            Share trip
+          </button>
           {hasSyncLink && (
             <button
               role="menuitem"

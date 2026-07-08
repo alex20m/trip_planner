@@ -74,7 +74,7 @@ describe("EventModal", () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
     await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
-    const startInput = screen.getByText("Start").querySelector("input")!;
+    const startInput = screen.getByPlaceholderText("Start");
     fireEvent.change(startInput, { target: { value: "2026-07-10T10:00" } });
     await userEvent.type(screen.getByPlaceholderText("Notes (optional)"), "Bring tickets");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
