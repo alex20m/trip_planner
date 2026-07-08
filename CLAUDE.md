@@ -12,6 +12,27 @@ Do not stop after planning. Start implementing immediately and only ask if block
 
 ---
 
+## PR & Merge Policy (default: auto)
+
+This is a standing, advance authorization for the harness's normal
+"confirm before PR / confirm before merge" behavior. It applies unless the
+user says otherwise for that specific task:
+
+- Always open an MR/PR when a task's changes are pushed — do not wait to be
+  asked.
+- Once CI/the pipeline goes green on that MR, merge it automatically.
+  Getting CI green **is** sufficient authorization to merge — do not stop
+  and ask first.
+- This default can be suspended per-task by an explicit instruction (e.g.
+  "don't merge this one", "wait for review first"). Absent that, always
+  auto-PR and auto-merge on green.
+- This policy covers PR creation and merging only. It does not extend to
+  other destructive/hard-to-reverse actions (force-push, history rewrites,
+  deleting branches other than the task's own worktree branch, etc.) —
+  those still follow normal confirm-first behavior.
+
+---
+
 ## Parallel Workflow
 
 Multiple tasks may be in flight at once (different agents/sessions or the same
@@ -93,7 +114,9 @@ Open an MR from `<branch-name>` to `main` and wait for CI/CD to run.
 
 - Check the pipeline/PR status and do NOT remove the worktree or stop the agent until all checks pass.
 - If CI fails, iterate in the same worktree/branch and re-run the pipeline.
-- Only merge once explicitly asked to; getting CI green is not the same as being told to merge.
+- Once all checks are green, merge automatically — see "PR & Merge Policy"
+  above. Do not wait to be asked, unless the user said not to merge this
+  particular task.
 
 ### Delete worktree
 
