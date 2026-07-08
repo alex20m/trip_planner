@@ -163,10 +163,13 @@ export default function TripView({
                 Add event
               </button>
             )}
-            {role === "owner" && (
+            {/* Every member (viewers included) can sync the trip to their calendar;
+                deleting the trip stays owner-only. */}
+            {(role === "owner" || !!trip.calendar_token) && (
               <TripMenu
                 online={online}
                 hasSyncLink={!!trip.calendar_token}
+                canDelete={role === "owner"}
                 deleting={deletingTrip}
                 open={menuOpen}
                 setOpen={setMenuOpen}
@@ -178,7 +181,7 @@ export default function TripView({
         </div>
 
         <div className="mt-3">
-          {role === "owner" ? (
+          {canEdit(role) ? (
             <button
               onClick={() => online && setEditingDates(true)}
               disabled={!online}
@@ -306,6 +309,7 @@ export default function TripView({
 function TripMenu({
   online,
   hasSyncLink,
+  canDelete,
   deleting,
   open,
   setOpen,
@@ -314,6 +318,7 @@ function TripMenu({
 }: {
   online: boolean;
   hasSyncLink: boolean;
+  canDelete: boolean;
   deleting: boolean;
   open: boolean;
   setOpen: (v: boolean) => void;
@@ -360,20 +365,22 @@ function TripMenu({
               Sync calendar
             </button>
           )}
-          <button
-            role="menuitem"
-            onClick={() => {
-              if (online && !deleting) {
-                setOpen(false);
-                onDelete();
-              }
-            }}
-            disabled={!online || deleting}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-40 dark:text-red-400"
-          >
-            <TrashIcon className="h-4 w-4" />
-            {deleting ? "Deleting…" : "Delete trip"}
-          </button>
+          {canDelete && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                if (online && !deleting) {
+                  setOpen(false);
+                  onDelete();
+                }
+              }}
+              disabled={!online || deleting}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-40 dark:text-red-400"
+            >
+              <TrashIcon className="h-4 w-4" />
+              {deleting ? "Deleting…" : "Delete trip"}
+            </button>
+          )}
         </div>
       )}
     </div>

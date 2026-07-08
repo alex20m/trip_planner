@@ -92,11 +92,26 @@ describe("TripView — deleting a trip", () => {
     expect(deleteEq).not.toHaveBeenCalled();
   });
 
-  it("does not show trip options to editors or viewers", () => {
-    render(<TripView trip={trip} role="edit" initialEvents={[]} initialSections={[]} />);
-    expect(screen.queryByRole("button", { name: "More trip options" })).not.toBeInTheDocument();
+  it("does not offer Delete trip to editors or viewers, but lets them sync the calendar", async () => {
+    const syncable = { ...trip, calendar_token: "tok-1" };
+    for (const role of ["edit", "read"] as const) {
+      const { unmount } = render(
+        <TripView trip={syncable} role={role} initialEvents={[]} initialSections={[]} />
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "More trip options" }));
+      expect(screen.getByRole("menuitem", { name: "Sync calendar" })).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "Delete trip" })).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("lets editors open the trip-dates editor but not viewers", () => {
+    const { unmount } = render(<TripView trip={trip} role="edit" initialEvents={[]} initialSections={[]} />);
+    expect(screen.getByTitle("Edit trip dates")).toBeInTheDocument();
+    unmount();
 
     render(<TripView trip={trip} role="read" initialEvents={[]} initialSections={[]} />);
-    expect(screen.queryByRole("button", { name: "More trip options" })).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Edit trip dates")).not.toBeInTheDocument();
   });
 });
