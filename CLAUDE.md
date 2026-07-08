@@ -23,6 +23,11 @@ user says otherwise for that specific task:
 - Once CI/the pipeline goes green on that MR, merge it automatically.
   Getting CI green **is** sufficient authorization to merge — do not stop
   and ask first.
+- Do not auto-merge if the MR has merge conflicts with `main` (not
+  mergeable), even if CI is green. Rebase onto `origin/main` and resolve
+  the conflicts in the same branch, then re-check CI before merging. If
+  conflict resolution is non-trivial or changes intent, ask before
+  proceeding instead of guessing.
 - This default can be suspended per-task by an explicit instruction (e.g.
   "don't merge this one", "wait for review first"). Absent that, always
   auto-PR and auto-merge on green.
