@@ -16,8 +16,19 @@ type TripStub = { id: string; name: string; start_date?: string; end_date?: stri
 
 const KEY = "trips-list";
 
-function dateRange(startDate: string, endDate: string) {
-  return `${format(parseDateOnly(startDate), "d MMM", { locale: enUS })} – ${format(parseDateOnly(endDate), "d MMM yyyy", { locale: enUS })}`;
+function TripDateRange({ startDate, endDate }: { startDate: string; endDate: string }) {
+  const start = parseDateOnly(startDate);
+  const end = parseDateOnly(endDate);
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const startLabel = format(start, sameYear ? "d MMM" : "d MMM yyyy", { locale: enUS });
+  const endLabel = format(end, "d MMM yyyy", { locale: enUS });
+
+  return (
+    <span className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-xs text-ink/45">
+      <span>{startLabel} –</span>
+      <span>{endLabel}</span>
+    </span>
+  );
 }
 
 export default function TripList({ initialTrips }: { initialTrips: TripStub[] }) {
@@ -70,9 +81,7 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
             >
               <span className="min-w-0">
                 <span className="block truncate font-medium">{t.name}</span>
-                {t.start_date && t.end_date && (
-                  <span className="mt-0.5 block text-xs text-ink/45">{dateRange(t.start_date, t.end_date)}</span>
-                )}
+                {t.start_date && t.end_date && <TripDateRange startDate={t.start_date} endDate={t.end_date} />}
               </span>
               <ChevronRightIcon className="h-4 w-4 shrink-0 text-ink/25 transition-colors group-hover:text-ink/50" />
             </Link>
