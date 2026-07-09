@@ -35,7 +35,8 @@ describe("NewTripForm", () => {
   it("creates a trip with default start/end dates and navigates to it", async () => {
     insertSingle.mockResolvedValue({ data: { id: "trip-123" }, error: null });
     const push = vi.fn();
-    vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() } as any);
+    const refresh = vi.fn();
+    vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), refresh } as any);
 
     render(<NewTripForm />);
     await userEvent.click(screen.getByRole("button", { name: "New trip" }));
@@ -43,6 +44,9 @@ describe("NewTripForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create trip" }));
 
     expect(insertSingle).toHaveBeenCalled();
+    // Must bust the client Router Cache so the home page doesn't serve a
+    // stale trip list (missing this trip) if the user navigates straight back.
+    expect(refresh).toHaveBeenCalled();
     expect(push).toHaveBeenCalledWith("/trips/trip-123");
   });
 
@@ -50,7 +54,7 @@ describe("NewTripForm", () => {
     let resolveInsert!: (v: unknown) => void;
     insertSingle.mockReturnValue(new Promise((resolve) => (resolveInsert = resolve)));
     const push = vi.fn();
-    vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() } as any);
+    vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), refresh: vi.fn() } as any);
 
     render(<NewTripForm />);
     await userEvent.click(screen.getByRole("button", { name: "New trip" }));
