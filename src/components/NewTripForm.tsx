@@ -56,7 +56,13 @@ export default function NewTripForm() {
         .select("id")
         .single();
       if (error) setError(error.message);
-      else if (data) router.push(`/trips/${data.id}`);
+      else if (data) {
+        // Bust the client Router Cache so the home page's server-rendered
+        // trip list isn't served stale (for up to its ~30s staleTime) when
+        // the user navigates back right after creating a trip.
+        router.refresh();
+        router.push(`/trips/${data.id}`);
+      }
     } finally {
       setBusy(false);
     }
