@@ -155,4 +155,41 @@ describe("WeekView", () => {
     // Location text appears in the stay preview (agenda + time-grid views) without a modal.
     expect(screen.getAllByText(/123 Beach Road/).length).toBeGreaterThan(0);
   });
+
+  it("shows a stay on both its check-in and check-out day, regardless of local timezone", () => {
+    // Regression test: accommodation start_at/end_at are stored as UTC-midnight
+    // date-only values. In a timezone ahead of UTC (e.g. Europe/Stockholm),
+    // `new Date(iso)` for a UTC midnight lands after local midnight, so a naive
+    // `stayStart <= day` comparison used to drop the stay from its check-in day.
+    const originalTz = process.env.TZ;
+    process.env.TZ = "Europe/Stockholm";
+    try {
+      render(
+        <WeekView
+          weekStart={new Date("2026-07-27T00:00:00")}
+          events={[
+            makeEvent({
+              id: "stay-tz",
+              type: "accommodation",
+              title: "Sov i Tornea",
+              start_at: "2026-07-31T00:00:00Z",
+              end_at: "2026-08-01T00:00:00Z"
+            })
+          ]}
+          rangeStart={new Date("2026-07-27T00:00:00")}
+          rangeEnd={new Date("2026-08-02T00:00:00")}
+        />
+      );
+
+      const cards = Array.from(document.querySelectorAll(".card"));
+      const daysShown = cards
+        .filter((card) => card.textContent?.includes("Sov i Tornea"))
+        .map((card) => card.querySelector(".text-sm.font-semibold")?.textContent);
+
+      expect(daysShown).toContain("31 Jul");
+      expect(daysShown).toContain("1 Aug");
+    } finally {
+      process.env.TZ = originalTz;
+    }
+  });
 });

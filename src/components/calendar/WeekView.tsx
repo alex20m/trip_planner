@@ -1,8 +1,16 @@
 "use client";
 import { addDays, differenceInCalendarDays, format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
-import type { TripEvent } from "@/lib/types";
+import { parseDateOnly, type TripEvent } from "@/lib/types";
 import { BedIcon, NoteIcon } from "@/components/Icons";
+
+// Accommodation start_at/end_at are stored as UTC-midnight date-only values.
+// Parsing them with `new Date(iso)` keeps that UTC instant, which in any
+// timezone ahead of UTC lands after local midnight — so a stay's check-in
+// day fails `stayStart(e) <= day` and silently drops off its first night.
+// Route through parseDateOnly (local midnight, like `day`/`weekStart`) instead.
+const stayStart = (e: TripEvent) => parseDateOnly(e.start_at.slice(0, 10));
+const stayEnd = (e: TripEvent) => (e.end_at ? parseDateOnly(e.end_at.slice(0, 10)) : stayStart(e));
 
 const HOUR_PX = 44;
 const START_HOUR = 6;
@@ -40,9 +48,7 @@ export default function WeekView({
   );
   const stays = events.filter((e) => {
     if (e.type !== "accommodation") return false;
-    const s = new Date(e.start_at);
-    const en = e.end_at ? new Date(e.end_at) : s;
-    return s < weekEnd && en >= weekStart;
+    return stayStart(e) < weekEnd && stayEnd(e) >= weekStart;
   });
 
   return (
@@ -50,11 +56,7 @@ export default function WeekView({
       {/* Agenda view: stacked days, no horizontal scrolling — used on small screens */}
       <div className="space-y-3 sm:hidden">
         {days.map((day) => {
-          const dayStays = stays.filter((e) => {
-            const s = new Date(e.start_at);
-            const en = e.end_at ? new Date(e.end_at) : s;
-            return s <= day && en >= day;
-          });
+          const dayStays = stays.filter((e) => stayStart(e) <= day && stayEnd(e) >= day);
           const dayTimed = timed
             .filter((e) => isSameDay(new Date(e.start_at), day))
             .sort((a, b) => +new Date(a.start_at) - +new Date(b.start_at));
@@ -142,10 +144,8 @@ export default function WeekView({
               style={{ gridColumn: `2 / ${days.length + 2}`, gridTemplateColumns: `repeat(${days.length}, 1fr)` }}
             >
               {stays.map((e) => {
-                const s = new Date(e.start_at);
-                const en = e.end_at ? new Date(e.end_at) : s;
-                const startCol = Math.max(0, differenceInCalendarDays(s, gridStart));
-                const endCol = Math.min(days.length - 1, differenceInCalendarDays(en, gridStart));
+                const startCol = Math.max(0, differenceInCalendarDays(stayStart(e), gridStart));
+                const endCol = Math.min(days.length - 1, differenceInCalendarDays(stayEnd(e), gridStart));
                 return (
                   <button
                     key={e.id}
