@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { EventType, TripEvent } from "@/lib/types";
 import { EVENT_COLORS } from "@/lib/types";
 import Spinner from "@/components/Spinner";
+import LocationAutocomplete from "@/components/LocationAutocomplete";
 import { BedIcon, CompassIcon, PlaneIcon } from "@/components/Icons";
 
 const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
@@ -33,6 +34,14 @@ export default function EventModal({
   const [startDate, setStartDate] = useState(event?.start_at?.slice(0, 10) ?? "");
   const [endDate, setEndDate] = useState(event?.end_at?.slice(0, 10) ?? "");
   const [location, setLocation] = useState(event?.location ?? "");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    event && event.location_lat != null && event.location_lng != null
+      ? { lat: event.location_lat, lng: event.location_lng }
+      : null
+  );
+  // Locations must be picked from the geocoder suggestions, not typed freely.
+  // The stored location of an existing event counts as already confirmed.
+  const [locationConfirmed, setLocationConfirmed] = useState(true);
   const [description, setDescription] = useState(event?.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,6 +62,10 @@ export default function EventModal({
       setError("Check-out date must be after check-in date.");
       return;
     }
+    if (location.trim() && !locationConfirmed) {
+      setError("Choose a location from the suggestions — only real places can be used.");
+      return;
+    }
     setSaving(true);
     const supabase = createClient();
     const payload = {
@@ -62,6 +75,8 @@ export default function EventModal({
       start_at: new Date(start_at).toISOString(),
       end_at: end_at ? new Date(end_at).toISOString() : null,
       location: location.trim() || null,
+      location_lat: location.trim() ? (coords?.lat ?? null) : null,
+      location_lng: location.trim() ? (coords?.lng ?? null) : null,
       description: description.trim() || null
     };
     const q = event
@@ -143,7 +158,20 @@ export default function EventModal({
               </div>
             </div>
           )}
-          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)" className="field" />
+          <LocationAutocomplete
+            value={location}
+            onChange={(text) => {
+              setLocation(text);
+              setCoords(null);
+              // Typed text is unconfirmed until picked; clearing the field is fine.
+              setLocationConfirmed(text.trim() === "");
+            }}
+            onSelect={(place) => {
+              setLocation(place.name);
+              setCoords({ lat: place.lat, lng: place.lng });
+              setLocationConfirmed(true);
+            }}
+          />
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}

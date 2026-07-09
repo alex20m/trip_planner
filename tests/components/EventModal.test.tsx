@@ -12,10 +12,15 @@ vi.mock("@/lib/supabase/client", () => ({
   })
 }));
 
+const searchPlaces = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/geocode", () => ({ searchPlaces }));
+
 describe("EventModal", () => {
   beforeEach(() => {
     insertSingle.mockReset();
     insert.mockClear();
+    searchPlaces.mockReset();
+    searchPlaces.mockResolvedValue([]);
   });
 
   it("requires a check-out date for a Stay event", async () => {
@@ -81,6 +86,42 @@ describe("EventModal", () => {
 
     await waitFor(() => expect(insertSingle).toHaveBeenCalled());
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ description: "Bring tickets" }));
+  });
+
+  it("rejects a location typed by hand that wasn't picked from the suggestions", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "made-up place" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText(/choose a location from the suggestions/i)).toBeInTheDocument();
+    expect(insertSingle).not.toHaveBeenCalled();
+  });
+
+  it("saves the place name and coordinates of a picked suggestion", async () => {
+    searchPlaces.mockResolvedValue([{ name: "Colosseum, Rome, Italy", lat: 41.8902, lng: 12.4922 }]);
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null },
+      error: null
+    });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "colos" } });
+    fireEvent.mouseDown(await screen.findByText("Colosseum, Rome, Italy", undefined, { timeout: 2000 }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        location: "Colosseum, Rome, Italy",
+        location_lat: 41.8902,
+        location_lng: 12.4922
+      })
+    );
   });
 
   it("hides the Cancel button and shows a saving state while saving", async () => {

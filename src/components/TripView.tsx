@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { addDays, format, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -20,6 +21,12 @@ import OfflineBanner from "@/components/OfflineBanner";
 import NotesPanel from "@/components/notes/NotesPanel";
 import { ChevronLeftIcon, ChevronRightIcon, MoreIcon, PencilIcon, PlusIcon, RefreshIcon, ShareIcon, TrashIcon } from "@/components/Icons";
 
+// Leaflet only runs in the browser, so the map panel must skip SSR.
+const MapPanel = dynamic(() => import("@/components/map/MapPanel"), {
+  ssr: false,
+  loading: () => <div className="h-[26rem] w-full animate-pulse rounded-2xl bg-ink/5 sm:h-[32rem]" />
+});
+
 export default function TripView({
   trip: initialTrip,
   role,
@@ -38,7 +45,7 @@ export default function TripView({
   const [sections, setSections] = useState(initialSections);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [deletingTrip, setDeletingTrip] = useState(false);
-  const [tab, setTab] = useState<"calendar" | "notes">("calendar");
+  const [tab, setTab] = useState<"calendar" | "notes" | "map">("calendar");
   const [menuOpen, setMenuOpen] = useState(false);
   const tripStart = useMemo(() => parseDateOnly(trip.start_date), [trip.start_date]);
   const tripEnd = useMemo(() => parseDateOnly(trip.end_date), [trip.end_date]);
@@ -226,6 +233,16 @@ export default function TripView({
         >
           Notes{sections.length > 0 ? ` (${sections.length})` : ""}
         </button>
+        <button
+          role="tab"
+          aria-selected={tab === "map"}
+          onClick={() => setTab("map")}
+          className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-150 ${
+            tab === "map" ? "bg-charcoal text-white" : "text-ink/55 hover:text-ink"
+          }`}
+        >
+          Map
+        </button>
       </div>
 
       {tab === "calendar" ? (
@@ -266,8 +283,10 @@ export default function TripView({
             onSelect={(e) => setViewing(e)}
           />
         </>
-      ) : (
+      ) : tab === "notes" ? (
         <NotesPanel tripId={trip.id} sections={sections} setSections={setSections} editable={editable} />
+      ) : (
+        <MapPanel events={events} />
       )}
 
       {viewing && (
