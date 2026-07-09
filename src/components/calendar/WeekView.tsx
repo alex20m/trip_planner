@@ -72,7 +72,7 @@ export default function WeekView({
                   {format(day, "d MMM", { locale: enUS })}
                 </span>
               </div>
-              <div className="space-y-1.5 p-2">
+              <div className="space-y-1.5 px-2 pb-2 pt-1.5">
                 {dayStays.map((e) => (
                   <button
                     key={e.id}
@@ -230,9 +230,9 @@ export default function WeekView({
 function EventNote({ text }: { text: string | null }) {
   if (!text) return null;
   return (
-    <span className="mt-1 flex items-start gap-1.5 text-xs font-normal italic leading-snug opacity-70">
+    <span className="mt-0.5 flex items-start gap-1.5 text-xs font-normal italic leading-snug opacity-70">
       <NoteIcon className="mt-px h-3 w-3 shrink-0" />
-      <span className="line-clamp-2 min-w-0 break-words">{text}</span>
+      <span className="line-clamp-2 min-h-0 min-w-0 break-words">{text}</span>
     </span>
   );
 }
