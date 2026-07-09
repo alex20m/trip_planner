@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { idbGet, idbSet, prefetchAllTrips, tripSnapshotKey } from "@/lib/offlineStore";
+import { getLastSynced, idbGet, idbSet, prefetchAllTrips, setLastSynced, tripSnapshotKey } from "@/lib/offlineStore";
 
 describe("idbSet / idbGet", () => {
   it("returns null for a key that was never set", async () => {
@@ -16,6 +16,21 @@ describe("idbSet / idbGet", () => {
 describe("tripSnapshotKey", () => {
   it("namespaces the key by trip id", () => {
     expect(tripSnapshotKey("abc")).toBe("trip:abc");
+  });
+});
+
+describe("last synced timestamp", () => {
+  it("round-trips a shared timestamp and returns the value written", async () => {
+    const written = await setLastSynced(1700000000000);
+    expect(written).toBe(1700000000000);
+    expect(await getLastSynced()).toBe(1700000000000);
+  });
+
+  it("defaults to the current time when no timestamp is passed", async () => {
+    const before = Date.now();
+    const written = await setLastSynced();
+    expect(written).toBeGreaterThanOrEqual(before);
+    expect(await getLastSynced()).toBe(written);
   });
 });
 

@@ -49,6 +49,23 @@ export interface TripSnapshot {
 
 export const tripSnapshotKey = (tripId: string) => `trip:${tripId}`;
 
+// A single app-wide "last synced" timestamp. Each view used to stamp its own
+// cache entry with its own time (the trips list vs. a per-trip snapshot),
+// which made the offline banner report different times on the home screen and
+// inside a trip. Every view now reads and writes this shared value instead, so
+// the "last saved data" time is consistent everywhere. Written whenever fresh
+// server data is cached while online; read to render the offline banner.
+const LAST_SYNCED_KEY = "last-synced";
+
+export async function setLastSynced(ts: number = Date.now()): Promise<number> {
+  await idbSet(LAST_SYNCED_KEY, ts);
+  return ts;
+}
+
+export async function getLastSynced(): Promise<number | null> {
+  return idbGet<number>(LAST_SYNCED_KEY);
+}
+
 /**
  * Fetches full data (role, events, notes) for a list of trips and saves each
  * trip as a snapshot in IndexedDB. Runs in the background when the home page

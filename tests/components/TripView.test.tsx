@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { format } from "date-fns";
+import { enUS } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import TripView from "@/components/TripView";
 import type { Trip } from "@/lib/types";
@@ -19,9 +21,13 @@ vi.mock("@/lib/supabase/client", () => ({
 
 const idbGet = vi.fn().mockResolvedValue(undefined);
 const idbSet = vi.fn().mockResolvedValue(undefined);
+const setLastSynced = vi.fn((ts?: number) => Promise.resolve(ts ?? Date.now()));
+const getLastSynced = vi.fn().mockResolvedValue(null);
 vi.mock("@/lib/offlineStore", () => ({
   idbGet: (...args: unknown[]) => idbGet(...args),
   idbSet: (...args: unknown[]) => idbSet(...args),
+  setLastSynced: (ts?: number) => setLastSynced(ts),
+  getLastSynced: () => getLastSynced(),
   tripSnapshotKey: (id: string) => `trip-${id}`
 }));
 
@@ -45,6 +51,9 @@ describe("TripView — offline snapshots", () => {
     idbGet.mockReset();
     idbGet.mockResolvedValue(undefined);
     idbSet.mockClear();
+    setLastSynced.mockClear();
+    getLastSynced.mockReset();
+    getLastSynced.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -101,6 +110,25 @@ describe("TripView — offline snapshots", () => {
     await userEvent.click(screen.getByRole("tab", { name: /notes/i }));
     expect(await screen.findByText("Passport")).toBeInTheDocument();
     expect(idbSet).not.toHaveBeenCalled();
+  });
+
+  it("sources the offline banner time from the shared last-synced value, not the snapshot's own savedAt", async () => {
+    online = false;
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => false });
+    idbGet.mockResolvedValue({
+      trip: { id: "trip-1", name: "Rome 2026" },
+      role: "owner",
+      events: [],
+      sections: [],
+      savedAt: 1700000000000
+    });
+    getLastSynced.mockResolvedValue(1_700_000_100_000);
+
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    await waitFor(() => expect(getLastSynced).toHaveBeenCalled());
+    const label = format(new Date(1_700_000_100_000), "d MMM, HH:mm", { locale: enUS });
+    expect(await screen.findByText(new RegExp(`showing last saved data \\(${label}\\)`))).toBeInTheDocument();
   });
 });
 
