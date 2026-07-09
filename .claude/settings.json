@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "permissions": {
+    "defaultMode": "auto",
     "allow": [
       "mcp__Claude_Code_Remote__subscribe_pr_activity",
       "mcp__Claude_Code_Remote__unsubscribe_pr_activity",
