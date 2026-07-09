@@ -5,7 +5,7 @@ Stack: Next.js 14 (App Router) · Supabase (Postgres + Auth) · Resend (email) �
 ## 1. Supabase
 
 1. Create a project at https://supabase.com (region: `eu-north-1` Stockholm is closest for Finland).
-2. Open **SQL Editor** → paste the whole of `supabase/migrations/0001_init.sql` → Run. Then do the same with `supabase/migrations/0002_calendar_sync.sql`.
+2. Open **SQL Editor** → run every file in `supabase/migrations/` in numeric order (`0001_init.sql`, `0002_calendar_sync.sql`, … `0008_event_location_coords.sql`).
 3. **Authentication → Providers → Email**: make sure Email is enabled. Magic link works out of the box.
    - Set **Email OTP length** to **6** — the sign-in screen accepts exactly 6 digits (local dev already uses `otp_length = 6` in `supabase/config.toml`). A project configured to send 8-digit codes will fail to verify here.
    - The **Magic Link** email template must contain `{{ .Token }}` so the code is included alongside the link.

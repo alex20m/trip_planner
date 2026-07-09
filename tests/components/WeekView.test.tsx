@@ -15,6 +15,8 @@ function makeEvent(overrides: Partial<TripEvent>): TripEvent {
     start_at: "2026-08-05T12:00:00Z",
     end_at: null,
     location: null,
+    location_lat: null,
+    location_lng: null,
     description: null,
     ...overrides
   };

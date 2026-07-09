@@ -23,6 +23,8 @@ export interface TripEvent {
   start_at: string;
   end_at: string | null;
   location: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
   description: string | null;
   updated_at?: string;
 }
