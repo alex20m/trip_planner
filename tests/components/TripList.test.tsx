@@ -113,4 +113,28 @@ describe("TripList", () => {
 
     expect(await screen.findByRole("link", { name: "Cached Trip" })).toBeInTheDocument();
   });
+
+  it("omits the year from the start date when a trip stays within one year", () => {
+    render(
+      <TripList
+        initialTrips={[
+          { id: "1", name: "Rome", start_date: "2026-03-10", end_date: "2026-03-17", created_at: "2026-01-01" }
+        ]}
+      />
+    );
+    expect(screen.getByText("10 Mar –")).toBeInTheDocument();
+    expect(screen.getByText("17 Mar 2026")).toBeInTheDocument();
+  });
+
+  it("shows the year on both dates when a trip spans a year boundary", () => {
+    render(
+      <TripList
+        initialTrips={[
+          { id: "1", name: "Rome", start_date: "2026-12-28", end_date: "2027-01-03", created_at: "2026-01-01" }
+        ]}
+      />
+    );
+    expect(screen.getByText("28 Dec 2026 –")).toBeInTheDocument();
+    expect(screen.getByText("3 Jan 2027")).toBeInTheDocument();
+  });
 });
