@@ -8,7 +8,7 @@ import type { NoteSection, Trip, TripEvent, TripRole } from "@/lib/types";
 import { canEdit, parseDateOnly, EVENT_COLORS } from "@/lib/types";
 import { useOnline } from "@/hooks/useOnline";
 import { createClient } from "@/lib/supabase/client";
-import { idbGet, idbSet, tripSnapshotKey, type TripSnapshot } from "@/lib/offlineStore";
+import { getLastSynced, idbGet, idbSet, setLastSynced, tripSnapshotKey, type TripSnapshot } from "@/lib/offlineStore";
 import { markTripDeleted, unmarkTripDeleted } from "@/lib/optimistic";
 import WeekView from "@/components/calendar/WeekView";
 import EventModal from "@/components/EventModal";
@@ -82,20 +82,22 @@ export default function TripView({
   useEffect(() => {
     const key = tripSnapshotKey(trip.id);
     if (online && navigator.onLine) {
+      const now = Date.now();
       const snapshot: TripSnapshot = {
         trip: { id: trip.id, name: trip.name },
         role,
         events,
         sections,
-        savedAt: Date.now()
+        savedAt: now
       };
-      idbSet(key, snapshot).then(() => setSavedAt(snapshot.savedAt));
+      idbSet(key, snapshot);
+      setLastSynced(now).then(setSavedAt);
     } else if (!online) {
       idbGet<TripSnapshot>(key).then((snap) => {
         if (snap) {
           setEvents(snap.events as TripEvent[]);
           setSections(snap.sections as NoteSection[]);
-          setSavedAt(snap.savedAt);
+          getLastSynced().then((ts) => setSavedAt(ts ?? snap.savedAt));
         }
       });
     }
@@ -107,8 +109,10 @@ export default function TripView({
   useEffect(() => {
     if (!online || !navigator.onLine) return;
     const key = tripSnapshotKey(trip.id);
-    const snapshot: TripSnapshot = { trip: { id: trip.id, name: trip.name }, role, events, sections, savedAt: Date.now() };
-    idbSet(key, snapshot).then(() => setSavedAt(snapshot.savedAt));
+    const now = Date.now();
+    const snapshot: TripSnapshot = { trip: { id: trip.id, name: trip.name }, role, events, sections, savedAt: now };
+    idbSet(key, snapshot);
+    setLastSynced(now).then(setSavedAt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, sections]);
 

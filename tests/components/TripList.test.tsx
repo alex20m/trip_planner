@@ -1,16 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { format } from "date-fns";
+import { enUS } from "date-fns/locale";
 import TripList from "@/components/TripList";
 import { markTripDeleted } from "@/lib/optimistic";
 
 const idbSet = vi.fn().mockResolvedValue(undefined);
 const idbGet = vi.fn();
 const prefetchAllTrips = vi.fn().mockResolvedValue(undefined);
+const setLastSynced = vi.fn((ts?: number) => Promise.resolve(ts ?? Date.now()));
+const getLastSynced = vi.fn().mockResolvedValue(null);
 
 vi.mock("@/lib/offlineStore", () => ({
   idbSet: (...args: unknown[]) => idbSet(...args),
   idbGet: (...args: unknown[]) => idbGet(...args),
-  prefetchAllTrips: (...args: unknown[]) => prefetchAllTrips(...args)
+  prefetchAllTrips: (...args: unknown[]) => prefetchAllTrips(...args),
+  setLastSynced: (ts?: number) => setLastSynced(ts),
+  getLastSynced: () => getLastSynced()
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -28,6 +34,9 @@ describe("TripList", () => {
     idbSet.mockClear();
     idbGet.mockReset();
     prefetchAllTrips.mockClear();
+    setLastSynced.mockClear();
+    getLastSynced.mockReset();
+    getLastSynced.mockResolvedValue(null);
     window.sessionStorage.clear();
   });
 
@@ -136,5 +145,18 @@ describe("TripList", () => {
     );
     expect(screen.getByText("28 Dec 2026 –")).toBeInTheDocument();
     expect(screen.getByText("3 Jan 2027")).toBeInTheDocument();
+  });
+
+  it("sources the offline banner time from the shared last-synced value, not the list's own savedAt", async () => {
+    online = false;
+    idbGet.mockResolvedValue({ trips: [{ id: "9", name: "Cached Trip", created_at: "2026-01-01" }], savedAt: 42 });
+    getLastSynced.mockResolvedValue(1_700_000_000_000);
+
+    render(<TripList initialTrips={[]} />);
+
+    await screen.findByRole("link", { name: "Cached Trip" });
+    await waitFor(() => expect(getLastSynced).toHaveBeenCalled());
+    const label = format(new Date(1_700_000_000_000), "d MMM, HH:mm", { locale: enUS });
+    expect(await screen.findByText(new RegExp(`showing last saved data \\(${label}\\)`))).toBeInTheDocument();
   });
 });

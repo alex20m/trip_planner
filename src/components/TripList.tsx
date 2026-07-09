@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { useOnline } from "@/hooks/useOnline";
 import { createClient } from "@/lib/supabase/client";
-import { idbGet, idbSet, prefetchAllTrips } from "@/lib/offlineStore";
+import { getLastSynced, idbGet, idbSet, prefetchAllTrips, setLastSynced } from "@/lib/offlineStore";
 import { reconcileDeletedTrips } from "@/lib/optimistic";
 import { parseDateOnly } from "@/lib/types";
 import OfflineBanner from "@/components/OfflineBanner";
@@ -49,7 +49,9 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
       const pending = reconcileDeletedTrips(initialTrips.map((t) => t.id));
       const visible = pending.length ? initialTrips.filter((t) => !pending.includes(t.id)) : initialTrips;
       setTrips(visible);
-      idbSet(KEY, { trips: visible, savedAt: Date.now() }).then(() => setSavedAt(Date.now()));
+      const now = Date.now();
+      idbSet(KEY, { trips: visible, savedAt: now });
+      setLastSynced(now).then(setSavedAt);
       // Background prefetch: cache EVERY trip's calendar + notes so they can
       // be opened offline, not just the ones already visited.
       if (visible.length > 0) {
@@ -61,7 +63,7 @@ export default function TripList({ initialTrips }: { initialTrips: TripStub[] })
       idbGet<{ trips: TripStub[]; savedAt: number }>(KEY).then((cached) => {
         if (cached) {
           setTrips(cached.trips);
-          setSavedAt(cached.savedAt);
+          getLastSynced().then((ts) => setSavedAt(ts ?? cached.savedAt));
         }
       });
     }
