@@ -116,15 +116,15 @@ describe("MapPanel", () => {
       />
     );
 
-    // No departure/arrival pins — the only markers are the direction arrows
-    // along the leg, and those must not intercept clicks meant for the line.
-    expect(marker).toHaveBeenCalledTimes(3);
+    // No departure/arrival pins — the only marker is the single direction
+    // arrow along the leg, and it must not intercept clicks meant for the line.
+    expect(marker).toHaveBeenCalledTimes(1);
     for (const [at, options] of marker.mock.calls as unknown as [[number, number], { interactive?: boolean }][]) {
       expect(options).toMatchObject({ interactive: false });
       expect(at).not.toEqual([60.17, 24.94]);
       expect(at).not.toEqual([65.01, 25.47]);
     }
-    // One of the arrows sits at the midpoint of the leg.
+    // The arrow sits at the midpoint of the leg.
     expect(marker).toHaveBeenCalledWith([(60.17 + 65.01) / 2, (24.94 + 25.47) / 2], expect.anything());
     // The connecting line runs from the start to the end destination: a
     // visible dashed line plus a wider invisible click target that opens the
