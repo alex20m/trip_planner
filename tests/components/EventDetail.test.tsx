@@ -16,6 +16,7 @@ function makeEvent(overrides: Partial<TripEvent> = {}): TripEvent {
     location_lat: null,
     location_lng: null,
     description: null,
+    all_day: false,
     ...overrides
   };
 }

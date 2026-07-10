@@ -1,16 +1,16 @@
 "use client";
 import { addDays, differenceInCalendarDays, format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { parseDateOnly, type TripEvent } from "@/lib/types";
-import { BedIcon, NoteIcon } from "@/components/Icons";
+import { isAllDayEvent, parseDateOnly, type EventType, type TripEvent } from "@/lib/types";
+import { BedIcon, CompassIcon, NoteIcon, PlaneIcon } from "@/components/Icons";
 
-// Accommodation start_at/end_at are stored as UTC-midnight date-only values.
+// All-day events' start_at/end_at are stored as UTC-midnight date-only values.
 // Parsing them with `new Date(iso)` keeps that UTC instant, which in any
-// timezone ahead of UTC lands after local midnight — so a stay's check-in
-// day fails `stayStart(e) <= day` and silently drops off its first night.
-// Route through parseDateOnly (local midnight, like `day`/`weekStart`) instead.
-const stayStart = (e: TripEvent) => parseDateOnly(e.start_at.slice(0, 10));
-const stayEnd = (e: TripEvent) => (e.end_at ? parseDateOnly(e.end_at.slice(0, 10)) : stayStart(e));
+// timezone ahead of UTC lands after local midnight — so an event's first
+// day fails `allDayStart(e) <= day` and silently drops off. Route through
+// parseDateOnly (local midnight, like `day`/`weekStart`) instead.
+const allDayStart = (e: TripEvent) => parseDateOnly(e.start_at.slice(0, 10));
+const allDayEnd = (e: TripEvent) => (e.end_at ? parseDateOnly(e.end_at.slice(0, 10)) : allDayStart(e));
 
 const HOUR_PX = 44;
 const START_HOUR = 6;
@@ -21,6 +21,12 @@ const COLORS = {
   travel: "border-travel bg-travel/10 text-travel",
   accommodation: "border-stay bg-stay/15 text-stay"
 } as const;
+
+const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
+  activity: CompassIcon,
+  travel: PlaneIcon,
+  accommodation: BedIcon
+};
 
 export default function WeekView({
   weekStart,
@@ -44,11 +50,11 @@ export default function WeekView({
   const weekEnd = addDays(weekStart, 7);
 
   const timed = events.filter(
-    (e) => e.type !== "accommodation" && new Date(e.start_at) < weekEnd && new Date(e.start_at) >= weekStart
+    (e) => !isAllDayEvent(e) && new Date(e.start_at) < weekEnd && new Date(e.start_at) >= weekStart
   );
-  const stays = events.filter((e) => {
-    if (e.type !== "accommodation") return false;
-    return stayStart(e) < weekEnd && stayEnd(e) >= weekStart;
+  const allDayEvents = events.filter((e) => {
+    if (!isAllDayEvent(e)) return false;
+    return allDayStart(e) < weekEnd && allDayEnd(e) >= weekStart;
   });
 
   return (
@@ -56,7 +62,7 @@ export default function WeekView({
       {/* Agenda view: stacked days, no horizontal scrolling — used on small screens */}
       <div className="space-y-3 sm:hidden">
         {days.map((day) => {
-          const dayStays = stays.filter((e) => stayStart(e) <= day && stayEnd(e) >= day);
+          const dayAllDay = allDayEvents.filter((e) => allDayStart(e) <= day && allDayEnd(e) >= day);
           const dayTimed = timed
             .filter((e) => isSameDay(new Date(e.start_at), day))
             .sort((a, b) => +new Date(a.start_at) - +new Date(b.start_at));
@@ -73,22 +79,25 @@ export default function WeekView({
                 </span>
               </div>
               <div className="space-y-1.5 px-2 pb-2 pt-1.5">
-                {dayStays.map((e) => (
-                  <button
-                    key={e.id}
-                    onClick={() => onSelect?.(e)}
-                    className={`w-full rounded-xl border-l-4 px-3 py-2 text-left transition-transform active:scale-[0.99] ${COLORS.accommodation}`}
-                  >
-                    <span className="flex items-center gap-2 text-sm font-semibold">
-                      <BedIcon className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{e.title}</span>
-                    </span>
-                    {e.location && (
-                      <span className="mt-0.5 block truncate text-xs font-medium opacity-75">{e.location}</span>
-                    )}
-                    <EventNote text={e.description} />
-                  </button>
-                ))}
+                {dayAllDay.map((e) => {
+                  const Icon = TYPE_ICONS[e.type];
+                  return (
+                    <button
+                      key={e.id}
+                      onClick={() => onSelect?.(e)}
+                      className={`w-full rounded-xl border-l-4 px-3 py-2 text-left transition-transform active:scale-[0.99] ${COLORS[e.type]}`}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{e.title}</span>
+                      </span>
+                      {e.location && (
+                        <span className="mt-0.5 block truncate text-xs font-medium opacity-75">{e.location}</span>
+                      )}
+                      <EventNote text={e.description} />
+                    </button>
+                  );
+                })}
                 {dayTimed.map((e) => {
                   const s = new Date(e.start_at);
                   const en = e.end_at ? new Date(e.end_at) : null;
@@ -108,7 +117,7 @@ export default function WeekView({
                     </button>
                   );
                 })}
-                {dayStays.length === 0 && dayTimed.length === 0 && (
+                {dayAllDay.length === 0 && dayTimed.length === 0 && (
                   <p className="px-1.5 py-1 text-sm text-ink/30">No events</p>
                 )}
               </div>
@@ -135,25 +144,26 @@ export default function WeekView({
           ))}
         </div>
 
-        {/* Accommodation: all-day row without a time */}
-        {stays.length > 0 && (
+        {/* All-day row without a time: accommodation plus any event marked "All day" */}
+        {allDayEvents.length > 0 && (
           <div className="relative grid border-b border-ink/10 py-1" style={gridStyle}>
-            <div className="px-2 pt-1 text-[10px] uppercase tracking-wide text-ink/45">Stays</div>
+            <div className="px-2 pt-1 text-[10px] uppercase tracking-wide text-ink/45">All day</div>
             <div
               className="relative grid gap-y-1"
               style={{ gridColumn: `2 / ${days.length + 2}`, gridTemplateColumns: `repeat(${days.length}, 1fr)` }}
             >
-              {stays.map((e) => {
-                const startCol = Math.max(0, differenceInCalendarDays(stayStart(e), gridStart));
-                const endCol = Math.min(days.length - 1, differenceInCalendarDays(stayEnd(e), gridStart));
+              {allDayEvents.map((e) => {
+                const startCol = Math.max(0, differenceInCalendarDays(allDayStart(e), gridStart));
+                const endCol = Math.min(days.length - 1, differenceInCalendarDays(allDayEnd(e), gridStart));
+                const Icon = TYPE_ICONS[e.type];
                 return (
                   <button
                     key={e.id}
                     onClick={() => onSelect?.(e)}
                     style={{ gridColumn: `${startCol + 1} / ${endCol + 2}` }}
-                    className={`mx-0.5 flex items-center gap-1 truncate rounded-lg border-l-4 px-2 py-1 text-left text-xs font-medium shadow-sm transition-transform hover:-translate-y-px ${COLORS.accommodation}`}
+                    className={`mx-0.5 flex items-center gap-1 truncate rounded-lg border-l-4 px-2 py-1 text-left text-xs font-medium shadow-sm transition-transform hover:-translate-y-px ${COLORS[e.type]}`}
                   >
-                    <BedIcon className="h-3 w-3 shrink-0" />
+                    <Icon className="h-3 w-3 shrink-0" />
                     <span className="max-w-[70%] shrink-0 truncate">{e.title}</span>
                     {e.location && (
                       <span className="truncate font-normal opacity-70">· {e.location}</span>

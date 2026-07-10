@@ -124,6 +124,45 @@ describe("EventModal", () => {
     );
   });
 
+  it("switches to a date-only field and saves all_day when the All day box is checked", async () => {
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null, all_day: true },
+      error: null
+    });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    await userEvent.click(screen.getByRole("checkbox", { name: "All day" }));
+    expect(screen.queryByPlaceholderText("Start")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Date"), { target: { value: "2026-07-10" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ all_day: true, start_at: "2026-07-10T00:00:00.000Z" })
+    );
+  });
+
+  it("rejects an all-day end date on or before the start date", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    await userEvent.click(screen.getByRole("checkbox", { name: "All day" }));
+    fireEvent.change(screen.getByPlaceholderText("Date"), { target: { value: "2026-07-10" } });
+    fireEvent.change(screen.getByPlaceholderText("End date (optional)"), { target: { value: "2026-07-10" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText(/end date must be after start date/i)).toBeInTheDocument();
+    expect(insertSingle).not.toHaveBeenCalled();
+  });
+
+  it("does not show the All day checkbox for a Stay, since it is already date-only", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+    expect(screen.queryByRole("checkbox", { name: "All day" })).not.toBeInTheDocument();
+  });
+
   it("hides the Cancel button and shows a saving state while saving", async () => {
     let resolveInsert!: (v: unknown) => void;
     insertSingle.mockReturnValue(new Promise((resolve) => (resolveInsert = resolve)));

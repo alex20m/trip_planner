@@ -26,8 +26,12 @@ export interface TripEvent {
   location_lat: number | null;
   location_lng: number | null;
   description: string | null;
+  all_day: boolean;
   updated_at?: string;
 }
+
+// Accommodation is inherently all-day; activity/travel events opt in via `all_day`.
+export const isAllDayEvent = (e: TripEvent) => e.type === "accommodation" || e.all_day;
 
 export interface NoteSection {
   id: string;

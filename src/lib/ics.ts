@@ -1,4 +1,4 @@
-import type { TripEvent } from "./types";
+import { isAllDayEvent, type TripEvent } from "./types";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -17,7 +17,7 @@ function fmtUTC(iso: string): string {
   );
 }
 
-// Date without time in the form 20260511 (accommodation is saved at UTC midnight)
+// Date without time in the form 20260511 (all-day events are saved at UTC midnight)
 function fmtDate(iso: string): string {
   const d = new Date(iso);
   return d.getUTCFullYear().toString() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate());
@@ -98,8 +98,8 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
     lines.push("SEQUENCE:" + seq);
     if (updatedAt) lines.push("LAST-MODIFIED:" + fmtUTC(updatedAt));
 
-    if (e.type === "accommodation") {
-      // All-day event; DTEND is exclusive in iCal, i.e. check-out day + 1
+    if (isAllDayEvent(e)) {
+      // All-day event; DTEND is exclusive in iCal, i.e. last day + 1
       lines.push("DTSTART;VALUE=DATE:" + fmtDate(e.start_at));
       lines.push("DTEND;VALUE=DATE:" + (e.end_at ? addDaysDate(e.end_at, 1) : addDaysDate(e.start_at, 1)));
     } else {

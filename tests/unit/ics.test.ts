@@ -14,6 +14,7 @@ function event(overrides: Partial<TripEvent> = {}): TripEvent {
     location_lat: null,
     location_lng: null,
     description: null,
+    all_day: false,
     ...overrides
   };
 }
@@ -53,6 +54,17 @@ describe("buildICS", () => {
     );
     expect(ics).toContain("DTSTART;VALUE=DATE:20260801");
     expect(ics).toContain("DTEND;VALUE=DATE:20260804");
+  });
+
+  it("renders an all-day activity as a date-only event, not a timed 00:00 block", () => {
+    const ics = buildICS(
+      { id: "trip-1", name: "Trip" },
+      [event({ type: "activity", title: "City tour", all_day: true, start_at: "2026-08-01T00:00:00.000Z", end_at: null })],
+      "example.com"
+    );
+    expect(ics).toContain("DTSTART;VALUE=DATE:20260801");
+    expect(ics).toContain("DTEND;VALUE=DATE:20260802");
+    expect(ics).not.toContain("DTSTART:20260801T000000Z");
   });
 
   it("defaults accommodation DTEND to the day after check-in when there is no checkout", () => {
