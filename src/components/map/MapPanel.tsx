@@ -52,9 +52,10 @@ function arrowIcon(bearingDeg: number) {
 }
 
 const ARROW_SIZE = 28;
-// Fractions along a leg where a direction arrow is drawn. Several arrows (not
-// one tiny midpoint marker) so the direction is obvious even on long legs.
-const ARROW_POSITIONS = [0.25, 0.5, 0.75];
+// Fraction along a leg where the single direction arrow is drawn: the
+// midpoint, so the direction of travel reads clearly without cluttering
+// the line with repeated arrowheads.
+const ARROW_POSITION = 0.5;
 
 // Compass bearing (degrees clockwise from north) from one point to another,
 // with the longitude delta corrected for latitude so the on-screen arrow
@@ -188,13 +189,15 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
       L.polyline([from, to], { color: PIN_COLORS.travel, weight: 20, opacity: 0 })
         .addTo(layer)
         .bindPopup(popup);
-      // Direction arrows along the leg, all pointing at the destination.
-      // Non-interactive so they never swallow clicks meant for the line.
+      // A single direction arrow at the leg's midpoint, pointing at the
+      // destination. Non-interactive so it never swallows clicks meant for
+      // the line.
       const dir = bearing(from, to);
-      for (const f of ARROW_POSITIONS) {
-        const at: [number, number] = [from[0] + (to[0] - from[0]) * f, from[1] + (to[1] - from[1]) * f];
-        L.marker(at, { icon: arrowIcon(dir), interactive: false, keyboard: false }).addTo(layer);
-      }
+      const at: [number, number] = [
+        from[0] + (to[0] - from[0]) * ARROW_POSITION,
+        from[1] + (to[1] - from[1]) * ARROW_POSITION
+      ];
+      L.marker(at, { icon: arrowIcon(dir), interactive: false, keyboard: false }).addTo(layer);
     }
 
     const points = [
