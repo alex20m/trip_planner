@@ -64,11 +64,26 @@ export default function EventDetail({
             <dt className="label">When</dt>
             <dd className="mt-0.5 text-ink/80">{whenLabel(event)}</dd>
           </div>
-          {event.location && (
-            <div>
-              <dt className="label">Where</dt>
-              <dd className="mt-0.5 break-words text-ink/80">{event.location}</dd>
-            </div>
+          {event.type === "travel" && event.end_location ? (
+            <>
+              {event.location && (
+                <div>
+                  <dt className="label">From</dt>
+                  <dd className="mt-0.5 break-words text-ink/80">{event.location}</dd>
+                </div>
+              )}
+              <div>
+                <dt className="label">To</dt>
+                <dd className="mt-0.5 break-words text-ink/80">{event.end_location}</dd>
+              </div>
+            </>
+          ) : (
+            event.location && (
+              <div>
+                <dt className="label">Where</dt>
+                <dd className="mt-0.5 break-words text-ink/80">{event.location}</dd>
+              </div>
+            )
           )}
           {event.description && (
             <div>

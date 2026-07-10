@@ -108,7 +108,9 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
     }
 
     lines.push(fold("SUMMARY:" + esc(prefix + e.title)));
-    if (e.location) lines.push(fold("LOCATION:" + esc(e.location)));
+    // Travel legs run between two places; show the direction in the location.
+    const location = e.type === "travel" && e.location && e.end_location ? `${e.location} → ${e.end_location}` : e.location;
+    if (location) lines.push(fold("LOCATION:" + esc(location)));
     if (e.description) lines.push(fold("DESCRIPTION:" + esc(e.description)));
     lines.push("END:VEVENT");
   }

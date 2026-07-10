@@ -8,6 +8,8 @@ import type { TripEvent } from "@/lib/types";
 const marker = vi.hoisted(() =>
   vi.fn(() => ({ addTo: vi.fn().mockReturnThis(), bindPopup: vi.fn().mockReturnThis() }))
 );
+const polyline = vi.hoisted(() => vi.fn(() => ({ addTo: vi.fn().mockReturnThis() })));
+const latLngBounds = vi.hoisted(() => vi.fn(() => ({ pad: vi.fn().mockReturnThis() })));
 vi.mock("leaflet", () => {
   const layerGroup = () => ({ addTo: vi.fn().mockReturnThis(), clearLayers: vi.fn() });
   return {
@@ -20,8 +22,9 @@ vi.mock("leaflet", () => {
       tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
       layerGroup: vi.fn(layerGroup),
       marker,
+      polyline,
       divIcon: vi.fn(() => ({})),
-      latLngBounds: vi.fn(() => ({ pad: vi.fn().mockReturnThis() }))
+      latLngBounds
     }
   };
 });
@@ -45,7 +48,11 @@ function makeEvent(overrides: Partial<TripEvent>): TripEvent {
 }
 
 describe("MapPanel", () => {
-  beforeEach(() => marker.mockClear());
+  beforeEach(() => {
+    marker.mockClear();
+    polyline.mockClear();
+    latLngBounds.mockClear();
+  });
 
   it("adds a marker for every event that has coordinates", () => {
     render(
@@ -81,5 +88,58 @@ describe("MapPanel", () => {
     render(<MapPanel events={[]} />);
     expect(screen.getByText(/no events yet/i)).toBeInTheDocument();
     expect(marker).not.toHaveBeenCalled();
+  });
+
+  it("draws a travel leg as two markers linked by a directed line (issue #69)", () => {
+    render(
+      <MapPanel
+        events={[
+          makeEvent({
+            id: "leg",
+            type: "travel",
+            title: "Train north",
+            location: "Helsinki",
+            location_lat: 60.17,
+            location_lng: 24.94,
+            end_location: "Oulu",
+            end_location_lat: 65.01,
+            end_location_lng: 25.47
+          })
+        ]}
+      />
+    );
+
+    // Departure pin, arrival pin, and the direction arrow at the midpoint.
+    expect(marker).toHaveBeenCalledWith([60.17, 24.94], expect.anything());
+    expect(marker).toHaveBeenCalledWith([65.01, 25.47], expect.anything());
+    expect(marker).toHaveBeenCalledWith([(60.17 + 65.01) / 2, (24.94 + 25.47) / 2], expect.anything());
+    // The connecting line runs from the start to the end destination.
+    expect(polyline).toHaveBeenCalledWith(
+      [
+        [60.17, 24.94],
+        [65.01, 25.47]
+      ],
+      expect.anything()
+    );
+    // Both ends are part of the fitted bounds.
+    expect(latLngBounds).toHaveBeenCalledWith([
+      [60.17, 24.94],
+      [65.01, 25.47]
+    ]);
+    // The travel leg is fully mapped: nothing should be reported as unmapped.
+    expect(screen.queryByText(/without a mapped location/i)).not.toBeInTheDocument();
+  });
+
+  it("does not draw a line for a travel event missing end coordinates", () => {
+    render(
+      <MapPanel
+        events={[
+          makeEvent({ id: "leg", type: "travel", location: "Helsinki", location_lat: 60.17, location_lng: 24.94 })
+        ]}
+      />
+    );
+
+    expect(marker).toHaveBeenCalledTimes(1);
+    expect(polyline).not.toHaveBeenCalled();
   });
 });

@@ -39,6 +39,24 @@ describe("buildICS", () => {
     expect(ics).toContain("SUMMARY:🧳 Flight");
   });
 
+  it("joins a travel leg's start and end destination in LOCATION", () => {
+    const ics = buildICS(
+      { id: "trip-1", name: "Trip" },
+      [event({ type: "travel", title: "Flight", location: "Helsinki", end_location: "Oulu" })],
+      "example.com"
+    );
+    expect(ics).toContain("LOCATION:Helsinki → Oulu");
+  });
+
+  it("keeps a plain LOCATION for travel events without an end destination", () => {
+    const ics = buildICS(
+      { id: "trip-1", name: "Trip" },
+      [event({ type: "travel", title: "Flight", location: "Helsinki" })],
+      "example.com"
+    );
+    expect(ics).toContain("LOCATION:Helsinki\r\n");
+  });
+
   it("renders accommodation as an all-day event ending the day after checkout", () => {
     const ics = buildICS(
       { id: "trip-1", name: "Trip" },
