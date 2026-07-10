@@ -192,6 +192,21 @@ describe("MapPanel", () => {
     expect(document.body.style.overflow).not.toBe("hidden");
   });
 
+  it("keeps Leaflet's imperatively added classes on the map container across the full-screen toggle", () => {
+    render(<MapPanel events={[]} />);
+    // Leaflet adds classes like this to the container it is mounted on; a
+    // React className rewrite on toggle would wipe them and break the map
+    // until the page is reloaded.
+    const container = screen.getByRole("application");
+    container.classList.add("leaflet-container");
+
+    fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
+    expect(container).toHaveClass("leaflet-container");
+
+    fireEvent.click(screen.getByRole("button", { name: /exit full screen/i }));
+    expect(container).toHaveClass("leaflet-container");
+  });
+
   it("exits full screen when Escape is pressed", () => {
     render(<MapPanel events={[]} />);
 
