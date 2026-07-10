@@ -96,4 +96,65 @@ describe("NotesPanel — adding a section", () => {
     expect(insert).not.toHaveBeenCalled();
     expect(screen.getByText("Give the section a name first.")).toBeInTheDocument();
   });
+
+  it("defaults to a checklist section", async () => {
+    insert.mockReset();
+    render(<Harness />);
+
+    await userEvent.type(screen.getByPlaceholderText("New section, e.g. Packing list"), "Chores");
+    await userEvent.click(screen.getByRole("button", { name: /^Add$/ }));
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Chores", kind: "checklist", body: null })
+    );
+  });
+
+  it("inserts a free-form section when that type is chosen", async () => {
+    insert.mockReset();
+    render(<Harness />);
+
+    await userEvent.type(screen.getByPlaceholderText("New section, e.g. Packing list"), "Ideas");
+    await userEvent.click(screen.getByRole("radio", { name: "Free-form notes" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Add$/ }));
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Ideas", kind: "freeform", body: "" })
+    );
+  });
+});
+
+describe("NotesPanel — free-form section", () => {
+  const freeformSections: NoteSection[] = [
+    { id: "section-2", trip_id: "trip-1", title: "Ideas", sort_order: 0, kind: "freeform", body: "Old text", notes: [] }
+  ];
+
+  function FreeformHarness({ editable = true }: { editable?: boolean }) {
+    const [state, setState] = useState(freeformSections);
+    return <NotesPanel tripId="trip-1" sections={state} setSections={setState} editable={editable} />;
+  }
+
+  it("renders a textarea, not a checklist, and saves the body on blur", async () => {
+    updateEq.mockReset();
+    updateEq.mockResolvedValue({ error: null });
+    render(<FreeformHarness />);
+
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    const textarea = screen.getByPlaceholderText("Write your notes…");
+    expect(textarea).toHaveValue("Old text");
+
+    await userEvent.clear(textarea);
+    await userEvent.type(textarea, "New plan");
+    textarea.blur();
+
+    await waitFor(() =>
+      expect(updateEq).toHaveBeenCalledWith({ body: "New plan" }, "id", "section-2")
+    );
+  });
+
+  it("shows the text read-only when the viewer cannot edit", () => {
+    render(<FreeformHarness editable={false} />);
+
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByText("Old text")).toBeInTheDocument();
+  });
 });

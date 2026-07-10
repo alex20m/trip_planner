@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Note, NoteSection } from "@/lib/types";
+import type { Note, NoteSection, NoteSectionKind } from "@/lib/types";
 import Spinner from "@/components/Spinner";
 import { PlusIcon, TrashIcon, XIcon } from "@/components/Icons";
 
@@ -17,6 +17,7 @@ export default function NotesPanel({
   editable: boolean;
 }) {
   const [newSection, setNewSection] = useState("");
+  const [newKind, setNewKind] = useState<NoteSectionKind>("checklist");
   const [addingSection, setAddingSection] = useState(false);
   const [sectionHint, setSectionHint] = useState(false);
   const [pendingNotes, setPendingNotes] = useState<Set<string>>(new Set());
@@ -49,12 +50,27 @@ export default function NotesPanel({
     setAddingSection(true);
     const { data } = await supabase
       .from("note_sections")
-      .insert({ trip_id: tripId, title: newSection.trim(), sort_order: sections.length })
+      .insert({
+        trip_id: tripId,
+        title: newSection.trim(),
+        kind: newKind,
+        body: newKind === "freeform" ? "" : null,
+        sort_order: sections.length
+      })
       .select()
       .single();
     if (data) setSections((prev) => [...prev, { ...data, notes: [] }]);
     setNewSection("");
+    setNewKind("checklist");
     setAddingSection(false);
+  }
+
+  // Freeform sections persist their whole text block on `note_sections.body`.
+  // Update state immediately so typing stays responsive; the debounced save
+  // lives in the editor below.
+  async function saveSectionBody(sectionId: string, body: string) {
+    setSections((prev) => prev.map((s) => (s.id === sectionId ? { ...s, body } : s)));
+    await supabase.from("note_sections").update({ body }).eq("id", sectionId);
   }
 
   async function addNote(sectionId: string, content: string) {
@@ -118,6 +134,7 @@ export default function NotesPanel({
             onToggle={toggleNote}
             onDeleteNote={deleteNote}
             onDeleteSection={() => deleteSection(s.id)}
+            onSaveBody={(body) => saveSectionBody(s.id, body)}
           />
         ))}
         {sections.length === 0 && <p className="text-sm text-ink/40">No sections yet.</p>}
@@ -142,6 +159,30 @@ export default function NotesPanel({
               Add
             </button>
           </div>
+          <div className="mt-2 flex gap-1.5" role="radiogroup" aria-label="Section type">
+            {(
+              [
+                ["checklist", "Checklist"],
+                ["freeform", "Free-form notes"]
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={newKind === value}
+                onClick={() => setNewKind(value)}
+                disabled={addingSection}
+                className={`rounded-full border px-3 py-1 text-xs transition-colors disabled:opacity-50 ${
+                  newKind === value
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-ink/15 text-ink/50 hover:border-ink/30"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {sectionHint && (
             <p className="mt-1.5 text-xs text-red-600">Give the section a name first.</p>
           )}
@@ -159,7 +200,8 @@ function SectionCard({
   onAdd,
   onToggle,
   onDeleteNote,
-  onDeleteSection
+  onDeleteSection,
+  onSaveBody
 }: {
   section: NoteSection;
   editable: boolean;
@@ -169,8 +211,10 @@ function SectionCard({
   onToggle: (n: Note) => void;
   onDeleteNote: (n: Note) => void;
   onDeleteSection: () => void;
+  onSaveBody: (body: string) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const freeform = section.kind === "freeform";
   function submitNote() {
     if (!draft.trim() || busy) return;
     onAdd(draft);
@@ -191,6 +235,15 @@ function SectionCard({
           </button>
         )}
       </div>
+      {freeform ? (
+        <FreeformBody
+          key={section.id}
+          value={section.body ?? ""}
+          editable={editable}
+          onSave={onSaveBody}
+        />
+      ) : (
+      <>
       <ul className="space-y-1.5">
         {section.notes.map((n) => {
           const notePending = pendingNotes.has(n.id);
@@ -241,6 +294,67 @@ function SectionCard({
           )}
         </div>
       )}
+      </>
+      )}
     </div>
+  );
+}
+
+// Free-form text block for a "freeform" section. Keeps a local draft so typing
+// stays snappy, and saves after a short pause (and on blur) rather than on every
+// keystroke. Read-only viewers see the text without an editable field.
+function FreeformBody({
+  value,
+  editable,
+  onSave
+}: {
+  value: string;
+  editable: boolean;
+  onSave: (body: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const savedRef = useRef(value);
+
+  // Reflect external changes (e.g. a fresh server load) when the field isn't
+  // being actively edited away from the saved value.
+  useEffect(() => {
+    if (draft === savedRef.current) {
+      setDraft(value);
+      savedRef.current = value;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  function flush() {
+    if (draft !== savedRef.current) {
+      savedRef.current = draft;
+      onSave(draft);
+    }
+  }
+
+  useEffect(() => {
+    if (!editable || draft === savedRef.current) return;
+    const t = setTimeout(flush, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, editable]);
+
+  if (!editable) {
+    return value.trim() ? (
+      <p className="whitespace-pre-wrap text-sm text-ink/80">{value}</p>
+    ) : (
+      <p className="text-sm text-ink/40">No notes yet.</p>
+    );
+  }
+
+  return (
+    <textarea
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={flush}
+      placeholder="Write your notes…"
+      rows={4}
+      className="w-full resize-y rounded-xl border border-transparent bg-ink/5 p-2 text-base sm:text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface"
+    />
   );
 }
