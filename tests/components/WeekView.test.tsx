@@ -303,7 +303,7 @@ describe("WeekView", () => {
     expect(rows["Chip C"]).toBe("2");
   });
 
-  it("shows a travel leg's start and end destination on its cards (issue #69)", () => {
+  it("shows a travel leg's start and end destination, with the direction of travel, on its cards (issue #69)", () => {
     render(
       <WeekView
         weekStart={weekStart}
@@ -322,7 +322,13 @@ describe("WeekView", () => {
       />
     );
 
-    expect(screen.getAllByText(/Helsinki → Oulu/).length).toBeGreaterThan(0);
+    // Both endpoints render, joined by a direction arrow kept as its own
+    // element so it stays visible even when the place names truncate.
+    expect(screen.getAllByText("Helsinki").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Oulu").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("→").length).toBeGreaterThan(0);
+    // The route is exposed to assistive tech as "Helsinki to Oulu".
+    expect(screen.getAllByLabelText("Helsinki to Oulu").length).toBeGreaterThan(0);
   });
 });
 
