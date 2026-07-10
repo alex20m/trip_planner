@@ -17,6 +17,14 @@
   color-scheme: dark;
 }
 
+/* Also paint the root element so the safe-area / overscroll region behind the
+   iOS status bar stays the app color. Without this, exposing the area above
+   <body> (e.g. after the full-screen map toggles body overflow) shows the
+   browser's default white through the uncolored <html> element. */
+html {
+  @apply bg-paper;
+}
+
 body {
   @apply bg-paper text-ink antialiased transition-colors duration-200;
 }
