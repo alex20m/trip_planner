@@ -236,16 +236,22 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
       {events.length === 0 && (
         <p className="mb-3 text-sm text-ink/60">No events yet — add events with a location to see them here.</p>
       )}
-      <div className={fullscreen ? "fixed inset-0 z-50 bg-paper" : "relative"}>
+      {/* The inline-card vs. overlay styles live on this wrapper, NOT on the
+          map div: Leaflet adds its own classes to the map div imperatively,
+          and a React className update would wipe them, breaking the map
+          until remount (the container div's className must stay constant). */}
+      <div
+        className={
+          fullscreen
+            ? "fixed inset-0 z-50 bg-paper"
+            : "relative h-[26rem] w-full overflow-hidden rounded-2xl border border-ink/10 shadow-soft sm:h-[32rem]"
+        }
+      >
         <div
           ref={containerRef}
           role="application"
           aria-label="Map of event locations"
-          className={
-            fullscreen
-              ? "h-full w-full"
-              : "h-[26rem] w-full overflow-hidden rounded-2xl border border-ink/10 shadow-soft sm:h-[32rem]"
-          }
+          className="h-full w-full"
         />
         <button
           type="button"
