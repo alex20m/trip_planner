@@ -11,12 +11,15 @@ export default function LocationAutocomplete({
   value,
   onChange,
   onSelect,
-  placeholder = "Location (optional)"
+  placeholder = "Location (optional)",
+  cityLevel = false
 }: {
   value: string;
   onChange: (text: string) => void;
   onSelect: (place: PlaceSuggestion) => void;
   placeholder?: string;
+  /** Suggest cities/towns ("City, Country") instead of exact places. */
+  cityLevel?: boolean;
 }) {
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -43,7 +46,7 @@ export default function LocationAutocomplete({
     const ctrl = new AbortController();
     // Debounce so we don't hit the geocoder on every keystroke.
     const timer = setTimeout(() => {
-      searchPlaces(query, ctrl.signal)
+      searchPlaces(query, ctrl.signal, { cityLevel })
         .then((results) => {
           setSuggestions(results);
           setActive(-1);
@@ -62,7 +65,7 @@ export default function LocationAutocomplete({
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [query]);
+  }, [query, cityLevel]);
 
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {

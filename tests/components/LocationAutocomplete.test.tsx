@@ -39,7 +39,7 @@ describe("LocationAutocomplete", () => {
 
     await typeAndSearch("colos");
 
-    expect(searchPlaces).toHaveBeenCalledWith("colos", expect.anything());
+    expect(searchPlaces).toHaveBeenCalledWith("colos", expect.anything(), { cityLevel: false });
     expect(screen.getByRole("listbox")).toBeInTheDocument();
     expect(screen.getByText("Colosseum, Rome, Italy")).toBeInTheDocument();
   });
@@ -77,6 +77,19 @@ describe("LocationAutocomplete", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(onSelect).toHaveBeenCalledWith(rome);
+  });
+
+  it("forwards cityLevel to the geocoder so travel legs search settlements", async () => {
+    searchPlaces.mockResolvedValue([{ name: "Rome, Italy", lat: 41.89, lng: 12.48 }]);
+    function CityHarness() {
+      const [text, setText] = useState("");
+      return <LocationAutocomplete value={text} onChange={setText} onSelect={(p) => setText(p.name)} cityLevel />;
+    }
+    render(<CityHarness />);
+
+    await typeAndSearch("rome");
+
+    expect(searchPlaces).toHaveBeenCalledWith("rome", expect.anything(), { cityLevel: true });
   });
 
   it("shows an empty state when nothing matches", async () => {

@@ -199,9 +199,12 @@ export default function EventModal({
               </div>
             </div>
           )}
+          {/* Travel legs only need city-level precision — "Helsinki, Finland"
+              is enough to draw the leg, no exact address required. */}
           <LocationAutocomplete
             value={location}
             placeholder={isTravel ? "From" : undefined}
+            cityLevel={isTravel}
             onChange={(text) => {
               setLocation(text);
               setCoords(null);
@@ -218,6 +221,7 @@ export default function EventModal({
             <LocationAutocomplete
               value={endLocation}
               placeholder="To"
+              cityLevel
               onChange={(text) => {
                 setEndLocation(text);
                 setEndCoords(null);
