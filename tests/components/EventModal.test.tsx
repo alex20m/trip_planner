@@ -124,6 +124,85 @@ describe("EventModal", () => {
     );
   });
 
+  it("requires both a start and an end destination for a Travel event (issue #69)", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Travel" }));
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Train to Oulu");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText(/both a start and an end destination/i)).toBeInTheDocument();
+    expect(insertSingle).not.toHaveBeenCalled();
+  });
+
+  it("still rejects a Travel event that only has a start destination", async () => {
+    searchPlaces.mockResolvedValue([{ name: "Helsinki, Finland", lat: 60.17, lng: 24.94 }]);
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Travel" }));
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Train to Oulu");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    fireEvent.change(screen.getByPlaceholderText("From"), { target: { value: "hels" } });
+    fireEvent.mouseDown(await screen.findByText("Helsinki, Finland", undefined, { timeout: 2000 }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText(/both a start and an end destination/i)).toBeInTheDocument();
+    expect(insertSingle).not.toHaveBeenCalled();
+  });
+
+  it("saves both travel destinations with their coordinates (issue #69)", async () => {
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "travel", start_at: "2026-07-10T10:00:00Z", end_at: null },
+      error: null
+    });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Travel" }));
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Train to Oulu");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+
+    searchPlaces.mockResolvedValue([{ name: "Helsinki, Finland", lat: 60.17, lng: 24.94 }]);
+    fireEvent.change(screen.getByPlaceholderText("From"), { target: { value: "hels" } });
+    fireEvent.mouseDown(await screen.findByText("Helsinki, Finland", undefined, { timeout: 2000 }));
+
+    searchPlaces.mockResolvedValue([{ name: "Oulu, Finland", lat: 65.01, lng: 25.47 }]);
+    fireEvent.change(screen.getByPlaceholderText("To"), { target: { value: "oulu" } });
+    fireEvent.mouseDown(await screen.findByText("Oulu, Finland", undefined, { timeout: 2000 }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        location: "Helsinki, Finland",
+        location_lat: 60.17,
+        location_lng: 24.94,
+        end_location: "Oulu, Finland",
+        end_location_lat: 65.01,
+        end_location_lng: 25.47
+      })
+    );
+  });
+
+  it("saves non-travel events without an end destination", async () => {
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null },
+      error: null
+    });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    expect(screen.queryByPlaceholderText("To")).not.toBeInTheDocument();
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ end_location: null, end_location_lat: null, end_location_lng: null })
+    );
+  });
+
   it("switches to a date-only field and saves all_day when the All day box is checked", async () => {
     insertSingle.mockResolvedValue({
       data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null, all_day: true },

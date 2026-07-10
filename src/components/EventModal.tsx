@@ -43,12 +43,22 @@ export default function EventModal({
   // Locations must be picked from the geocoder suggestions, not typed freely.
   // The stored location of an existing event counts as already confirmed.
   const [locationConfirmed, setLocationConfirmed] = useState(true);
+  // Travel legs also have an end destination, kept in its own field so
+  // switching the type back and forth doesn't clobber the start location.
+  const [endLocation, setEndLocation] = useState(event?.end_location ?? "");
+  const [endCoords, setEndCoords] = useState<{ lat: number; lng: number } | null>(
+    event && event.end_location_lat != null && event.end_location_lng != null
+      ? { lat: event.end_location_lat, lng: event.end_location_lng }
+      : null
+  );
+  const [endLocationConfirmed, setEndLocationConfirmed] = useState(true);
   const [description, setDescription] = useState(event?.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const busy = saving || deleting;
   const isStay = type === "accommodation";
+  const isTravel = type === "travel";
   const isAllDay = isStay || allDay;
 
   async function save() {
@@ -64,7 +74,11 @@ export default function EventModal({
       setError(isStay ? "Check-out date must be after check-in date." : "End date must be after start date.");
       return;
     }
-    if (location.trim() && !locationConfirmed) {
+    if (isTravel && (!location.trim() || !endLocation.trim())) {
+      setError("Travel needs both a start and an end destination.");
+      return;
+    }
+    if ((location.trim() && !locationConfirmed) || (isTravel && endLocation.trim() && !endLocationConfirmed)) {
       setError("Choose a location from the suggestions — only real places can be used.");
       return;
     }
@@ -80,6 +94,9 @@ export default function EventModal({
       location: location.trim() || null,
       location_lat: location.trim() ? (coords?.lat ?? null) : null,
       location_lng: location.trim() ? (coords?.lng ?? null) : null,
+      end_location: isTravel && endLocation.trim() ? endLocation.trim() : null,
+      end_location_lat: isTravel && endLocation.trim() ? (endCoords?.lat ?? null) : null,
+      end_location_lng: isTravel && endLocation.trim() ? (endCoords?.lng ?? null) : null,
       description: description.trim() || null
     };
     const q = event
@@ -184,6 +201,7 @@ export default function EventModal({
           )}
           <LocationAutocomplete
             value={location}
+            placeholder={isTravel ? "From" : undefined}
             onChange={(text) => {
               setLocation(text);
               setCoords(null);
@@ -196,6 +214,22 @@ export default function EventModal({
               setLocationConfirmed(true);
             }}
           />
+          {isTravel && (
+            <LocationAutocomplete
+              value={endLocation}
+              placeholder="To"
+              onChange={(text) => {
+                setEndLocation(text);
+                setEndCoords(null);
+                setEndLocationConfirmed(text.trim() === "");
+              }}
+              onSelect={(place) => {
+                setEndLocation(place.name);
+                setEndCoords({ lat: place.lat, lng: place.lng });
+                setEndLocationConfirmed(true);
+              }}
+            />
+          )}
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}

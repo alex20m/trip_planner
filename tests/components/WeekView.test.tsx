@@ -183,11 +183,12 @@ describe("WeekView", () => {
     expect(screen.getAllByText(/123 Beach Road/).length).toBeGreaterThan(0);
   });
 
-  it("shows a stay on both its check-in and check-out day, regardless of local timezone", () => {
+  it("shows a stay on its check-in day regardless of local timezone, but not on its check-out day", () => {
     // Regression test: accommodation start_at/end_at are stored as UTC-midnight
     // date-only values. In a timezone ahead of UTC (e.g. Europe/Stockholm),
     // `new Date(iso)` for a UTC midnight lands after local midnight, so a naive
     // `stayStart <= day` comparison used to drop the stay from its check-in day.
+    // The check-out day itself shows no stay: no night is spent there (issue #68).
     const originalTz = process.env.TZ;
     process.env.TZ = "Europe/Stockholm";
     try {
@@ -208,15 +209,128 @@ describe("WeekView", () => {
         />
       );
 
-      const cards = Array.from(document.querySelectorAll(".card"));
-      const daysShown = cards
-        .filter((card) => card.textContent?.includes("Sov i Tornea"))
-        .map((card) => card.querySelector(".text-sm.font-semibold")?.textContent);
-
+      const daysShown = agendaDaysShowing("Sov i Tornea");
       expect(daysShown).toContain("31 Jul");
-      expect(daysShown).toContain("1 Aug");
+      expect(daysShown).not.toContain("1 Aug");
     } finally {
       process.env.TZ = originalTz;
     }
   });
+
+  it("shows a stay on every day it covers except the check-out day (issue #68)", () => {
+    // Stay 3.8–6.8 → shown on 3, 4 and 5 Aug; the 6th is check-out, no night there.
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[
+          makeEvent({
+            id: "stay1",
+            type: "accommodation",
+            title: "Hotel Aurora",
+            start_at: "2026-08-03T00:00:00Z",
+            end_at: "2026-08-06T00:00:00Z"
+          })
+        ]}
+        rangeStart={new Date("2026-08-03T00:00:00")}
+        rangeEnd={new Date("2026-08-09T00:00:00")}
+      />
+    );
+
+    const daysShown = agendaDaysShowing("Hotel Aurora");
+    expect(daysShown).toEqual(["3 Aug", "4 Aug", "5 Aug"]);
+  });
+
+  it("renders the stay as the last event of the day in the agenda (issue #68)", () => {
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[
+          makeEvent({
+            id: "stay1",
+            type: "accommodation",
+            title: "Hotel Aurora",
+            start_at: "2026-08-03T00:00:00Z",
+            end_at: "2026-08-06T00:00:00Z"
+          }),
+          makeEvent({ id: "walk", title: "City walk", all_day: true, start_at: "2026-08-04T00:00:00Z" }),
+          makeEvent({ id: "museum", title: "Museum", start_at: "2026-08-04T12:00:00Z" }),
+          makeEvent({ id: "dinner", title: "Dinner", start_at: "2026-08-04T19:00:00Z" })
+        ]}
+        rangeStart={new Date("2026-08-03T00:00:00")}
+        rangeEnd={new Date("2026-08-09T00:00:00")}
+      />
+    );
+
+    const dayCard = Array.from(document.querySelectorAll(".card.overflow-hidden")).find((card) =>
+      card.textContent?.includes("4 Aug")
+    )!;
+    const titles = Array.from(dayCard.querySelectorAll("button")).map((b) => b.textContent ?? "");
+    expect(titles.length).toBe(4);
+    expect(titles[titles.length - 1]).toContain("Hotel Aurora");
+    // Timed events stay in chronological order before the stay.
+    expect(titles.findIndex((t) => t.includes("Museum"))).toBeLessThan(titles.findIndex((t) => t.includes("Dinner")));
+  });
+
+  it("gives every all-day chip in the week grid an explicit compact lane (issue #67)", () => {
+    // Two long chips overlap; the short one fits next to the second chip.
+    // Grid auto-placement used to push it to a third row, leaving an uneven
+    // blank gap in its day column.
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[
+          makeEvent({ id: "a", title: "Chip A", all_day: true, start_at: "2026-08-03T00:00:00Z", end_at: "2026-08-05T00:00:00Z" }),
+          makeEvent({ id: "b", title: "Chip B", all_day: true, start_at: "2026-08-04T00:00:00Z", end_at: "2026-08-06T00:00:00Z" }),
+          makeEvent({ id: "c", title: "Chip C", all_day: true, start_at: "2026-08-03T00:00:00Z" })
+        ]}
+        rangeStart={new Date("2026-08-03T00:00:00")}
+        rangeEnd={new Date("2026-08-09T00:00:00")}
+      />
+    );
+
+    const rows = Object.fromEntries(
+      ["Chip A", "Chip B", "Chip C"].map((title) => {
+        // Chips render in the desktop week strip; agenda copies are plain full-width cards.
+        const chip = screen
+          .getAllByText(title)
+          .map((el) => el.closest("button")!)
+          .find((b) => b.style.gridRow !== "");
+        return [title, chip?.style.gridRow];
+      })
+    );
+    expect(rows["Chip A"]).toBe("1");
+    expect(rows["Chip B"]).toBe("2");
+    expect(rows["Chip C"]).toBe("2");
+  });
+
+  it("shows a travel leg's start and end destination on its cards (issue #69)", () => {
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[
+          makeEvent({
+            id: "leg",
+            type: "travel",
+            title: "Train north",
+            start_at: "2026-08-04T09:00:00Z",
+            location: "Helsinki",
+            end_location: "Oulu"
+          })
+        ]}
+        rangeStart={new Date("2026-08-03T00:00:00")}
+        rangeEnd={new Date("2026-08-09T00:00:00")}
+      />
+    );
+
+    expect(screen.getAllByText(/Helsinki → Oulu/).length).toBeGreaterThan(0);
+  });
 });
+
+// Day labels ("d MMM") of the agenda day cards containing the given text.
+// Scoped to .overflow-hidden so the desktop week-grid card (which also has
+// .card) doesn't leak into the result.
+function agendaDaysShowing(text: string): string[] {
+  return Array.from(document.querySelectorAll(".card.overflow-hidden"))
+    .filter((card) => card.textContent?.includes(text))
+    .map((card) => card.querySelector(".text-sm.font-semibold")?.textContent ?? "");
+}

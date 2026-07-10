@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { searchPlaces, type PlaceSuggestion } from "@/lib/geocode";
 import Spinner from "@/components/Spinner";
 
@@ -27,6 +27,8 @@ export default function LocationAutocomplete({
   // suggestion, opening an existing event) must not trigger a search.
   const [query, setQuery] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // Unique per instance — the event form renders two of these for travel legs.
+  const listId = useId();
 
   useEffect(() => {
     if (query === null) return;
@@ -107,7 +109,7 @@ export default function LocationAutocomplete({
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
-        aria-controls="location-suggestions"
+        aria-controls={listId}
         autoComplete="off"
       />
       {searching && (
@@ -117,7 +119,7 @@ export default function LocationAutocomplete({
       )}
       {open && (
         <ul
-          id="location-suggestions"
+          id={listId}
           role="listbox"
           className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-2xl border border-ink/10 bg-surface p-1.5 shadow-panel"
         >

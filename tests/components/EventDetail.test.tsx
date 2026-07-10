@@ -59,6 +59,42 @@ describe("EventDetail", () => {
     expect(screen.getByText("Stay")).toBeInTheDocument();
   });
 
+  it("shows a travel leg's destinations as From and To (issue #69)", () => {
+    render(
+      <EventDetail
+        event={makeEvent({
+          type: "travel",
+          title: "Train north",
+          location: "Helsinki",
+          end_location: "Oulu"
+        })}
+        canEdit={false}
+        onClose={vi.fn()}
+        onEdit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("From")).toBeInTheDocument();
+    expect(screen.getByText("Helsinki")).toBeInTheDocument();
+    expect(screen.getByText("To")).toBeInTheDocument();
+    expect(screen.getByText("Oulu")).toBeInTheDocument();
+    expect(screen.queryByText("Where")).not.toBeInTheDocument();
+  });
+
+  it("falls back to Where for a legacy travel event without an end destination", () => {
+    render(
+      <EventDetail
+        event={makeEvent({ type: "travel", title: "Old flight", location: "Helsinki Airport" })}
+        canEdit={false}
+        onClose={vi.fn()}
+        onEdit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Where")).toBeInTheDocument();
+    expect(screen.getByText("Helsinki Airport")).toBeInTheDocument();
+  });
+
   it("shows an Edit button only when the viewer can edit", async () => {
     const onEdit = vi.fn();
     const { rerender } = render(

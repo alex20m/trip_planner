@@ -31,6 +31,27 @@ function pinIcon(type: TripEvent["type"]) {
   });
 }
 
+// Arrowhead for travel legs: an SVG triangle pointing north, rotated to the
+// leg's bearing so the direction of travel is visible on the line itself.
+function arrowIcon(bearingDeg: number) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="transform: rotate(${bearingDeg}deg)"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 2 15 14 9 11 3 14z" fill="${PIN_COLORS.travel}" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9]
+  });
+}
+
+// Compass bearing (degrees clockwise from north) from one point to another,
+// with the longitude delta corrected for latitude so the on-screen arrow
+// matches the drawn line. Good enough for a display arrow.
+function bearing(from: [number, number], to: [number, number]): number {
+  const midLat = ((from[0] + to[0]) / 2) * (Math.PI / 180);
+  return (Math.atan2((to[1] - from[1]) * Math.cos(midLat), to[0] - from[0]) * 180) / Math.PI;
+}
+
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -41,6 +62,20 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
 
   const mapped = useMemo(
     () => events.filter((e) => e.location_lat != null && e.location_lng != null),
+    [events]
+  );
+  // Travel legs with both ends mapped get an arrival marker and a directed
+  // line from start to end destination.
+  const legs = useMemo(
+    () =>
+      events.filter(
+        (e) =>
+          e.type === "travel" &&
+          e.location_lat != null &&
+          e.location_lng != null &&
+          e.end_location_lat != null &&
+          e.end_location_lng != null
+      ),
     [events]
   );
   const unmapped = events.length - mapped.length;
@@ -71,6 +106,7 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
 
     for (const e of mapped) {
       const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
+      const isLeg = legs.includes(e);
       const marker = L.marker([e.location_lat!, e.location_lng!], {
         icon: pinIcon(e.type),
         title: e.title
@@ -78,12 +114,38 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
       marker.bindPopup(
         `<strong>${esc(e.title)}</strong><br/>` +
           `<span style="opacity:.7">${esc(EVENT_COLORS[e.type].label)} · ${esc(when)}</span><br/>` +
-          `<span style="opacity:.7">${esc(e.location ?? "")}</span>`
+          `<span style="opacity:.7">${esc(isLeg ? `Departure · ${e.location ?? ""}` : (e.location ?? ""))}</span>`
       );
     }
-    const bounds = L.latLngBounds(mapped.map((e) => [e.location_lat!, e.location_lng!] as [number, number]));
+
+    for (const e of legs) {
+      const from: [number, number] = [e.location_lat!, e.location_lng!];
+      const to: [number, number] = [e.end_location_lat!, e.end_location_lng!];
+      const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
+      const arrival = L.marker(to, { icon: pinIcon("travel"), title: e.title }).addTo(layer);
+      arrival.bindPopup(
+        `<strong>${esc(e.title)}</strong><br/>` +
+          `<span style="opacity:.7">${esc(EVENT_COLORS.travel.label)} · ${esc(when)}</span><br/>` +
+          `<span style="opacity:.7">Arrival · ${esc(e.end_location ?? "")}</span>`
+      );
+      L.polyline([from, to], {
+        color: PIN_COLORS.travel,
+        weight: 3,
+        opacity: 0.75,
+        dashArray: "8 8"
+      }).addTo(layer);
+      // Direction arrow halfway along the leg, pointing at the destination.
+      const mid: [number, number] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2];
+      L.marker(mid, { icon: arrowIcon(bearing(from, to)), interactive: false, keyboard: false }).addTo(layer);
+    }
+
+    const points = [
+      ...mapped.map((e) => [e.location_lat!, e.location_lng!] as [number, number]),
+      ...legs.map((e) => [e.end_location_lat!, e.end_location_lng!] as [number, number])
+    ];
+    const bounds = L.latLngBounds(points);
     map.fitBounds(bounds.pad(0.2), { maxZoom: 14 });
-  }, [mapped]);
+  }, [mapped, legs]);
 
   return (
     <div>
