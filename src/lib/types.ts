@@ -39,11 +39,18 @@ export interface TripEvent {
 // Accommodation is inherently all-day; activity/travel events opt in via `all_day`.
 export const isAllDayEvent = (e: TripEvent) => e.type === "accommodation" || e.all_day;
 
+// A section is either a tick-box checklist (individual `notes` rows) or a
+// single free-form text block (`body`). Older rows predate the column, so
+// treat a missing `kind` as "checklist".
+export type NoteSectionKind = "checklist" | "freeform";
+
 export interface NoteSection {
   id: string;
   trip_id: string;
   title: string;
   sort_order: number;
+  kind?: NoteSectionKind;
+  body?: string | null;
   notes: Note[];
 }
 
