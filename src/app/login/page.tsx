@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Spinner from "@/components/Spinner";
@@ -16,6 +16,17 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [verifying, setVerifying] = useState(false);
+
+  // A magic link that fails to sign in redirects back here with ?error=…;
+  // read it on mount and drop it from the URL so it doesn't stick around.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const linkError = params.get("error");
+    if (linkError) {
+      setError(linkError);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   async function sendLink() {
     if (busy) return;
