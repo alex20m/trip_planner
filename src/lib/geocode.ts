@@ -22,8 +22,9 @@ interface NominatimResult {
 export interface SearchPlacesOptions {
   /**
    * Match settlements (cities, towns, villages) instead of exact places, and
-   * label them as "City, Country". Travel legs use this — a leg only needs to
-   * say which city it leaves from and arrives in, not a street address.
+   * label them as "City, Country". All event locations (travel, activities,
+   * stays) use this — an event only needs to say which city it happens in,
+   * not a street address.
    */
   cityLevel?: boolean;
 }
