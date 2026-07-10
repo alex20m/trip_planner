@@ -199,12 +199,12 @@ export default function EventModal({
               </div>
             </div>
           )}
-          {/* Travel legs only need city-level precision — "Helsinki, Finland"
-              is enough to draw the leg, no exact address required. */}
+          {/* Every event location is city-level — "Helsinki, Finland" — so
+              trips, activities, and stays all label places the same way. */}
           <LocationAutocomplete
             value={location}
             placeholder={isTravel ? "From" : undefined}
-            cityLevel={isTravel}
+            cityLevel
             onChange={(text) => {
               setLocation(text);
               setCoords(null);

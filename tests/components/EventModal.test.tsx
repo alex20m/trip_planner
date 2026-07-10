@@ -124,6 +124,29 @@ describe("EventModal", () => {
     );
   });
 
+  it("searches city-level locations for an Activity, like Travel does", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "rome" } });
+
+    await waitFor(
+      () => expect(searchPlaces).toHaveBeenCalledWith("rome", expect.anything(), { cityLevel: true }),
+      { timeout: 2000 }
+    );
+  });
+
+  it("searches city-level locations for a Stay, like Travel does", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+    fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "oulu" } });
+
+    await waitFor(
+      () => expect(searchPlaces).toHaveBeenCalledWith("oulu", expect.anything(), { cityLevel: true }),
+      { timeout: 2000 }
+    );
+  });
+
   it("requires both a start and an end destination for a Travel event (issue #69)", async () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
