@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Your PlanPal sign-in code</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:#FAF8F4; color:#29211B; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    <!-- Preheader: shown in the inbox preview, hidden in the body -->
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
+      Your PlanPal sign-in code is {{ .Token }}. It expires in 60 minutes.
+    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAF8F4;">
+      <tr>
+        <td align="center" style="padding:40px 16px;">
+          <table role="presentation" width="440" cellpadding="0" cellspacing="0" border="0" style="width:440px; max-width:440px;">
+            <!-- Brand -->
+            <tr>
+              <td align="center" style="padding-bottom:24px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="width:14px; height:14px; background-color:#C15F3C; border-radius:50%; font-size:0; line-height:0;">&nbsp;</td>
+                    <td style="width:8px; font-size:0; line-height:0;">&nbsp;</td>
+                    <td style="width:14px; height:14px; background-color:#E8842C; border-radius:50%; font-size:0; line-height:0;">&nbsp;</td>
+                    <td style="width:12px; font-size:0; line-height:0;">&nbsp;</td>
+                    <td style="font-size:22px; font-weight:700; letter-spacing:-0.02em; color:#29211B;">PlanPal</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <!-- Card -->
+            <tr>
+              <td style="background-color:#FFFFFF; border:1px solid #ECE7DF; border-radius:20px; padding:36px 32px;">
+                <h1 style="margin:0 0 8px; font-size:20px; font-weight:600; letter-spacing:-0.01em; color:#29211B;">
+                  Sign in to PlanPal
+                </h1>
+                <p style="margin:0 0 24px; font-size:15px; line-height:1.55; color:#6B635B;">
+                  Enter this code on the sign-in screen to continue. It expires in 60&nbsp;minutes.
+                </p>
+                <!-- Code -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" style="background-color:#FAF8F4; border:1px solid #ECE7DF; border-radius:16px; padding:22px 16px;">
+                      <span style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; font-size:36px; font-weight:700; letter-spacing:0.34em; color:#29211B; padding-left:0.34em;">{{ .Token }}</span>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:24px 0 0; font-size:13px; line-height:1.55; color:#9A9288;">
+                  Didn't try to sign in? You can safely ignore this email — no one can access your account without this code.
+                </p>
+              </td>
+            </tr>
+            <!-- Footer -->
+            <tr>
+              <td align="center" style="padding-top:24px;">
+                <p style="margin:0; font-size:12px; line-height:1.5; color:#A79F95;">
+                  PlanPal · Plan trips together
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

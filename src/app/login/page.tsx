@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Spinner from "@/components/Spinner";
@@ -17,26 +17,15 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
-  // A magic link that fails to sign in redirects back here with ?error=…;
-  // read it on mount and drop it from the URL so it doesn't stick around.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const linkError = params.get("error");
-    if (linkError) {
-      setError(linkError);
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, []);
-
-  async function sendLink() {
+  async function sendCode() {
     if (busy) return;
     setError(null);
     setBusy(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
-    });
+    // Email a one-time code. No emailRedirectTo / magic link — the code is
+    // verified client-side below, so sign-in never depends on a redirect URL
+    // and works the same on prod, previews, and localhost.
+    const { error } = await supabase.auth.signInWithOtp({ email });
     setBusy(false);
     if (error) setError(error.message);
     else setSent(true);
@@ -50,9 +39,6 @@ export default function Login() {
     setError(null);
     setVerifying(true);
     const supabase = createClient();
-    // Same email carries both the magic link and this 6-digit code — verifying
-    // the code signs in directly on whatever origin the user is on, without
-    // going through /auth/callback or the redirect-URL allowlist at all.
     const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
     if (error) {
       setVerifying(false);
@@ -67,11 +53,11 @@ export default function Login() {
       <h1 className="mb-2">
         <Logo className="h-10 w-10" textClassName="text-3xl" />
       </h1>
-      <p className="mb-8 text-ink/55">Sign in with a magic link or code sent to your email.</p>
+      <p className="mb-8 text-ink/55">Sign in with a code sent to your email.</p>
       {sent ? (
         <div className="space-y-4">
           <p className="rounded-xl border border-stay/20 bg-stay/10 p-4 text-sm text-stay">
-            Check your inbox — click the link, or enter the {CODE_LENGTH}-digit code below.
+            Check your inbox and enter the {CODE_LENGTH}-digit code below.
           </p>
           {/* Codes are exactly 6 digits (Supabase "Email OTP length", see SETUP.md).
               Entering the last digit auto-submits, so verifying is usually one paste. */}
@@ -109,14 +95,14 @@ export default function Login() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !busy && sendLink()}
+            onKeyDown={(e) => e.key === "Enter" && !busy && sendCode()}
             placeholder="you@email.com"
             disabled={busy}
             className="field"
           />
-          <button onClick={sendLink} disabled={busy || !email} className="btn-primary w-full">
+          <button onClick={sendCode} disabled={busy || !email} className="btn-primary w-full">
             {busy && <Spinner className="h-4 w-4" />}
-            {busy ? "Sending…" : "Send sign-in link"}
+            {busy ? "Sending…" : "Email me a code"}
           </button>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

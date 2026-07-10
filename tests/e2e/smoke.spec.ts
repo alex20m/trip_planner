@@ -9,8 +9,8 @@ test("redirects unauthenticated users to /login", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "PlanPal" })).toBeVisible();
 });
 
-test("shows the magic-link sign-in form", async ({ page }) => {
+test("shows the code-based sign-in form", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByPlaceholder("you@email.com")).toBeVisible();
-  await expect(page.getByRole("button", { name: /send sign-in link/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /email me a code/i })).toBeVisible();
 });

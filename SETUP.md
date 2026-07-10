@@ -6,12 +6,12 @@ Stack: Next.js 14 (App Router) · Supabase (Postgres + Auth) · Resend (email) �
 
 1. Create a project at https://supabase.com (region: `eu-north-1` Stockholm is closest for Finland).
 2. Open **SQL Editor** → run every file in `supabase/migrations/` in numeric order (`0001_init.sql`, `0002_calendar_sync.sql`, … `0008_event_location_coords.sql`).
-3. **Authentication → Providers → Email**: make sure Email is enabled. Magic link works out of the box.
+3. **Authentication → Providers → Email**: make sure Email is enabled. Sign-in is **code-only (OTP)** — the emailed 6-digit code is verified in the browser, so no magic link and no redirect allowlist are involved.
    - Set **Email OTP length** to **6** — the sign-in screen accepts exactly 6 digits (local dev already uses `otp_length = 6` in `supabase/config.toml`). A project configured to send 8-digit codes will fail to verify here.
-   - The **Magic Link** email template must contain `{{ .Token }}` so the code is included alongside the link.
+   - The **Magic Link** template is what `signInWithOtp` sends. Replace its body with the branded, code-only template in [`supabase/templates/magic_link.html`](supabase/templates/magic_link.html) — it shows `{{ .Token }}` (the code) and contains **no link**, so there's nothing an email link-scanner (e.g. Outlook SafeLinks) can pre-consume. Local dev picks this file up automatically via `[auth.email.template.magic_link]` in `supabase/config.toml`.
 4. **Authentication → URL Configuration**:
    - Site URL: `http://localhost:3000` (switch to the Vercel domain later)
-   - Redirect URLs: add `http://localhost:3000/auth/callback` and `https://YOUR-APP.vercel.app/auth/callback`
+   - Redirect URLs: not needed for sign-in (code-only), but harmless to leave set.
 5. **Project Settings → API**: copy (skip if using the Vercel Supabase integration – see step 4 – which sets these for you)
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -94,6 +94,6 @@ Each trip exposes an iCalendar feed at `/api/calendar/<token>`. Click **Sync** i
 
 ## Quick functional test
 
-1. Sign in with a magic link, create a trip.
+1. Sign in with an emailed code, create a trip.
 2. Add an event of each type – activity (blue), travel (orange), accommodation (green, date only).
 3. Share → send an invite to another address with "View" → accept in an incognito window → verify that user can't edit and can only re-share with "View".

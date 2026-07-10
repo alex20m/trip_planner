@@ -64,7 +64,7 @@ EOF
 echo ""
 echo "✓ App:    http://localhost:3000"
 echo "✓ Studio: http://localhost:54323"
-echo "✓ Mail:   http://localhost:54324 (magic-link emails land here)"
+echo "✓ Mail:   http://localhost:54324 (sign-in code emails land here)"
 echo ""
 echo "  (sign in with any email — this is a local DB, separate from production)"
 echo ""

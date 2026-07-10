@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Spinner from "@/components/Spinner";
+import CodeInput from "@/components/CodeInput";
+
+const CODE_LENGTH = 6;
 
 type InviteInfo = { email: string; role: string; status: string; tripName: string };
 
@@ -13,8 +16,11 @@ export default function InvitePage() {
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "declined" | "needsLogin" | "error">("loading");
   const [message, setMessage] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   // Which action is in flight — only that button gets a spinner, both stay disabled.
-  const [busy, setBusy] = useState<"accept" | "decline" | "login" | null>(null);
+  const [busy, setBusy] = useState<"accept" | "decline" | "login" | "verify" | null>(null);
 
   useEffect(() => {
     fetch(`/api/invites/${token}`)
@@ -69,15 +75,35 @@ export default function InvitePage() {
     setState("declined");
   }
 
-  async function loginThenAccept(email: string) {
+  async function sendInviteCode(email: string) {
     setBusy("login");
+    setLoginError("");
     const supabase = createClient();
-    await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/invite/${token}` }
-    });
+    const { error } = await supabase.auth.signInWithOtp({ email });
     setBusy(null);
-    setMessage("Check your inbox — sign in and come back here to accept.");
+    if (error) {
+      setLoginError(error.message);
+    } else {
+      setCodeSent(true);
+      setMessage(`Enter the ${CODE_LENGTH}-digit code sent to ${email}.`);
+    }
+  }
+
+  // Verify the emailed code, then accept the invite on the now-authenticated
+  // session. `next` passes the freshly completed code before state flushes.
+  async function verifyInviteCode(email: string, next?: string) {
+    const token = (next ?? code).trim();
+    if (busy || token.length !== CODE_LENGTH) return;
+    setBusy("verify");
+    setLoginError("");
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+    if (error) {
+      setBusy(null);
+      setLoginError(error.message);
+      return;
+    }
+    await accept();
   }
 
   return (
@@ -108,12 +134,35 @@ export default function InvitePage() {
             </div>
           ) : (
             <div>
-              <p className="mb-3 text-sm text-ink/55">Sign in first to accept:</p>
-              <button onClick={() => loginThenAccept(info.email)} disabled={busy !== null} className="btn-primary px-5">
-                {busy === "login" && <Spinner className="h-4 w-4" />}
-                Send sign-in link to {info.email}
-              </button>
-              {message && <p className="mt-3 text-sm text-stay">{message}</p>}
+              {codeSent ? (
+                <div className="space-y-4">
+                  {message && <p className="text-sm text-ink/55">{message}</p>}
+                  <CodeInput
+                    length={CODE_LENGTH}
+                    value={code}
+                    onChange={setCode}
+                    onComplete={(c) => verifyInviteCode(info.email, c)}
+                    disabled={busy === "verify" || busy === "accept"}
+                  />
+                  <button
+                    onClick={() => verifyInviteCode(info.email)}
+                    disabled={busy !== null || code.trim().length !== CODE_LENGTH}
+                    className="btn-primary w-full"
+                  >
+                    {(busy === "verify" || busy === "accept") && <Spinner className="h-4 w-4" />}
+                    {busy === "verify" || busy === "accept" ? "Verifying…" : "Verify & accept"}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <p className="mb-3 text-sm text-ink/55">Sign in first to accept:</p>
+                  <button onClick={() => sendInviteCode(info.email)} disabled={busy !== null} className="btn-primary px-5">
+                    {busy === "login" && <Spinner className="h-4 w-4" />}
+                    Email a code to {info.email}
+                  </button>
+                </>
+              )}
+              {loginError && <p className="mt-3 text-sm text-red-600">{loginError}</p>}
             </div>
           )}
         </>
