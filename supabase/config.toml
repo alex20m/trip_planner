@@ -160,7 +160,9 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# Empty: sign-in is code-only (OTP verified client-side), so Auth never redirects the browser
+# back to the app — no allow-listed redirect URLs are needed.
+additional_redirect_urls = []
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -242,6 +244,13 @@ otp_expiry = 3600
 # pass = "env(SENDGRID_API_KEY)"
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
+
+# Sign-in is code-only (OTP). signInWithOtp sends this "magic link" template;
+# it contains {{ .Token }} (the 6-digit code) and no link, so there is nothing
+# to click and nothing for an email link-scanner to consume.
+[auth.email.template.magic_link]
+subject = "Your PlanPal sign-in code"
+content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]

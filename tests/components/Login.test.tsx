@@ -19,7 +19,7 @@ vi.mock("@/lib/supabase/client", () => ({
 // Fill the email and request the code, landing on the code-entry step.
 async function reachCodeStep() {
   await userEvent.type(screen.getByPlaceholderText("you@email.com"), "person@example.com");
-  await userEvent.click(screen.getByRole("button", { name: "Send sign-in link" }));
+  await userEvent.click(screen.getByRole("button", { name: "Email me a code" }));
 }
 
 const digits = () => screen.getAllByLabelText(/^Digit \d$/) as HTMLInputElement[];
@@ -30,14 +30,12 @@ describe("Login", () => {
     verifyOtp.mockReset();
   });
 
-  it("sends a magic link and then shows the 6-box code entry step", async () => {
+  it("emails a code (no magic link) and then shows the 6-box code entry step", async () => {
     render(<Login />);
     await reachCodeStep();
 
-    expect(signInWithOtp).toHaveBeenCalledWith({
-      email: "person@example.com",
-      options: { emailRedirectTo: expect.stringContaining("/auth/callback") }
-    });
+    // No emailRedirectTo — sign-in is code-only, so no magic link is sent.
+    expect(signInWithOtp).toHaveBeenCalledWith({ email: "person@example.com" });
     expect(screen.getByRole("group", { name: "6-digit verification code" })).toBeInTheDocument();
     expect(digits()).toHaveLength(6);
   });
