@@ -18,7 +18,10 @@ const PIN_COLORS: Record<TripEvent["type"], string> = {
   accommodation: "#2FA36B"
 };
 
-function pinIcon(type: TripEvent["type"]) {
+// dx/dy shift the pin by whole pixels via the anchor so co-located events fan
+// out instead of stacking into a single visible pin (the offset is constant in
+// screen space, so the pins stay separated at every zoom level).
+function pinIcon(type: TripEvent["type"], dx = 0, dy = 0) {
   return L.divIcon({
     className: "",
     html: `<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">
@@ -27,10 +30,13 @@ function pinIcon(type: TripEvent["type"]) {
       <circle cx="15" cy="14.5" r="5" fill="white"/>
     </svg>`,
     iconSize: [30, 40],
-    iconAnchor: [15, 39],
-    popupAnchor: [0, -36]
+    iconAnchor: [15 - dx, 39 - dy],
+    popupAnchor: [dx, dy - 36]
   });
 }
+
+// Pixel radius of the fan-out circle for pins that share a location.
+const SPREAD_RADIUS = 14;
 
 // Arrowhead for travel legs: an SVG triangle pointing north, rotated to the
 // leg's bearing so the direction of travel is visible on the line itself.
@@ -108,30 +114,69 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     layer.clearLayers();
     if (mapped.length === 0) return;
 
+    // Collect every pin first (event pins plus travel arrival pins) so pins
+    // that share a location can be fanned out around it — otherwise they
+    // stack at the exact same point and only the topmost one can be seen or
+    // clicked.
+    type Pin = { at: [number, number]; type: TripEvent["type"]; title: string; popup: string };
+    const pins: Pin[] = [];
+
     for (const e of mapped) {
       const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
       const isLeg = legs.includes(e);
-      const marker = L.marker([e.location_lat!, e.location_lng!], {
-        icon: pinIcon(e.type),
-        title: e.title
-      }).addTo(layer);
-      marker.bindPopup(
-        `<strong>${esc(e.title)}</strong><br/>` +
+      pins.push({
+        at: [e.location_lat!, e.location_lng!],
+        type: e.type,
+        title: e.title,
+        popup:
+          `<strong>${esc(e.title)}</strong><br/>` +
           `<span style="opacity:.7">${esc(EVENT_COLORS[e.type].label)} · ${esc(when)}</span><br/>` +
           `<span style="opacity:.7">${esc(isLeg ? `Departure · ${e.location ?? ""}` : (e.location ?? ""))}</span>`
-      );
+      });
     }
+
+    for (const e of legs) {
+      const to: [number, number] = [e.end_location_lat!, e.end_location_lng!];
+      const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
+      pins.push({
+        at: to,
+        type: "travel",
+        title: e.title,
+        popup:
+          `<strong>${esc(e.title)}</strong><br/>` +
+          `<span style="opacity:.7">${esc(EVENT_COLORS.travel.label)} · ${esc(when)}</span><br/>` +
+          `<span style="opacity:.7">Arrival · ${esc(e.end_location ?? "")}</span>`
+      });
+    }
+
+    // ~1 m precision: coordinates from the same location suggestion are
+    // identical, but this also catches re-picked locations that round the
+    // same way.
+    const groups = new Map<string, Pin[]>();
+    for (const pin of pins) {
+      const key = `${pin.at[0].toFixed(5)},${pin.at[1].toFixed(5)}`;
+      const group = groups.get(key);
+      if (group) group.push(pin);
+      else groups.set(key, [pin]);
+    }
+    groups.forEach((group) => {
+      group.forEach((pin, i) => {
+        let dx = 0;
+        let dy = 0;
+        if (group.length > 1) {
+          const angle = (2 * Math.PI * i) / group.length - Math.PI / 2;
+          dx = Math.round(SPREAD_RADIUS * Math.cos(angle));
+          dy = Math.round(SPREAD_RADIUS * Math.sin(angle));
+        }
+        L.marker(pin.at, { icon: pinIcon(pin.type, dx, dy), title: pin.title })
+          .addTo(layer)
+          .bindPopup(pin.popup);
+      });
+    });
 
     for (const e of legs) {
       const from: [number, number] = [e.location_lat!, e.location_lng!];
       const to: [number, number] = [e.end_location_lat!, e.end_location_lng!];
-      const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
-      const arrival = L.marker(to, { icon: pinIcon("travel"), title: e.title }).addTo(layer);
-      arrival.bindPopup(
-        `<strong>${esc(e.title)}</strong><br/>` +
-          `<span style="opacity:.7">${esc(EVENT_COLORS.travel.label)} · ${esc(when)}</span><br/>` +
-          `<span style="opacity:.7">Arrival · ${esc(e.end_location ?? "")}</span>`
-      );
       L.polyline([from, to], {
         color: PIN_COLORS.travel,
         weight: 3,
