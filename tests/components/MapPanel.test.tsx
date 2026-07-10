@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import L from "leaflet";
 import MapPanel from "@/components/map/MapPanel";
 import type { TripEvent } from "@/lib/types";
 
@@ -14,7 +15,10 @@ const polyline = vi.hoisted(() =>
 const latLngBounds = vi.hoisted(() => vi.fn(() => ({ pad: vi.fn().mockReturnThis() })));
 const invalidateSize = vi.hoisted(() => vi.fn());
 const divIcon = vi.hoisted(() => vi.fn((_options: { iconAnchor: [number, number] }) => ({})));
-vi.mock("leaflet", () => {
+vi.mock("leaflet", async () => {
+  // Real coordinate math (latLng, projection) is kept: the arrow-placement
+  // logic under test depends on Leaflet's actual Web-Mercator projection.
+  const actual = await vi.importActual<typeof import("leaflet")>("leaflet");
   const layerGroup = () => ({ addTo: vi.fn().mockReturnThis(), clearLayers: vi.fn() });
   return {
     default: {
@@ -29,7 +33,9 @@ vi.mock("leaflet", () => {
       marker,
       polyline,
       divIcon,
-      latLngBounds
+      latLngBounds,
+      latLng: actual.latLng,
+      Projection: actual.Projection
     }
   };
 });
@@ -119,13 +125,20 @@ describe("MapPanel", () => {
     // No departure/arrival pins — the only marker is the single direction
     // arrow along the leg, and it must not intercept clicks meant for the line.
     expect(marker).toHaveBeenCalledTimes(1);
-    for (const [at, options] of marker.mock.calls as unknown as [[number, number], { interactive?: boolean }][]) {
-      expect(options).toMatchObject({ interactive: false });
-      expect(at).not.toEqual([60.17, 24.94]);
-      expect(at).not.toEqual([65.01, 25.47]);
-    }
-    // The arrow sits at the midpoint of the leg.
-    expect(marker).toHaveBeenCalledWith([(60.17 + 65.01) / 2, (24.94 + 25.47) / 2], expect.anything());
+    const [arrowAt, arrowOptions] = marker.mock.calls[0] as unknown as [L.LatLng, { interactive?: boolean }];
+    expect(arrowOptions).toMatchObject({ interactive: false });
+    // The arrow sits at the midpoint of the leg *as drawn*: the line is
+    // straight in projected Web-Mercator space, so the midpoint must be
+    // computed there too — the raw lat/lng midpoint would sit off the line.
+    const proj = L.Projection.SphericalMercator;
+    const p1 = proj.project(L.latLng(60.17, 24.94));
+    const p2 = proj.project(L.latLng(65.01, 25.47));
+    const onLineMid = proj.unproject(p1.add(p2.subtract(p1).multiplyBy(0.5)));
+    expect(arrowAt.lat).toBeCloseTo(onLineMid.lat, 10);
+    expect(arrowAt.lng).toBeCloseTo(onLineMid.lng, 10);
+    // Regression guard: on a long north-south leg the on-line midpoint is
+    // measurably north of the naive lat average.
+    expect(arrowAt.lat).toBeGreaterThan((60.17 + 65.01) / 2 + 0.05);
     // The connecting line runs from the start to the end destination: a
     // visible dashed line plus a wider invisible click target that opens the
     // trip info popup.
