@@ -8,7 +8,9 @@ import type { TripEvent } from "@/lib/types";
 const marker = vi.hoisted(() =>
   vi.fn(() => ({ addTo: vi.fn().mockReturnThis(), bindPopup: vi.fn().mockReturnThis() }))
 );
-const polyline = vi.hoisted(() => vi.fn(() => ({ addTo: vi.fn().mockReturnThis() })));
+const polyline = vi.hoisted(() =>
+  vi.fn(() => ({ addTo: vi.fn().mockReturnThis(), bindPopup: vi.fn().mockReturnThis() }))
+);
 const latLngBounds = vi.hoisted(() => vi.fn(() => ({ pad: vi.fn().mockReturnThis() })));
 const invalidateSize = vi.hoisted(() => vi.fn());
 const divIcon = vi.hoisted(() => vi.fn((_options: { iconAnchor: [number, number] }) => ({})));
@@ -95,7 +97,7 @@ describe("MapPanel", () => {
     expect(marker).not.toHaveBeenCalled();
   });
 
-  it("draws a travel leg as two markers linked by a directed line (issue #69)", () => {
+  it("draws a travel leg as a clickable directed line without endpoint pins", () => {
     render(
       <MapPanel
         events={[
@@ -114,18 +116,32 @@ describe("MapPanel", () => {
       />
     );
 
-    // Departure pin, arrival pin, and the direction arrow at the midpoint.
-    expect(marker).toHaveBeenCalledWith([60.17, 24.94], expect.anything());
-    expect(marker).toHaveBeenCalledWith([65.01, 25.47], expect.anything());
+    // No departure/arrival pins — the only markers are the direction arrows
+    // along the leg, and those must not intercept clicks meant for the line.
+    expect(marker).toHaveBeenCalledTimes(3);
+    for (const [at, options] of marker.mock.calls as unknown as [[number, number], { interactive?: boolean }][]) {
+      expect(options).toMatchObject({ interactive: false });
+      expect(at).not.toEqual([60.17, 24.94]);
+      expect(at).not.toEqual([65.01, 25.47]);
+    }
+    // One of the arrows sits at the midpoint of the leg.
     expect(marker).toHaveBeenCalledWith([(60.17 + 65.01) / 2, (24.94 + 25.47) / 2], expect.anything());
-    // The connecting line runs from the start to the end destination.
-    expect(polyline).toHaveBeenCalledWith(
-      [
-        [60.17, 24.94],
-        [65.01, 25.47]
-      ],
-      expect.anything()
-    );
+    // The connecting line runs from the start to the end destination: a
+    // visible dashed line plus a wider invisible click target that opens the
+    // trip info popup.
+    const latlngs = [
+      [60.17, 24.94],
+      [65.01, 25.47]
+    ];
+    expect(polyline).toHaveBeenCalledWith(latlngs, expect.objectContaining({ dashArray: "8 8", interactive: false }));
+    expect(polyline).toHaveBeenCalledWith(latlngs, expect.objectContaining({ opacity: 0 }));
+    const popups = polyline.mock.results
+      .flatMap((r) => (r.value as { bindPopup: ReturnType<typeof vi.fn> }).bindPopup.mock.calls)
+      .map((call) => String(call[0]));
+    expect(popups).toHaveLength(1);
+    expect(popups[0]).toContain("Train north");
+    expect(popups[0]).toContain("Helsinki");
+    expect(popups[0]).toContain("Oulu");
     // Both ends are part of the fitted bounds.
     expect(latLngBounds).toHaveBeenCalledWith([
       [60.17, 24.94],

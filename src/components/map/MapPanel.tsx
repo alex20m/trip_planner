@@ -43,13 +43,18 @@ const SPREAD_RADIUS = 14;
 function arrowIcon(bearingDeg: number) {
   return L.divIcon({
     className: "",
-    html: `<div style="transform: rotate(${bearingDeg}deg)"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+    html: `<div style="transform: rotate(${bearingDeg}deg)"><svg width="${ARROW_SIZE}" height="${ARROW_SIZE}" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
       <path d="M9 2 15 14 9 11 3 14z" fill="${PIN_COLORS.travel}" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
     </svg></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9]
+    iconSize: [ARROW_SIZE, ARROW_SIZE],
+    iconAnchor: [ARROW_SIZE / 2, ARROW_SIZE / 2]
   });
 }
+
+const ARROW_SIZE = 28;
+// Fractions along a leg where a direction arrow is drawn. Several arrows (not
+// one tiny midpoint marker) so the direction is obvious even on long legs.
+const ARROW_POSITIONS = [0.25, 0.5, 0.75];
 
 // Compass bearing (degrees clockwise from north) from one point to another,
 // with the longitude delta corrected for latitude so the on-screen arrow
@@ -74,8 +79,8 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     () => events.filter((e) => e.location_lat != null && e.location_lng != null),
     [events]
   );
-  // Travel legs with both ends mapped get an arrival marker and a directed
-  // line from start to end destination.
+  // Travel legs with both ends mapped are drawn as a directed line from the
+  // start to the end destination — no pins, the line itself carries the info.
   const legs = useMemo(
     () =>
       events.filter(
@@ -114,16 +119,16 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     layer.clearLayers();
     if (mapped.length === 0) return;
 
-    // Collect every pin first (event pins plus travel arrival pins) so pins
-    // that share a location can be fanned out around it — otherwise they
-    // stack at the exact same point and only the topmost one can be seen or
-    // clicked.
+    // Collect every pin first so pins that share a location can be fanned out
+    // around it — otherwise they stack at the exact same point and only the
+    // topmost one can be seen or clicked. Travel legs get no pins at all:
+    // they are drawn purely as a directed, clickable line below.
     type Pin = { at: [number, number]; type: TripEvent["type"]; title: string; popup: string };
     const pins: Pin[] = [];
 
     for (const e of mapped) {
+      if (legs.includes(e)) continue;
       const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
-      const isLeg = legs.includes(e);
       pins.push({
         at: [e.location_lat!, e.location_lng!],
         type: e.type,
@@ -131,21 +136,7 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
         popup:
           `<strong>${esc(e.title)}</strong><br/>` +
           `<span style="opacity:.7">${esc(EVENT_COLORS[e.type].label)} · ${esc(when)}</span><br/>` +
-          `<span style="opacity:.7">${esc(isLeg ? `Departure · ${e.location ?? ""}` : (e.location ?? ""))}</span>`
-      });
-    }
-
-    for (const e of legs) {
-      const to: [number, number] = [e.end_location_lat!, e.end_location_lng!];
-      const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
-      pins.push({
-        at: to,
-        type: "travel",
-        title: e.title,
-        popup:
-          `<strong>${esc(e.title)}</strong><br/>` +
-          `<span style="opacity:.7">${esc(EVENT_COLORS.travel.label)} · ${esc(when)}</span><br/>` +
-          `<span style="opacity:.7">Arrival · ${esc(e.end_location ?? "")}</span>`
+          `<span style="opacity:.7">${esc(e.location ?? "")}</span>`
       });
     }
 
@@ -177,15 +168,33 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     for (const e of legs) {
       const from: [number, number] = [e.location_lat!, e.location_lng!];
       const to: [number, number] = [e.end_location_lat!, e.end_location_lng!];
+      const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
+      const popup =
+        `<strong>${esc(e.title)}</strong><br/>` +
+        `<span style="opacity:.7">${esc(EVENT_COLORS.travel.label)} · ${esc(when)}</span><br/>` +
+        `<span style="opacity:.7">${esc(e.location ?? "")} → ${esc(e.end_location ?? "")}</span>`;
+      // The visible dashed leg. Not interactive itself: dash gaps and a 3 px
+      // stroke are a poor click/tap target, so clicks go to the wider
+      // invisible line below instead.
       L.polyline([from, to], {
         color: PIN_COLORS.travel,
         weight: 3,
-        opacity: 0.75,
-        dashArray: "8 8"
+        opacity: 0.8,
+        dashArray: "8 8",
+        interactive: false
       }).addTo(layer);
-      // Direction arrow halfway along the leg, pointing at the destination.
-      const mid: [number, number] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2];
-      L.marker(mid, { icon: arrowIcon(bearing(from, to)), interactive: false, keyboard: false }).addTo(layer);
+      // Invisible fat click target along the same leg; clicking anywhere on
+      // (or near) the line opens the trip info popup at the click point.
+      L.polyline([from, to], { color: PIN_COLORS.travel, weight: 20, opacity: 0 })
+        .addTo(layer)
+        .bindPopup(popup);
+      // Direction arrows along the leg, all pointing at the destination.
+      // Non-interactive so they never swallow clicks meant for the line.
+      const dir = bearing(from, to);
+      for (const f of ARROW_POSITIONS) {
+        const at: [number, number] = [from[0] + (to[0] - from[0]) * f, from[1] + (to[1] - from[1]) * f];
+        L.marker(at, { icon: arrowIcon(dir), interactive: false, keyboard: false }).addTo(layer);
+      }
     }
 
     const points = [
