@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { TripEvent } from "@/lib/types";
 import { EVENT_COLORS } from "@/lib/types";
+import { ExpandIcon, ShrinkIcon } from "@/components/Icons";
 
 // Loaded with next/dynamic({ ssr: false }) from TripView — Leaflet can only
 // run in the browser.
@@ -59,6 +60,9 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
+  // A fixed overlay rather than the Fullscreen API: iOS Safari has no element
+  // fullscreen, and this way Escape/exit behavior is identical everywhere.
+  const [fullscreen, setFullscreen] = useState(false);
 
   const mapped = useMemo(
     () => events.filter((e) => e.location_lat != null && e.location_lng != null),
@@ -147,6 +151,26 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     map.fitBounds(bounds.pad(0.2), { maxZoom: 14 });
   }, [mapped, legs]);
 
+  // Leaflet sizes its tile grid to the container, so it must re-measure when
+  // the map jumps between the inline card and the full-screen overlay.
+  useEffect(() => {
+    mapRef.current?.invalidateSize();
+  }, [fullscreen]);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [fullscreen]);
+
   return (
     <div>
       {unmapped > 0 && (
@@ -158,12 +182,27 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
       {events.length === 0 && (
         <p className="mb-3 text-sm text-ink/60">No events yet — add events with a location to see them here.</p>
       )}
-      <div
-        ref={containerRef}
-        role="application"
-        aria-label="Map of event locations"
-        className="h-[26rem] w-full overflow-hidden rounded-2xl border border-ink/10 shadow-soft sm:h-[32rem]"
-      />
+      <div className={fullscreen ? "fixed inset-0 z-50 bg-paper" : "relative"}>
+        <div
+          ref={containerRef}
+          role="application"
+          aria-label="Map of event locations"
+          className={
+            fullscreen
+              ? "h-full w-full"
+              : "h-[26rem] w-full overflow-hidden rounded-2xl border border-ink/10 shadow-soft sm:h-[32rem]"
+          }
+        />
+        <button
+          type="button"
+          onClick={() => setFullscreen((f) => !f)}
+          aria-label={fullscreen ? "Exit full screen" : "View map in full screen"}
+          title={fullscreen ? "Exit full screen (Esc)" : "View map in full screen"}
+          className="absolute right-3 top-3 z-[1000] rounded-xl border border-ink/10 bg-paper/95 p-2 text-ink shadow-soft transition-colors duration-150 hover:bg-paper"
+        >
+          {fullscreen ? <ShrinkIcon className="h-5 w-5" /> : <ExpandIcon className="h-5 w-5" />}
+        </button>
+      </div>
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-ink/60">
         {(Object.keys(EVENT_COLORS) as TripEvent["type"][]).map((t) => (
           <span key={t} className="flex items-center gap-1.5">
