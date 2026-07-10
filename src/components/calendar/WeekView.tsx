@@ -93,10 +93,13 @@ export default function WeekView({
                       className={`w-full rounded-xl border-l-4 px-3 py-2 text-left transition-transform active:scale-[0.99] ${COLORS[e.type]}`}
                     >
                       <span className="block truncate text-sm font-semibold leading-snug">{e.title}</span>
-                      <span className="mt-0.5 block truncate text-xs font-medium tabular-nums opacity-75">
-                        {format(s, "HH:mm")}
-                        {en ? `–${format(en, "HH:mm")}` : ""}
-                        {loc ? ` · ${loc}` : ""}
+                      <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs font-medium opacity-75">
+                        <span className="shrink-0 tabular-nums">
+                          {format(s, "HH:mm")}
+                          {en ? `–${format(en, "HH:mm")}` : ""}
+                        </span>
+                        {loc && <span className="shrink-0">·</span>}
+                        <LocationLabel event={e} />
                       </span>
                       <EventNote text={e.description} />
                     </button>
@@ -155,7 +158,10 @@ export default function WeekView({
                     <Icon className="h-3 w-3 shrink-0" />
                     <span className="max-w-[70%] shrink-0 truncate">{e.title}</span>
                     {loc && (
-                      <span className="truncate font-normal opacity-70">· {loc}</span>
+                      <span className="flex min-w-0 items-center gap-1 font-normal opacity-70">
+                        <span className="shrink-0">·</span>
+                        <LocationLabel event={e} />
+                      </span>
                     )}
                     {e.description && (
                       <span className="truncate font-normal italic opacity-70">· {e.description}</span>
@@ -198,10 +204,13 @@ export default function WeekView({
                       className={`absolute inset-x-0.5 flex flex-col items-start justify-start overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-xs leading-tight shadow-sm transition-transform hover:z-10 hover:-translate-y-px ${COLORS[e.type]}`}
                     >
                       <span className="block w-full truncate font-semibold">{e.title}</span>
-                      <span className="block w-full truncate text-[10px] font-medium tabular-nums opacity-70">
-                        {format(s, "HH:mm")}
-                        {en ? `–${format(en, "HH:mm")}` : ""}
-                        {locationLabel(e) ? ` · ${locationLabel(e)}` : ""}
+                      <span className="flex w-full min-w-0 items-center gap-1 text-[10px] font-medium opacity-70">
+                        <span className="shrink-0 tabular-nums">
+                          {format(s, "HH:mm")}
+                          {en ? `–${format(en, "HH:mm")}` : ""}
+                        </span>
+                        {locationLabel(e) && <span className="shrink-0">·</span>}
+                        <LocationLabel event={e} />
                       </span>
                       {/* The block's height encodes the event's duration, so the note
                           must never stretch it: show one truncated line, and only when
@@ -236,10 +245,35 @@ function AgendaAllDayCard({ event: e, onSelect }: { event: TripEvent; onSelect?:
         <Icon className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{e.title}</span>
       </span>
-      {loc && <span className="mt-0.5 block truncate text-xs font-medium opacity-75">{loc}</span>}
+      {loc && (
+        <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs font-medium opacity-75">
+          <LocationLabel event={e} />
+        </span>
+      )}
       <EventNote text={e.description} />
     </button>
   );
+}
+
+// Location line for a card. A travel leg reads as "From → To": the arrow is
+// kept full-weight and never shrinks, so the direction of travel stays visible
+// even when the place names have to truncate on a narrow card. Non-travel
+// events fall back to their plain location. Meant to sit inside a flex row.
+function LocationLabel({ event: e }: { event: TripEvent }) {
+  if (e.type === "travel" && e.location && e.end_location) {
+    return (
+      <span
+        className="flex min-w-0 items-center gap-1"
+        aria-label={`${e.location} to ${e.end_location}`}
+      >
+        <span className="min-w-0 truncate">{e.location}</span>
+        <span aria-hidden className="shrink-0 font-semibold not-italic">→</span>
+        <span className="min-w-0 truncate">{e.end_location}</span>
+      </span>
+    );
+  }
+  const loc = locationLabel(e);
+  return loc ? <span className="min-w-0 truncate">{loc}</span> : null;
 }
 
 // Note preview on agenda cards: clamped to two lines so a long note never
