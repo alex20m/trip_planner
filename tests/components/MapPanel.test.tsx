@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import MapPanel from "@/components/map/MapPanel";
 import type { TripEvent } from "@/lib/types";
 
@@ -10,6 +10,7 @@ const marker = vi.hoisted(() =>
 );
 const polyline = vi.hoisted(() => vi.fn(() => ({ addTo: vi.fn().mockReturnThis() })));
 const latLngBounds = vi.hoisted(() => vi.fn(() => ({ pad: vi.fn().mockReturnThis() })));
+const invalidateSize = vi.hoisted(() => vi.fn());
 vi.mock("leaflet", () => {
   const layerGroup = () => ({ addTo: vi.fn().mockReturnThis(), clearLayers: vi.fn() });
   return {
@@ -17,6 +18,7 @@ vi.mock("leaflet", () => {
       map: vi.fn(() => ({
         setView: vi.fn().mockReturnThis(),
         fitBounds: vi.fn(),
+        invalidateSize,
         remove: vi.fn()
       })),
       tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
@@ -52,6 +54,7 @@ describe("MapPanel", () => {
     marker.mockClear();
     polyline.mockClear();
     latLngBounds.mockClear();
+    invalidateSize.mockClear();
   });
 
   it("adds a marker for every event that has coordinates", () => {
@@ -141,5 +144,28 @@ describe("MapPanel", () => {
 
     expect(marker).toHaveBeenCalledTimes(1);
     expect(polyline).not.toHaveBeenCalled();
+  });
+
+  it("toggles the map into and out of full screen", () => {
+    render(<MapPanel events={[]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
+    // Leaflet must re-measure the container after the layout change.
+    expect(invalidateSize).toHaveBeenCalled();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    fireEvent.click(screen.getByRole("button", { name: /exit full screen/i }));
+    expect(screen.getByRole("button", { name: /view map in full screen/i })).toBeInTheDocument();
+    expect(document.body.style.overflow).not.toBe("hidden");
+  });
+
+  it("exits full screen when Escape is pressed", () => {
+    render(<MapPanel events={[]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
+    expect(screen.getByRole("button", { name: /exit full screen/i })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("button", { name: /view map in full screen/i })).toBeInTheDocument();
   });
 });
