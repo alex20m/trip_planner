@@ -2,7 +2,7 @@
 import { format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { EventType, TripEvent } from "@/lib/types";
-import { EVENT_COLORS, parseDateOnly } from "@/lib/types";
+import { EVENT_COLORS, isAllDayEvent, parseDateOnly } from "@/lib/types";
 import { BedIcon, CompassIcon, PencilIcon, PlaneIcon } from "@/components/Icons";
 
 const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
@@ -11,14 +11,15 @@ const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
   accommodation: BedIcon
 };
 
-// Accommodation dates are stored at UTC midnight, so read the calendar date
+// All-day events are stored at UTC midnight, so read the calendar date
 // straight off the ISO string rather than converting through the local zone.
 function whenLabel(event: TripEvent): string {
-  if (event.type === "accommodation") {
-    const checkIn = parseDateOnly(event.start_at.slice(0, 10));
-    if (!event.end_at) return format(checkIn, "EEE d MMM yyyy", { locale: enUS });
-    const checkOut = parseDateOnly(event.end_at.slice(0, 10));
-    return `${format(checkIn, "EEE d MMM", { locale: enUS })} → ${format(checkOut, "EEE d MMM yyyy", { locale: enUS })}`;
+  if (isAllDayEvent(event)) {
+    const start = parseDateOnly(event.start_at.slice(0, 10));
+    if (!event.end_at) return format(start, "EEE d MMM yyyy", { locale: enUS });
+    const end = parseDateOnly(event.end_at.slice(0, 10));
+    if (+end === +start) return format(start, "EEE d MMM yyyy", { locale: enUS });
+    return `${format(start, "EEE d MMM", { locale: enUS })} → ${format(end, "EEE d MMM yyyy", { locale: enUS })}`;
   }
   const start = new Date(event.start_at);
   const startLabel = format(start, "EEE d MMM yyyy, HH:mm", { locale: enUS });

@@ -18,6 +18,7 @@ function makeEvent(overrides: Partial<TripEvent>): TripEvent {
     location_lat: null,
     location_lng: null,
     description: null,
+    all_day: false,
     ...overrides
   };
 }
@@ -112,6 +113,30 @@ describe("WeekView", () => {
 
     // One copy on the agenda card, one inside the time grid.
     expect(screen.getAllByText("Reservation under Alex")).toHaveLength(2);
+  });
+
+  it("shows an all-day activity in the All day row, not the hourly time grid", () => {
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[
+          makeEvent({
+            title: "City walking tour",
+            type: "activity",
+            all_day: true,
+            start_at: "2026-08-06T00:00:00Z",
+            end_at: null
+          })
+        ]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+      />
+    );
+
+    expect(screen.getByText("All day")).toBeInTheDocument();
+    expect(screen.getAllByText("City walking tour").length).toBeGreaterThan(0);
+    // Not rendered as a timed block: no HH:mm label like a normal timed event would get.
+    expect(screen.queryByText(/00:00/)).not.toBeInTheDocument();
   });
 
   it("shows a stay's note on its agenda card", () => {

@@ -29,6 +29,7 @@ export default function EventModal({
 }) {
   const [title, setTitle] = useState(event?.title ?? "");
   const [type, setType] = useState<EventType>(event?.type ?? "activity");
+  const [allDay, setAllDay] = useState(event?.all_day ?? false);
   const [start, setStart] = useState(toLocal(event?.start_at ?? null));
   const [end, setEnd] = useState(toLocal(event?.end_at ?? null));
   const [startDate, setStartDate] = useState(event?.start_at?.slice(0, 10) ?? "");
@@ -48,18 +49,19 @@ export default function EventModal({
   const [deleting, setDeleting] = useState(false);
   const busy = saving || deleting;
   const isStay = type === "accommodation";
+  const isAllDay = isStay || allDay;
 
   async function save() {
     setError(null);
-    // Accommodation is saved at UTC midnight so the calendar date is preserved exactly in the .ics export.
-    const start_at = isStay ? (startDate ? `${startDate}T00:00:00Z` : "") : start;
-    const end_at = isStay ? (endDate ? `${endDate}T00:00:00Z` : "") : end || null;
+    // All-day events (including accommodation) are saved at UTC midnight so the calendar date is preserved exactly in the .ics export.
+    const start_at = isAllDay ? (startDate ? `${startDate}T00:00:00Z` : "") : start;
+    const end_at = isAllDay ? (endDate ? `${endDate}T00:00:00Z` : "") : end || null;
     if (!title.trim() || !start_at || (isStay && !end_at)) {
       setError(isStay ? "Title, check-in date, and check-out date are required." : "Title and start time are required.");
       return;
     }
-    if (isStay && end_at && end_at <= start_at) {
-      setError("Check-out date must be after check-in date.");
+    if (isAllDay && end_at && end_at <= start_at) {
+      setError(isStay ? "Check-out date must be after check-in date." : "End date must be after start date.");
       return;
     }
     if (location.trim() && !locationConfirmed) {
@@ -72,6 +74,7 @@ export default function EventModal({
       trip_id: tripId,
       title: title.trim(),
       type,
+      all_day: isAllDay,
       start_at: new Date(start_at).toISOString(),
       end_at: end_at ? new Date(end_at).toISOString() : null,
       location: location.trim() || null,
@@ -131,17 +134,38 @@ export default function EventModal({
 
         <div className="space-y-3">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="field" />
-          {isStay ? (
+          {!isStay && (
+            <label className="flex items-center gap-2 text-sm text-ink/70">
+              <input
+                type="checkbox"
+                checked={allDay}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setAllDay(checked);
+                  if (checked) {
+                    if (!startDate && start) setStartDate(start.slice(0, 10));
+                    if (!endDate && end) setEndDate(end.slice(0, 10));
+                  } else {
+                    if (!start && startDate) setStart(`${startDate}T00:00`);
+                    if (!end && endDate) setEnd(`${endDate}T00:00`);
+                  }
+                }}
+                className="h-4 w-4 rounded border-ink/30"
+              />
+              All day
+            </label>
+          )}
+          {isAllDay ? (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="date-field">
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                  placeholder="Check-in" className={`field${startDate ? " has-value" : ""}`} />
-                {!startDate && <span className="date-placeholder">Check-in</span>}
+                  placeholder={isStay ? "Check-in" : "Date"} className={`field${startDate ? " has-value" : ""}`} />
+                {!startDate && <span className="date-placeholder">{isStay ? "Check-in" : "Date"}</span>}
               </div>
               <div className="date-field">
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                  placeholder="Check-out" className={`field${endDate ? " has-value" : ""}`} />
-                {!endDate && <span className="date-placeholder">Check-out</span>}
+                  placeholder={isStay ? "Check-out" : "End date (optional)"} className={`field${endDate ? " has-value" : ""}`} />
+                {!endDate && <span className="date-placeholder">{isStay ? "Check-out" : "End date (optional)"}</span>}
               </div>
             </div>
           ) : (
