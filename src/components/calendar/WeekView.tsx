@@ -1,16 +1,9 @@
 "use client";
-import { addDays, differenceInCalendarDays, format, isSameDay } from "date-fns";
+import { addDays, format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { isAllDayEvent, parseDateOnly, type EventType, type TripEvent } from "@/lib/types";
+import { isAllDayEvent, type EventType, type TripEvent } from "@/lib/types";
+import { allDayLastDay, allDayStart, assignAllDayLanes, isAllDayShownOnDay, locationLabel } from "@/lib/calendarLayout";
 import { BedIcon, CompassIcon, NoteIcon, PlaneIcon } from "@/components/Icons";
-
-// All-day events' start_at/end_at are stored as UTC-midnight date-only values.
-// Parsing them with `new Date(iso)` keeps that UTC instant, which in any
-// timezone ahead of UTC lands after local midnight — so an event's first
-// day fails `allDayStart(e) <= day` and silently drops off. Route through
-// parseDateOnly (local midnight, like `day`/`weekStart`) instead.
-const allDayStart = (e: TripEvent) => parseDateOnly(e.start_at.slice(0, 10));
-const allDayEnd = (e: TripEvent) => (e.end_at ? parseDateOnly(e.end_at.slice(0, 10)) : allDayStart(e));
 
 const HOUR_PX = 44;
 const START_HOUR = 6;
@@ -54,15 +47,20 @@ export default function WeekView({
   );
   const allDayEvents = events.filter((e) => {
     if (!isAllDayEvent(e)) return false;
-    return allDayStart(e) < weekEnd && allDayEnd(e) >= weekStart;
+    return allDayStart(e) < weekEnd && allDayLastDay(e) >= weekStart;
   });
+  const allDayChips = assignAllDayLanes(allDayEvents, gridStart, days.length);
 
   return (
     <>
       {/* Agenda view: stacked days, no horizontal scrolling — used on small screens */}
       <div className="space-y-3 sm:hidden">
         {days.map((day) => {
-          const dayAllDay = allDayEvents.filter((e) => allDayStart(e) <= day && allDayEnd(e) >= day);
+          const dayAllDay = allDayEvents.filter((e) => isAllDayShownOnDay(e, day));
+          // A stay is where the day ends, so it always renders as the day's
+          // last card; other all-day events lead the day.
+          const dayStays = dayAllDay.filter((e) => e.type === "accommodation");
+          const dayLeading = dayAllDay.filter((e) => e.type !== "accommodation");
           const dayTimed = timed
             .filter((e) => isSameDay(new Date(e.start_at), day))
             .sort((a, b) => +new Date(a.start_at) - +new Date(b.start_at));
@@ -78,29 +76,16 @@ export default function WeekView({
                   {format(day, "d MMM", { locale: enUS })}
                 </span>
               </div>
-              <div className="space-y-1.5 px-2 pb-2 pt-1.5">
-                {dayAllDay.map((e) => {
-                  const Icon = TYPE_ICONS[e.type];
-                  return (
-                    <button
-                      key={e.id}
-                      onClick={() => onSelect?.(e)}
-                      className={`w-full rounded-xl border-l-4 px-3 py-2 text-left transition-transform active:scale-[0.99] ${COLORS[e.type]}`}
-                    >
-                      <span className="flex items-center gap-2 text-sm font-semibold">
-                        <Icon className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{e.title}</span>
-                      </span>
-                      {e.location && (
-                        <span className="mt-0.5 block truncate text-xs font-medium opacity-75">{e.location}</span>
-                      )}
-                      <EventNote text={e.description} />
-                    </button>
-                  );
-                })}
+              {/* flex + gap (not margins) so the gap between any two cards is
+                  always exactly the same — margin-based spacing drifted. */}
+              <div className="flex flex-col gap-1.5 px-2 pb-2 pt-1.5">
+                {dayLeading.map((e) => (
+                  <AgendaAllDayCard key={e.id} event={e} onSelect={onSelect} />
+                ))}
                 {dayTimed.map((e) => {
                   const s = new Date(e.start_at);
                   const en = e.end_at ? new Date(e.end_at) : null;
+                  const loc = locationLabel(e);
                   return (
                     <button
                       key={e.id}
@@ -111,12 +96,15 @@ export default function WeekView({
                       <span className="mt-0.5 block truncate text-xs font-medium tabular-nums opacity-75">
                         {format(s, "HH:mm")}
                         {en ? `–${format(en, "HH:mm")}` : ""}
-                        {e.location ? ` · ${e.location}` : ""}
+                        {loc ? ` · ${loc}` : ""}
                       </span>
                       <EventNote text={e.description} />
                     </button>
                   );
                 })}
+                {dayStays.map((e) => (
+                  <AgendaAllDayCard key={e.id} event={e} onSelect={onSelect} />
+                ))}
                 {dayAllDay.length === 0 && dayTimed.length === 0 && (
                   <p className="px-1.5 py-1 text-sm text-ink/30">No events</p>
                 )}
@@ -152,21 +140,22 @@ export default function WeekView({
               className="relative grid gap-y-1"
               style={{ gridColumn: `2 / ${days.length + 2}`, gridTemplateColumns: `repeat(${days.length}, 1fr)` }}
             >
-              {allDayEvents.map((e) => {
-                const startCol = Math.max(0, differenceInCalendarDays(allDayStart(e), gridStart));
-                const endCol = Math.min(days.length - 1, differenceInCalendarDays(allDayEnd(e), gridStart));
+              {allDayChips.map(({ event: e, startCol, endCol, lane }) => {
                 const Icon = TYPE_ICONS[e.type];
+                const loc = locationLabel(e);
                 return (
                   <button
                     key={e.id}
                     onClick={() => onSelect?.(e)}
-                    style={{ gridColumn: `${startCol + 1} / ${endCol + 2}` }}
+                    // Explicit rows: auto-placement left uneven blank gaps
+                    // between chips stacked in the same day column.
+                    style={{ gridColumn: `${startCol + 1} / ${endCol + 2}`, gridRow: lane + 1 }}
                     className={`mx-0.5 flex items-center gap-1 truncate rounded-lg border-l-4 px-2 py-1 text-left text-xs font-medium shadow-sm transition-transform hover:-translate-y-px ${COLORS[e.type]}`}
                   >
                     <Icon className="h-3 w-3 shrink-0" />
                     <span className="max-w-[70%] shrink-0 truncate">{e.title}</span>
-                    {e.location && (
-                      <span className="truncate font-normal opacity-70">· {e.location}</span>
+                    {loc && (
+                      <span className="truncate font-normal opacity-70">· {loc}</span>
                     )}
                     {e.description && (
                       <span className="truncate font-normal italic opacity-70">· {e.description}</span>
@@ -212,7 +201,7 @@ export default function WeekView({
                       <span className="block w-full truncate text-[10px] font-medium tabular-nums opacity-70">
                         {format(s, "HH:mm")}
                         {en ? `–${format(en, "HH:mm")}` : ""}
-                        {e.location ? ` · ${e.location}` : ""}
+                        {locationLabel(e) ? ` · ${locationLabel(e)}` : ""}
                       </span>
                       {/* The block's height encodes the event's duration, so the note
                           must never stretch it: show one truncated line, and only when
@@ -232,6 +221,24 @@ export default function WeekView({
       </div>
       </div>
     </>
+  );
+}
+
+function AgendaAllDayCard({ event: e, onSelect }: { event: TripEvent; onSelect?: (e: TripEvent) => void }) {
+  const Icon = TYPE_ICONS[e.type];
+  const loc = locationLabel(e);
+  return (
+    <button
+      onClick={() => onSelect?.(e)}
+      className={`w-full rounded-xl border-l-4 px-3 py-2 text-left transition-transform active:scale-[0.99] ${COLORS[e.type]}`}
+    >
+      <span className="flex items-center gap-2 text-sm font-semibold">
+        <Icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{e.title}</span>
+      </span>
+      {loc && <span className="mt-0.5 block truncate text-xs font-medium opacity-75">{loc}</span>}
+      <EventNote text={e.description} />
+    </button>
   );
 }
 

@@ -27,6 +27,12 @@ export interface TripEvent {
   location_lng: number | null;
   description: string | null;
   all_day: boolean;
+  // Travel legs run between two places: `location` is where the leg starts and
+  // `end_location` where it ends. Optional because rows and offline snapshots
+  // from before the columns existed lack them; null on non-travel events.
+  end_location?: string | null;
+  end_location_lat?: number | null;
+  end_location_lng?: number | null;
   updated_at?: string;
 }
 
