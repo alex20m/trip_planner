@@ -57,14 +57,6 @@ const ARROW_SIZE = 28;
 // the line with repeated arrowheads.
 const ARROW_POSITION = 0.5;
 
-// Compass bearing (degrees clockwise from north) from one point to another,
-// with the longitude delta corrected for latitude so the on-screen arrow
-// matches the drawn line. Good enough for a display arrow.
-function bearing(from: [number, number], to: [number, number]): number {
-  const midLat = ((from[0] + to[0]) / 2) * (Math.PI / 180);
-  return (Math.atan2((to[1] - from[1]) * Math.cos(midLat), to[0] - from[0]) * 180) / Math.PI;
-}
-
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -191,12 +183,17 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
         .bindPopup(popup);
       // A single direction arrow at the leg's midpoint, pointing at the
       // destination. Non-interactive so it never swallows clicks meant for
-      // the line.
-      const dir = bearing(from, to);
-      const at: [number, number] = [
-        from[0] + (to[0] - from[0]) * ARROW_POSITION,
-        from[1] + (to[1] - from[1]) * ARROW_POSITION
-      ];
+      // the line. Position and rotation are both computed in projected
+      // Web-Mercator space: Leaflet draws the leg as a straight segment in
+      // that space, and Mercator's y-axis is nonlinear in latitude, so
+      // interpolating raw lat/lng would put the arrow visibly off the drawn
+      // line on long legs.
+      const proj = L.Projection.SphericalMercator;
+      const p1 = proj.project(L.latLng(from));
+      const p2 = proj.project(L.latLng(to));
+      const at = proj.unproject(p1.add(p2.subtract(p1).multiplyBy(ARROW_POSITION)));
+      // Projected y grows northward, so this is the bearing clockwise from north.
+      const dir = (Math.atan2(p2.x - p1.x, p2.y - p1.y) * 180) / Math.PI;
       L.marker(at, { icon: arrowIcon(dir), interactive: false, keyboard: false }).addTo(layer);
     }
 
