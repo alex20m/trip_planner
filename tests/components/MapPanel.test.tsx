@@ -11,6 +11,7 @@ const marker = vi.hoisted(() =>
 const polyline = vi.hoisted(() => vi.fn(() => ({ addTo: vi.fn().mockReturnThis() })));
 const latLngBounds = vi.hoisted(() => vi.fn(() => ({ pad: vi.fn().mockReturnThis() })));
 const invalidateSize = vi.hoisted(() => vi.fn());
+const divIcon = vi.hoisted(() => vi.fn((_options: { iconAnchor: [number, number] }) => ({})));
 vi.mock("leaflet", () => {
   const layerGroup = () => ({ addTo: vi.fn().mockReturnThis(), clearLayers: vi.fn() });
   return {
@@ -25,7 +26,7 @@ vi.mock("leaflet", () => {
       layerGroup: vi.fn(layerGroup),
       marker,
       polyline,
-      divIcon: vi.fn(() => ({})),
+      divIcon,
       latLngBounds
     }
   };
@@ -55,6 +56,7 @@ describe("MapPanel", () => {
     polyline.mockClear();
     latLngBounds.mockClear();
     invalidateSize.mockClear();
+    divIcon.mockClear();
   });
 
   it("adds a marker for every event that has coordinates", () => {
@@ -131,6 +133,37 @@ describe("MapPanel", () => {
     ]);
     // The travel leg is fully mapped: nothing should be reported as unmapped.
     expect(screen.queryByText(/without a mapped location/i)).not.toBeInTheDocument();
+  });
+
+  it("fans out pins for events at the same location so each stays visible", () => {
+    render(
+      <MapPanel
+        events={[
+          makeEvent({ id: "e1", title: "Lunch", location: "Colosseum", location_lat: 41.89, location_lng: 12.49 }),
+          makeEvent({ id: "e2", title: "Tour", location: "Colosseum", location_lat: 41.89, location_lng: 12.49 })
+        ]}
+      />
+    );
+
+    // Both events get their own marker at the shared coordinates…
+    expect(marker).toHaveBeenCalledTimes(2);
+    expect(marker).toHaveBeenNthCalledWith(1, [41.89, 12.49], expect.objectContaining({ title: "Lunch" }));
+    expect(marker).toHaveBeenNthCalledWith(2, [41.89, 12.49], expect.objectContaining({ title: "Tour" }));
+    // …and the icons are anchored apart so the pins don't cover each other.
+    const anchors = divIcon.mock.calls.map((call) => call[0].iconAnchor);
+    expect(anchors).toHaveLength(2);
+    expect(anchors[0]).not.toEqual(anchors[1]);
+  });
+
+  it("keeps a single pin unshifted when its location is unique", () => {
+    render(
+      <MapPanel
+        events={[makeEvent({ id: "e1", location: "Colosseum", location_lat: 41.89, location_lng: 12.49 })]}
+      />
+    );
+
+    expect(divIcon).toHaveBeenCalledTimes(1);
+    expect(divIcon.mock.calls[0][0].iconAnchor).toEqual([15, 39]);
   });
 
   it("does not draw a line for a travel event missing end coordinates", () => {
