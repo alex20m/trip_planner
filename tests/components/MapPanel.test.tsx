@@ -214,11 +214,29 @@ describe("MapPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
     // Leaflet must re-measure the container after the layout change.
     expect(invalidateSize).toHaveBeenCalled();
-    expect(document.body.style.overflow).toBe("hidden");
+    // The overlay must NOT lock body scroll: toggling body overflow makes iOS
+    // re-evaluate the standalone-PWA viewport, which can flip the status bar
+    // to its default white and leave it stuck after the overlay closes.
+    expect(document.body.style.overflow).toBe("");
 
     fireEvent.click(screen.getByRole("button", { name: /exit full screen/i }));
     expect(screen.getByRole("button", { name: /view map in full screen/i })).toBeInTheDocument();
-    expect(document.body.style.overflow).not.toBe("hidden");
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("keeps an app-colored bar above the full-screen map so the iOS status bar never flips", () => {
+    render(<MapPanel events={[]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
+    // iOS derives the standalone status-bar color from the page content at the
+    // top of the viewport. The exit button's paper-colored header strip must
+    // sit above the map so the light map tiles never touch the top edge.
+    const exit = screen.getByRole("button", { name: /exit full screen/i });
+    const header = exit.parentElement!;
+    expect(header.className).toContain("bg-paper");
+    const overlay = header.parentElement!;
+    expect(overlay.className).toContain("flex-col");
+    expect(overlay.firstElementChild).toBe(header);
   });
 
   it("keeps Leaflet's imperatively added classes on the map container across the full-screen toggle", () => {

@@ -212,22 +212,21 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     mapRef.current?.invalidateSize();
   }, [fullscreen]);
 
+  // No body scroll lock while the overlay is open: the overlay is opaque and
+  // covers the viewport, so background scrolling is invisible — and toggling
+  // body overflow makes iOS re-evaluate the standalone-PWA viewport, which is
+  // one of the triggers that flips the status bar to its default white.
   useEffect(() => {
     if (!fullscreen) return;
     const onKeyDown = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") setFullscreen(false);
     };
     window.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      // Re-assert the status-bar tint: after this full-screen overlay closes,
-      // iOS leaves the status-bar region stuck on the light style it picked up
-      // from the map. syncThemeColor forces a repaint by changing the color;
-      // the second, delayed call covers WebKit re-evaluating the bar once the
-      // overlay teardown and scroll restoration have settled.
+      // Re-assert the status-bar tint after the overlay closes; a second,
+      // delayed sync covers WebKit re-evaluating the bar once the overlay
+      // teardown has settled.
       syncThemeColor();
       window.setTimeout(() => syncThemeColor(), 400);
     };
@@ -244,32 +243,55 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
       {events.length === 0 && (
         <p className="mb-3 text-sm text-ink/60">No events yet — add events with a location to see them here.</p>
       )}
-      {/* The inline-card vs. overlay styles live on this wrapper, NOT on the
+      {/* The inline-card vs. overlay styles live on the wrappers, NOT on the
           map div: Leaflet adds its own classes to the map div imperatively,
           and a React className update would wipe them, breaking the map
           until remount (the container div's className must stay constant). */}
       <div
         className={
           fullscreen
-            ? "fixed inset-0 z-50 bg-paper"
+            ? "fixed inset-0 z-50 flex flex-col bg-paper"
             : "relative h-[26rem] w-full overflow-hidden rounded-2xl border border-ink/10 shadow-soft sm:h-[32rem]"
         }
       >
-        <div
-          ref={containerRef}
-          role="application"
-          aria-label="Map of event locations"
-          className="h-full w-full"
-        />
-        <button
-          type="button"
-          onClick={() => setFullscreen((f) => !f)}
-          aria-label={fullscreen ? "Exit full screen" : "View map in full screen"}
-          title={fullscreen ? "Exit full screen (Esc)" : "View map in full screen"}
-          className="absolute right-3 top-3 z-[1000] rounded-xl border border-ink/10 bg-paper/95 p-2 text-ink shadow-soft transition-colors duration-150 hover:bg-paper"
-        >
-          {fullscreen ? <ShrinkIcon className="h-5 w-5" /> : <ExpandIcon className="h-5 w-5" />}
-        </button>
+        {/* App-colored bar above the full-screen map. iOS derives the
+            standalone-PWA status-bar color from the page content at the top of
+            the viewport; with the map's light tiles touching the top edge, the
+            status bar flips to white and stays stuck after closing. Keeping
+            this strip paper-colored means the top of the page never changes
+            color, so the status bar has nothing to flip to. */}
+        {fullscreen && (
+          <div className="flex items-center justify-end border-b border-ink/10 bg-paper px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setFullscreen(false)}
+              aria-label="Exit full screen"
+              title="Exit full screen (Esc)"
+              className="rounded-xl border border-ink/10 bg-paper p-2 text-ink transition-colors duration-150 hover:bg-ink/5"
+            >
+              <ShrinkIcon className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+        <div className={fullscreen ? "relative min-h-0 flex-1" : "relative h-full w-full"}>
+          <div
+            ref={containerRef}
+            role="application"
+            aria-label="Map of event locations"
+            className="h-full w-full"
+          />
+          {!fullscreen && (
+            <button
+              type="button"
+              onClick={() => setFullscreen(true)}
+              aria-label="View map in full screen"
+              title="View map in full screen"
+              className="absolute right-3 top-3 z-[1000] rounded-xl border border-ink/10 bg-paper/95 p-2 text-ink shadow-soft transition-colors duration-150 hover:bg-paper"
+            >
+              <ExpandIcon className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-ink/60">
         {(Object.keys(EVENT_COLORS) as TripEvent["type"][]).map((t) => (
