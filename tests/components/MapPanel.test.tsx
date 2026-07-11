@@ -214,11 +214,14 @@ describe("MapPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
     // Leaflet must re-measure the container after the layout change.
     expect(invalidateSize).toHaveBeenCalled();
-    expect(document.body.style.overflow).toBe("hidden");
+    // The overlay must NOT lock body scroll: toggling body overflow makes iOS
+    // re-evaluate the standalone-PWA viewport chrome, which flips the status
+    // bar to its default white and leaves it stuck after the overlay closes.
+    expect(document.body.style.overflow).toBe("");
 
     fireEvent.click(screen.getByRole("button", { name: /exit full screen/i }));
     expect(screen.getByRole("button", { name: /view map in full screen/i })).toBeInTheDocument();
-    expect(document.body.style.overflow).not.toBe("hidden");
+    expect(document.body.style.overflow).toBe("");
   });
 
   it("keeps Leaflet's imperatively added classes on the map container across the full-screen toggle", () => {
