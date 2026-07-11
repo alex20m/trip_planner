@@ -7,6 +7,7 @@ import { enUS } from "date-fns/locale";
 import type { TripEvent } from "@/lib/types";
 import { EVENT_COLORS } from "@/lib/types";
 import { ExpandIcon, ShrinkIcon } from "@/components/Icons";
+import { syncThemeColor } from "@/lib/theme";
 
 // Loaded with next/dynamic({ ssr: false }) from TripView — Leaflet can only
 // run in the browser.
@@ -225,6 +226,10 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
+      // Re-assert the status-bar tint: after this full-screen overlay closes,
+      // iOS can leave the status-bar region stuck on its default (light) style
+      // instead of the app color. Replacing the meta forces iOS to re-read it.
+      syncThemeColor();
     };
   }, [fullscreen]);
 
