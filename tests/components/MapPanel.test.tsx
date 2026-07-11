@@ -248,4 +248,22 @@ describe("MapPanel", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.getByRole("button", { name: /view map in full screen/i })).toBeInTheDocument();
   });
+
+  it("stays in full screen when the browser back gesture (swipe) fires", () => {
+    render(<MapPanel events={[]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
+    expect(screen.getByRole("button", { name: /exit full screen/i })).toBeInTheDocument();
+
+    // A right-swipe on mobile triggers a browser back navigation (popstate).
+    // The overlay must trap it and keep the map full screen — the shrink
+    // button is the only way out.
+    const pushState = vi.spyOn(window.history, "pushState");
+    fireEvent.popState(window);
+    // The trap re-pushes its history entry so the navigation is neutralized…
+    expect(pushState).toHaveBeenCalledWith({ mapFullscreen: true }, "");
+    // …and the map is still full screen.
+    expect(screen.getByRole("button", { name: /exit full screen/i })).toBeInTheDocument();
+    pushState.mockRestore();
+  });
 });

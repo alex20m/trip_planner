@@ -222,9 +222,25 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     const onKeyDown = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") setFullscreen(false);
     };
+    // Trap the browser's back gesture (a right-swipe on mobile / Android back
+    // button) so it can't tear the user out of the overlay: exiting must go
+    // through the shrink button (or Escape) only. We push a throwaway history
+    // entry on open, and when the gesture pops it we immediately push it back,
+    // which leaves the overlay untouched. The net history depth stays exactly
+    // one entry deeper than the page for as long as the overlay is open, so a
+    // single history.back() on close removes it cleanly.
+    window.history.pushState({ mapFullscreen: true }, "");
+    const onPopState = () => {
+      window.history.pushState({ mapFullscreen: true }, "");
+    };
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("popstate", onPopState);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
+      // Drop the trap entry the button/Escape close no longer needs. The
+      // popstate listener is already detached, so this back() won't re-push.
+      window.removeEventListener("popstate", onPopState);
+      window.history.back();
       // Re-assert the status-bar tint after the overlay closes; the second,
       // delayed call covers WebKit re-evaluating the bar once the overlay
       // teardown has settled.
