@@ -29,6 +29,19 @@ body {
   @apply bg-paper text-ink antialiased transition-colors duration-200;
 }
 
+/* Leaflet gives the map container a light gray background-color (#ddd) that
+   only shows while tiles load. iOS 26 tints the standalone-PWA status bar
+   from the background-color of near-top fixed elements — with the map open
+   full screen, that gray became the status-bar color, and it stayed stuck
+   after closing because script-driven changes never re-trigger the sampling.
+   Painting the container with the app paper color keeps the sampled color
+   identical to the app background in both themes, so the status bar never
+   has anything to flip to. Doubled selector so this wins over leaflet.css
+   regardless of CSS bundle order. */
+.leaflet-container.leaflet-container {
+  background: rgb(var(--color-paper));
+}
+
 ::selection {
   @apply bg-accent/20;
 }
