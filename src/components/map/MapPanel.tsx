@@ -212,22 +212,22 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     mapRef.current?.invalidateSize();
   }, [fullscreen]);
 
+  // Deliberately NO body scroll lock while the overlay is open. Toggling
+  // body overflow makes iOS re-evaluate the standalone-PWA viewport chrome,
+  // which flips the status bar to its default white and leaves it stuck after
+  // the overlay closes. The overlay is opaque and covers the viewport, so
+  // scrolling of the page behind it is invisible and harmless.
   useEffect(() => {
     if (!fullscreen) return;
     const onKeyDown = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") setFullscreen(false);
     };
     window.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      // Re-assert the status-bar tint: after this full-screen overlay closes,
-      // iOS leaves the status-bar region stuck on the light style it picked up
-      // from the map. syncThemeColor forces a repaint by changing the color;
-      // the second, delayed call covers WebKit re-evaluating the bar once the
-      // overlay teardown and scroll restoration have settled.
+      // Re-assert the status-bar tint after the overlay closes; the second,
+      // delayed call covers WebKit re-evaluating the bar once the overlay
+      // teardown has settled.
       syncThemeColor();
       window.setTimeout(() => syncThemeColor(), 400);
     };
