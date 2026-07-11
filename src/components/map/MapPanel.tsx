@@ -224,9 +224,12 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       // Re-assert the status-bar tint: after this full-screen overlay closes,
-      // iOS can leave the status-bar region stuck on its default (light) style
-      // instead of the app color. Replacing the meta forces iOS to re-read it.
+      // iOS leaves the status-bar region stuck on the light style it picked up
+      // from the map. syncThemeColor forces a repaint by changing the color;
+      // the second, delayed call covers WebKit re-evaluating the bar once the
+      // overlay teardown and scroll restoration have settled.
       syncThemeColor();
+      window.setTimeout(() => syncThemeColor(), 400);
     };
   }, [fullscreen]);
 
