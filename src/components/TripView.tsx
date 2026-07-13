@@ -55,6 +55,9 @@ export default function TripView({
     startOfWeek(parseDateOnly(initialTrip.start_date), { weekStartsOn: 1 })
   );
   const [editing, setEditing] = useState<TripEvent | "new" | null>(null);
+  // Prefilled start ("yyyy-MM-ddTHH:mm") for a new event opened by pressing a
+  // day in the calendar; null when the plain Add button was used.
+  const [newEventStart, setNewEventStart] = useState<string | null>(null);
   const [viewing, setViewing] = useState<TripEvent | null>(null);
   const [sharing, setSharing] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -177,7 +180,11 @@ export default function TripView({
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {canEdit(role) && (
               <button
-                onClick={() => editable && setEditing("new")}
+                onClick={() => {
+                  if (!editable) return;
+                  setNewEventStart(null);
+                  setEditing("new");
+                }}
                 disabled={!editable}
                 title={editable ? "Add event" : "Requires internet"}
                 aria-label="Add event"
@@ -281,6 +288,16 @@ export default function TripView({
             rangeStart={tripStart}
             rangeEnd={tripEnd}
             onSelect={(e) => setViewing(e)}
+            onAddEvent={
+              editable
+                ? (day, hour) => {
+                    // Midday when the press carried no time (day header/agenda),
+                    // so the composer never opens at an odd pre-dawn hour.
+                    setNewEventStart(`${format(day, "yyyy-MM-dd")}T${String(hour ?? 12).padStart(2, "0")}:00`);
+                    setEditing("new");
+                  }
+                : undefined
+            }
           />
         </>
       ) : tab === "notes" ? (
@@ -304,7 +321,11 @@ export default function TripView({
         <EventModal
           tripId={trip.id}
           event={editing === "new" ? null : editing}
-          onClose={() => setEditing(null)}
+          defaultStart={editing === "new" ? newEventStart : null}
+          onClose={() => {
+            setEditing(null);
+            setNewEventStart(null);
+          }}
           onSaved={(e, deleted) =>
             setEvents((prev) =>
               deleted

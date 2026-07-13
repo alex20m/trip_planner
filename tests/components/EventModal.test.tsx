@@ -327,6 +327,51 @@ describe("EventModal", () => {
     expect(screen.queryByRole("checkbox", { name: "All day" })).not.toBeInTheDocument();
   });
 
+  it("prefills the start fields from defaultStart when creating a new event", async () => {
+    render(<EventModal tripId="trip-1" event={null} defaultStart="2026-08-06T14:00" onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    // Timed view starts on the pressed day at the pressed hour…
+    expect((screen.getByPlaceholderText("Start") as HTMLInputElement).value).toBe("2026-08-06T14:00");
+
+    // …and the date carries over to the all-day and Stay date fields too.
+    await userEvent.click(screen.getByRole("checkbox", { name: "All day" }));
+    expect((screen.getByPlaceholderText("Date") as HTMLInputElement).value).toBe("2026-08-06");
+    await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+    expect((screen.getByPlaceholderText("Check-in") as HTMLInputElement).value).toBe("2026-08-06");
+  });
+
+  it("ignores defaultStart when editing an existing event", () => {
+    render(
+      <EventModal
+        tripId="trip-1"
+        event={
+          {
+            id: "evt-1",
+            trip_id: "trip-1",
+            title: "Museum",
+            type: "activity",
+            start_at: "2026-08-10T10:00:00Z",
+            end_at: null,
+            location: null,
+            location_lat: null,
+            location_lng: null,
+            end_location: null,
+            end_location_lat: null,
+            end_location_lng: null,
+            description: null,
+            all_day: false
+          } as never
+        }
+        defaultStart="2026-08-06T14:00"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+
+    const value = (screen.getByPlaceholderText("Start") as HTMLInputElement).value;
+    expect(value.startsWith("2026-08-10T")).toBe(true);
+  });
+
   it("hides the Cancel button and shows a saving state while saving", async () => {
     let resolveInsert!: (v: unknown) => void;
     insertSingle.mockReturnValue(new Promise((resolve) => (resolveInsert = resolve)));

@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import WeekView from "@/components/calendar/WeekView";
 import type { TripEvent } from "@/lib/types";
 
@@ -329,6 +329,103 @@ describe("WeekView", () => {
     expect(screen.getAllByText("→").length).toBeGreaterThan(0);
     // The route is exposed to assistive tech as "Helsinki to Oulu".
     expect(screen.getAllByLabelText("Helsinki to Oulu").length).toBeGreaterThan(0);
+  });
+
+  it("lets the user press an empty day to start a new event on that day", () => {
+    const onAddEvent = vi.fn();
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+        onAddEvent={onAddEvent}
+      />
+    );
+
+    // Agenda header and week-grid header are both press targets for the day.
+    const targets = screen.getAllByLabelText("Add event on 6 Aug");
+    expect(targets.length).toBe(2);
+    fireEvent.click(targets[0]);
+
+    expect(onAddEvent).toHaveBeenCalledTimes(1);
+    const [day, hour] = onAddEvent.mock.calls[0];
+    expect(day).toEqual(new Date("2026-08-06T00:00:00"));
+    expect(hour).toBeUndefined();
+  });
+
+  it("also lets the user press a day that already has events", () => {
+    const onAddEvent = vi.fn();
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[makeEvent({ title: "Museum visit", start_at: "2026-08-06T12:00:00Z" })]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+        onAddEvent={onAddEvent}
+      />
+    );
+
+    fireEvent.click(screen.getAllByLabelText("Add event on 6 Aug")[0]);
+    expect(onAddEvent).toHaveBeenCalledWith(new Date("2026-08-06T00:00:00"));
+  });
+
+  it("starts a new event at the clicked hour when free grid space is pressed", () => {
+    const onAddEvent = vi.fn();
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+        onAddEvent={onAddEvent}
+      />
+    );
+
+    // Column top sits at y=0 in jsdom; a click 2 hour-rows down (2 × 44px)
+    // lands on the 08:00 slot (the grid starts at 06:00).
+    fireEvent.click(screen.getByTitle("Add event on 6 Aug"), { clientY: 2 * 44 + 1 });
+    expect(onAddEvent).toHaveBeenCalledWith(new Date("2026-08-06T00:00:00"), 8);
+  });
+
+  it("keeps a press on an event block opening that event, not the composer", () => {
+    const onAddEvent = vi.fn();
+    const onSelect = vi.fn();
+    const event = makeEvent({ title: "Museum visit", start_at: "2026-08-06T12:00:00Z", end_at: "2026-08-06T14:00:00Z" });
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[event]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+        onSelect={onSelect}
+        onAddEvent={onAddEvent}
+      />
+    );
+
+    // The time-grid copy of the event lives inside the clickable day column.
+    const gridBlock = screen
+      .getAllByText("Museum visit")
+      .map((el) => el.closest("button")!)
+      .find((b) => b.closest("[title='Add event on 6 Aug']"))!;
+    fireEvent.click(gridBlock);
+
+    expect(onSelect).toHaveBeenCalledWith(event);
+    expect(onAddEvent).not.toHaveBeenCalled();
+  });
+
+  it("shows no add-event press targets without edit rights", () => {
+    render(
+      <WeekView
+        weekStart={weekStart}
+        events={[]}
+        rangeStart={new Date("2026-08-05T00:00:00")}
+        rangeEnd={new Date("2026-08-07T00:00:00")}
+      />
+    );
+
+    expect(screen.queryByLabelText(/add event on/i)).not.toBeInTheDocument();
+    expect(screen.queryByTitle(/add event on/i)).not.toBeInTheDocument();
   });
 });
 
