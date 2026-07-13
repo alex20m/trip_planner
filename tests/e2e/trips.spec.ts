@@ -16,8 +16,9 @@ test("create a trip, add an event, and read it back via the calendar feed", asyn
   await expect(page).toHaveURL(/\/trips\/[0-9a-f-]+/);
   await expect(page.getByRole("heading", { name: tripName })).toBeVisible();
 
-  // Add an event
-  await page.getByRole("button", { name: "Add event" }).click();
+  // Add an event. Exact match: the calendar days now expose their own
+  // "Add event on <day>" buttons, which the substring default would also hit.
+  await page.getByRole("button", { name: "Add event", exact: true }).click();
   await page.getByPlaceholder("Title").fill("Flight to Rome");
   await page.getByPlaceholder("Start").fill("2026-08-01T10:00");
   await page.getByRole("button", { name: "Save" }).click();
@@ -35,6 +36,20 @@ test("create a trip, add an event, and read it back via the calendar feed", asyn
   const body = await feed.text();
   expect(body).toContain("BEGIN:VCALENDAR");
   expect(body).toContain("Flight to Rome");
+});
+
+test("pressing a calendar day opens the event composer prefilled with that day", async ({ page }) => {
+  await page.goto("/");
+  const tripName = `DayPress Trip ${Date.now()}`;
+  await createTrip(page, tripName);
+  await expect(page).toHaveURL(/\/trips\/[0-9a-f-]+/);
+
+  // getByRole only sees the accessibility tree, so at the desktop viewport
+  // this matches the week-grid day headers (the agenda copies are hidden).
+  await page.getByRole("button", { name: /^Add event on/ }).first().click();
+  await expect(page.getByRole("heading", { name: "New event" })).toBeVisible();
+  // A day press without a specific hour opens the composer at midday.
+  await expect(page.getByPlaceholder("Start")).toHaveValue(/T12:00$/);
 });
 
 test("a newly created trip appears back in the trip list", async ({ page }) => {
