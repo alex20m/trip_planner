@@ -258,6 +258,68 @@ describe("EventModal", () => {
     expect(insertSingle).not.toHaveBeenCalled();
   });
 
+  it("prefills the end time to an hour after the start when the empty end field is focused", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    const endInput = screen.getByPlaceholderText("End (optional)");
+    fireEvent.focus(endInput);
+
+    expect(endInput).toHaveValue("2026-07-10T11:00");
+  });
+
+  it("rolls the prefilled end time into the next day when the start is late in the evening", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T23:30" } });
+    const endInput = screen.getByPlaceholderText("End (optional)");
+    fireEvent.focus(endInput);
+
+    expect(endInput).toHaveValue("2026-07-11T00:30");
+  });
+
+  it("prefills the check-out to the day after check-in when the empty field is focused", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+    fireEvent.change(screen.getByPlaceholderText("Check-in"), { target: { value: "2026-07-10" } });
+    const checkOutInput = screen.getByPlaceholderText("Check-out");
+    fireEvent.focus(checkOutInput);
+
+    expect(checkOutInput).toHaveValue("2026-07-11");
+  });
+
+  it("prefills the all-day end date to the day after the start date when focused", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "All day" }));
+    fireEvent.change(screen.getByPlaceholderText("Date"), { target: { value: "2026-07-10" } });
+    const endInput = screen.getByPlaceholderText("End date (optional)");
+    fireEvent.focus(endInput);
+
+    expect(endInput).toHaveValue("2026-07-11");
+  });
+
+  it("leaves the end field empty when focused before a start is set", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    const endInput = screen.getByPlaceholderText("End (optional)");
+    fireEvent.focus(endInput);
+
+    expect(endInput).toHaveValue("");
+  });
+
+  it("does not overwrite an end value the user already picked when refocusing", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    const endInput = screen.getByPlaceholderText("End (optional)");
+    fireEvent.change(endInput, { target: { value: "2026-07-10T14:00" } });
+    fireEvent.focus(endInput);
+
+    expect(endInput).toHaveValue("2026-07-10T14:00");
+  });
+
   it("does not show the All day checkbox for a Stay, since it is already date-only", async () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 

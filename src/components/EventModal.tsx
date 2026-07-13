@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
+import { addDays, addHours, format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import type { EventType, TripEvent } from "@/lib/types";
-import { EVENT_COLORS } from "@/lib/types";
+import { EVENT_COLORS, parseDateOnly } from "@/lib/types";
 import Spinner from "@/components/Spinner";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import { BedIcon, CompassIcon, PlaneIcon } from "@/components/Icons";
@@ -15,6 +16,12 @@ const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
 
 const toLocal = (iso: string | null) =>
   iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
+
+// Opening an empty end field prefills it from the start, so the picker starts
+// from a sensible value instead of "now": an hour later for timed events, the
+// next day for date-only ones (stay check-out, all-day end date).
+const hourAfter = (local: string) => format(addHours(new Date(local), 1), "yyyy-MM-dd'T'HH:mm");
+const dayAfter = (date: string) => format(addDays(parseDateOnly(date), 1), "yyyy-MM-dd");
 
 export default function EventModal({
   tripId,
@@ -181,6 +188,7 @@ export default function EventModal({
               </div>
               <div className="date-field">
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                  onFocus={() => !endDate && startDate && setEndDate(dayAfter(startDate))}
                   placeholder={isStay ? "Check-out" : "End date (optional)"} className={`field${endDate ? " has-value" : ""}`} />
                 {!endDate && <span className="date-placeholder">{isStay ? "Check-out" : "End date (optional)"}</span>}
               </div>
@@ -194,6 +202,7 @@ export default function EventModal({
               </div>
               <div className="date-field">
                 <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)}
+                  onFocus={() => !end && start && setEnd(hourAfter(start))}
                   placeholder="End (optional)" className={`field${end ? " has-value" : ""}`} />
                 {!end && <span className="date-placeholder">End (optional)</span>}
               </div>
