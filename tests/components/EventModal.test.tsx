@@ -15,6 +15,14 @@ vi.mock("@/lib/supabase/client", () => ({
 const searchPlaces = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/geocode", () => ({ searchPlaces }));
 
+// The real preview map is Leaflet (browser-only, covered by its own tests);
+// here we only assert when the modal shows it and with which points.
+vi.mock("@/components/map/LocationPreviewMap", () => ({
+  default: ({ points }: { points: { lat: number; lng: number; label: string }[] }) => (
+    <div data-testid="location-preview" data-points={JSON.stringify(points)} />
+  )
+}));
+
 describe("EventModal", () => {
   beforeEach(() => {
     insertSingle.mockReset();
@@ -122,6 +130,78 @@ describe("EventModal", () => {
         location_lng: 12.4922
       })
     );
+  });
+
+  it("shows a map preview of the picked location so it can be verified", async () => {
+    searchPlaces.mockResolvedValue([{ name: "Rome, Italy", lat: 41.89, lng: 12.49 }]);
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    // No preview while the text is only typed — there is nothing confirmed to show.
+    fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "rome" } });
+    expect(screen.queryByTestId("location-preview")).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(await screen.findByText("Rome, Italy", undefined, { timeout: 2000 }));
+
+    const preview = await screen.findByTestId("location-preview");
+    expect(JSON.parse(preview.dataset.points!)).toEqual([{ lat: 41.89, lng: 12.49, label: "Rome, Italy" }]);
+  });
+
+  it("hides the preview again when the picked location is typed over", async () => {
+    searchPlaces.mockResolvedValue([{ name: "Rome, Italy", lat: 41.89, lng: 12.49 }]);
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "rome" } });
+    fireEvent.mouseDown(await screen.findByText("Rome, Italy", undefined, { timeout: 2000 }));
+    await screen.findByTestId("location-preview");
+
+    // Typing over the picked place unconfirms it, so the stale pin must go too.
+    fireEvent.change(screen.getByDisplayValue("Rome, Italy"), { target: { value: "Rome, It" } });
+    await waitFor(() => expect(screen.queryByTestId("location-preview")).not.toBeInTheDocument());
+  });
+
+  it("previews both travel destinations on the same map", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Travel" }));
+    searchPlaces.mockResolvedValue([{ name: "Helsinki, Finland", lat: 60.17, lng: 24.94 }]);
+    fireEvent.change(screen.getByPlaceholderText("From"), { target: { value: "hels" } });
+    fireEvent.mouseDown(await screen.findByText("Helsinki, Finland", undefined, { timeout: 2000 }));
+
+    searchPlaces.mockResolvedValue([{ name: "Oulu, Finland", lat: 65.01, lng: 25.47 }]);
+    fireEvent.change(screen.getByPlaceholderText("To"), { target: { value: "oulu" } });
+    fireEvent.mouseDown(await screen.findByText("Oulu, Finland", undefined, { timeout: 2000 }));
+
+    const preview = await screen.findByTestId("location-preview");
+    expect(JSON.parse(preview.dataset.points!)).toEqual([
+      { lat: 60.17, lng: 24.94, label: "From: Helsinki, Finland" },
+      { lat: 65.01, lng: 25.47, label: "To: Oulu, Finland" }
+    ]);
+  });
+
+  it("shows the preview immediately when editing an event that already has coordinates", async () => {
+    render(
+      <EventModal
+        tripId="trip-1"
+        event={{
+          id: "evt-1",
+          trip_id: "trip-1",
+          title: "Museum",
+          type: "activity",
+          start_at: "2026-07-10T10:00:00Z",
+          end_at: null,
+          location: "Rome, Italy",
+          location_lat: 41.89,
+          location_lng: 12.49,
+          description: null,
+          all_day: false
+        }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+
+    const preview = await screen.findByTestId("location-preview");
+    expect(JSON.parse(preview.dataset.points!)).toEqual([{ lat: 41.89, lng: 12.49, label: "Rome, Italy" }]);
   });
 
   it("searches city-level locations for an Activity, like Travel does", async () => {
