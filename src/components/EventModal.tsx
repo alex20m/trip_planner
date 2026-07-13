@@ -19,20 +19,24 @@ const toLocal = (iso: string | null) =>
 export default function EventModal({
   tripId,
   event,
+  defaultStart,
   onClose,
   onSaved
 }: {
   tripId: string;
   event: TripEvent | null;
+  // Prefill for a new event, as a local "yyyy-MM-ddTHH:mm" — set when the
+  // modal was opened by pressing a day in the calendar. Ignored when editing.
+  defaultStart?: string | null;
   onClose: () => void;
   onSaved: (e: TripEvent, deleted?: boolean) => void;
 }) {
   const [title, setTitle] = useState(event?.title ?? "");
   const [type, setType] = useState<EventType>(event?.type ?? "activity");
   const [allDay, setAllDay] = useState(event?.all_day ?? false);
-  const [start, setStart] = useState(toLocal(event?.start_at ?? null));
+  const [start, setStart] = useState(event ? toLocal(event.start_at) : (defaultStart ?? ""));
   const [end, setEnd] = useState(toLocal(event?.end_at ?? null));
-  const [startDate, setStartDate] = useState(event?.start_at?.slice(0, 10) ?? "");
+  const [startDate, setStartDate] = useState(event?.start_at?.slice(0, 10) ?? defaultStart?.slice(0, 10) ?? "");
   const [endDate, setEndDate] = useState(event?.end_at?.slice(0, 10) ?? "");
   const [location, setLocation] = useState(event?.location ?? "");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(

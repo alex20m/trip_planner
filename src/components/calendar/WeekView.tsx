@@ -3,7 +3,7 @@ import { addDays, format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { isAllDayEvent, type EventType, type TripEvent } from "@/lib/types";
 import { allDayLastDay, allDayStart, assignAllDayLanes, isAllDayShownOnDay, locationLabel } from "@/lib/calendarLayout";
-import { BedIcon, CompassIcon, NoteIcon, PlaneIcon } from "@/components/Icons";
+import { BedIcon, CompassIcon, NoteIcon, PlaneIcon, PlusIcon } from "@/components/Icons";
 
 const HOUR_PX = 44;
 const START_HOUR = 6;
@@ -26,13 +26,18 @@ export default function WeekView({
   events,
   rangeStart,
   rangeEnd,
-  onSelect
+  onSelect,
+  onAddEvent
 }: {
   weekStart: Date;
   events: TripEvent[];
   rangeStart: Date;
   rangeEnd: Date;
   onSelect?: (e: TripEvent) => void;
+  // Present only when the user may edit: pressing a day (its header, or an
+  // empty slot in the time grid) starts a new event on that day. The grid
+  // also passes the clicked hour so the composer opens at that time.
+  onAddEvent?: (day: Date, hour?: number) => void;
 }) {
   // Only render the days of this week that actually fall within the trip's date range.
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(
@@ -66,16 +71,36 @@ export default function WeekView({
             .sort((a, b) => +new Date(a.start_at) - +new Date(b.start_at));
           const isToday = isSameDay(day, new Date());
 
+          const headerLabel = (
+            <>
+              <span className="text-[11px] uppercase tracking-wide text-ink/45">
+                {format(day, "EEE", { locale: enUS })}
+              </span>
+              <span className={`text-sm font-semibold ${isToday ? "text-activity" : ""}`}>
+                {format(day, "d MMM", { locale: enUS })}
+              </span>
+            </>
+          );
+
           return (
             <div key={+day} className="card overflow-hidden">
-              <div className={`flex items-baseline gap-2 border-b border-ink/10 px-3 py-2 ${isToday ? "bg-activity/5" : ""}`}>
-                <span className="text-[11px] uppercase tracking-wide text-ink/45">
-                  {format(day, "EEE", { locale: enUS })}
-                </span>
-                <span className={`text-sm font-semibold ${isToday ? "text-activity" : ""}`}>
-                  {format(day, "d MMM", { locale: enUS })}
-                </span>
-              </div>
+              {/* With edit rights the whole header is a press target — it works
+                  the same whether the day already has events or is empty. */}
+              {onAddEvent ? (
+                <button
+                  type="button"
+                  onClick={() => onAddEvent(day)}
+                  aria-label={`Add event on ${format(day, "d MMM", { locale: enUS })}`}
+                  className={`flex w-full items-baseline gap-2 border-b border-ink/10 px-3 py-2 text-left transition-colors active:bg-ink/5 ${isToday ? "bg-activity/5" : ""}`}
+                >
+                  {headerLabel}
+                  <PlusIcon className="ml-auto h-4 w-4 self-center text-ink/35" />
+                </button>
+              ) : (
+                <div className={`flex items-baseline gap-2 border-b border-ink/10 px-3 py-2 ${isToday ? "bg-activity/5" : ""}`}>
+                  {headerLabel}
+                </div>
+              )}
               {/* flex + gap (not margins) so the gap between any two cards is
                   always exactly the same — margin-based spacing drifted. */}
               <div className="flex flex-col gap-1.5 px-2 pb-2 pt-1.5">
@@ -123,16 +148,35 @@ export default function WeekView({
           {/* Day headers */}
         <div className="grid border-b border-ink/10" style={gridStyle}>
           <div />
-          {days.map((d) => (
-            <div key={+d} className={`border-l border-ink/5 p-2 text-center ${isSameDay(d, new Date()) ? "bg-activity/5" : ""}`}>
-              <div className="text-[11px] uppercase tracking-wide text-ink/45">
-                {format(d, "EEE", { locale: enUS })}
+          {days.map((d) => {
+            const isToday = isSameDay(d, new Date());
+            const label = (
+              <>
+                <div className="text-[11px] uppercase tracking-wide text-ink/45">
+                  {format(d, "EEE", { locale: enUS })}
+                </div>
+                <div className={`text-sm font-semibold ${isToday ? "text-activity" : ""}`}>
+                  {format(d, "d")}
+                </div>
+              </>
+            );
+            return onAddEvent ? (
+              <button
+                key={+d}
+                type="button"
+                onClick={() => onAddEvent(d)}
+                aria-label={`Add event on ${format(d, "d MMM", { locale: enUS })}`}
+                title="Add event"
+                className={`border-l border-ink/5 p-2 text-center transition-colors hover:bg-ink/5 ${isToday ? "bg-activity/5" : ""}`}
+              >
+                {label}
+              </button>
+            ) : (
+              <div key={+d} className={`border-l border-ink/5 p-2 text-center ${isToday ? "bg-activity/5" : ""}`}>
+                {label}
               </div>
-              <div className={`text-sm font-semibold ${isSameDay(d, new Date()) ? "text-activity" : ""}`}>
-                {format(d, "d")}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* All-day row without a time: accommodation plus any event marked "All day" */}
@@ -183,7 +227,25 @@ export default function WeekView({
             ))}
           </div>
           {days.map((day) => (
-            <div key={+day} className="relative border-l border-ink/5" style={{ height: (END_HOUR - START_HOUR) * HOUR_PX }}>
+            <div
+              key={+day}
+              className={`relative border-l border-ink/5${onAddEvent ? " cursor-pointer" : ""}`}
+              style={{ height: (END_HOUR - START_HOUR) * HOUR_PX }}
+              title={onAddEvent ? `Add event on ${format(day, "d MMM", { locale: enUS })}` : undefined}
+              onClick={
+                onAddEvent
+                  ? (ev) => {
+                      // Clicks on an event block keep opening that event; only
+                      // presses on free grid space start a new one, so this works
+                      // on busy days too. The clicked row picks the start hour.
+                      if ((ev.target as HTMLElement).closest("button")) return;
+                      const y = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
+                      const hour = Math.min(END_HOUR - 1, Math.max(START_HOUR, START_HOUR + Math.floor(y / HOUR_PX)));
+                      onAddEvent(day, hour);
+                    }
+                  : undefined
+              }
+            >
               {Array.from({ length: END_HOUR - START_HOUR }, (_, i) => (
                 <div key={i} style={{ top: i * HOUR_PX }} className="absolute w-full border-t border-ink/5" />
               ))}

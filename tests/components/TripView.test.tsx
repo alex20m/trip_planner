@@ -199,6 +199,27 @@ describe("TripView — deleting a trip", () => {
     }
   });
 
+  it("opens the new-event composer prefilled with the pressed calendar day", async () => {
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    // First visible week of the 1–7 Aug trip shows Sat 1 and Sun 2 Aug.
+    await userEvent.click(screen.getAllByLabelText("Add event on 1 Aug")[0]);
+
+    expect(screen.getByText("New event")).toBeInTheDocument();
+    // Day presses without a specific hour default to midday.
+    expect((screen.getByPlaceholderText("Start") as HTMLInputElement).value).toBe("2026-08-01T12:00");
+  });
+
+  it("offers no day press targets to viewers or while offline", () => {
+    const { unmount } = render(<TripView trip={trip} role="read" initialEvents={[]} initialSections={[]} />);
+    expect(screen.queryByLabelText(/add event on/i)).not.toBeInTheDocument();
+    unmount();
+
+    online = false;
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+    expect(screen.queryByLabelText(/add event on/i)).not.toBeInTheDocument();
+  });
+
   it("lets editors open the trip-dates editor but not viewers", () => {
     const { unmount } = render(<TripView trip={trip} role="edit" initialEvents={[]} initialSections={[]} />);
     expect(screen.getByTitle("Edit trip dates")).toBeInTheDocument();
