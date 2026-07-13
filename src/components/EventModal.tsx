@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { addDays, addHours, format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import type { EventType, TripEvent } from "@/lib/types";
@@ -7,6 +8,12 @@ import { EVENT_COLORS, parseDateOnly } from "@/lib/types";
 import Spinner from "@/components/Spinner";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import { BedIcon, CompassIcon, PlaneIcon } from "@/components/Icons";
+
+// Leaflet only runs in the browser, so the location preview must skip SSR.
+const LocationPreviewMap = dynamic(() => import("@/components/map/LocationPreviewMap"), {
+  ssr: false,
+  loading: () => <div className="h-44 w-full animate-pulse rounded-2xl bg-ink/5" />
+});
 
 const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
   activity: CompassIcon,
@@ -71,6 +78,15 @@ export default function EventModal({
   const isStay = type === "accommodation";
   const isTravel = type === "travel";
   const isAllDay = isStay || allDay;
+
+  // Confirmed locations only — coordinates are cleared as soon as the user
+  // types over a picked place, so the preview never shows a stale pin.
+  const previewPoints = useMemo(() => {
+    const points: { lat: number; lng: number; label: string }[] = [];
+    if (coords) points.push({ ...coords, label: isTravel ? `From: ${location}` : location });
+    if (isTravel && endCoords) points.push({ ...endCoords, label: `To: ${endLocation}` });
+    return points;
+  }, [coords, endCoords, isTravel, location, endLocation]);
 
   async function save() {
     setError(null);
@@ -246,6 +262,14 @@ export default function EventModal({
                 setEndLocationConfirmed(true);
               }}
             />
+          )}
+          {previewPoints.length > 0 && (
+            <div>
+              <LocationPreviewMap points={previewPoints} />
+              <p className="mt-1.5 text-xs text-ink/50">
+                Check the pin is where you expect — this is where the event will appear on the trip map.
+              </p>
+            </div>
           )}
           <textarea
             value={description}
