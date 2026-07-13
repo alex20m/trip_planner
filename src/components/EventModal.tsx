@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { addDays, addHours, format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
@@ -29,6 +29,23 @@ const toLocal = (iso: string | null) =>
 // next day for date-only ones (stay check-out, all-day end date).
 const hourAfter = (local: string) => format(addHours(new Date(local), 1), "yyyy-MM-dd'T'HH:mm");
 const dayAfter = (date: string) => format(addDays(parseDateOnly(date), 1), "yyyy-MM-dd");
+
+// A native date/time picker opens at the input's current value; an empty field
+// opens at "now". Setting the value in onFocus is too late for a mouse click —
+// the picker has already opened empty, and the browser then reverts our value
+// back to match it (the "flash then jump to now" bug). So we seed the DOM value
+// on mousedown, before the click opens the picker, and mirror it into state.
+// onFocus covers keyboard users, where no picker auto-opens to fight.
+const seedEnd = (
+  el: HTMLInputElement | null,
+  compute: () => string,
+  set: (v: string) => void
+) => {
+  if (!el || el.value) return;
+  const v = compute();
+  el.value = v;
+  set(v);
+};
 
 export default function EventModal({
   tripId,
@@ -71,6 +88,9 @@ export default function EventModal({
   );
   const [endLocationConfirmed, setEndLocationConfirmed] = useState(true);
   const [description, setDescription] = useState(event?.description ?? "");
+  // Refs let us seed the end pickers imperatively before they open (see seedEnd).
+  const endRef = useRef<HTMLInputElement>(null);
+  const endDateRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -207,8 +227,9 @@ export default function EventModal({
                 {!startDate && <span className="date-placeholder">{isStay ? "Check-in" : "Date"}</span>}
               </div>
               <div className="date-field">
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                  onFocus={() => !endDate && startDate && setEndDate(dayAfter(startDate))}
+                <input ref={endDateRef} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                  onMouseDown={() => startDate && seedEnd(endDateRef.current, () => dayAfter(startDate), setEndDate)}
+                  onFocus={() => startDate && seedEnd(endDateRef.current, () => dayAfter(startDate), setEndDate)}
                   placeholder={isStay ? "Check-out" : "End date (optional)"} className={`field${endDate ? " has-value" : ""}`} />
                 {!endDate && <span className="date-placeholder">{isStay ? "Check-out" : "End date (optional)"}</span>}
               </div>
@@ -221,8 +242,9 @@ export default function EventModal({
                 {!start && <span className="date-placeholder">Start</span>}
               </div>
               <div className="date-field">
-                <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)}
-                  onFocus={() => !end && start && setEnd(hourAfter(start))}
+                <input ref={endRef} type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)}
+                  onMouseDown={() => start && seedEnd(endRef.current, () => hourAfter(start), setEnd)}
+                  onFocus={() => start && seedEnd(endRef.current, () => hourAfter(start), setEnd)}
                   placeholder="End (optional)" className={`field${end ? " has-value" : ""}`} />
                 {!end && <span className="date-placeholder">End (optional)</span>}
               </div>

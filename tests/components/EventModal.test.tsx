@@ -400,6 +400,40 @@ describe("EventModal", () => {
     expect(endInput).toHaveValue("2026-07-10T14:00");
   });
 
+  // The value must be seeded on mousedown — before the click opens the native
+  // picker — or the browser reverts it to the picker's "now" (the flash bug).
+  it("seeds the end time on mousedown so the picker opens at the right value", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    const endInput = screen.getByPlaceholderText("End (optional)");
+    fireEvent.mouseDown(endInput);
+
+    expect(endInput).toHaveValue("2026-07-10T11:00");
+  });
+
+  it("seeds the check-out on mousedown so the picker opens at the right value", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+    fireEvent.change(screen.getByPlaceholderText("Check-in"), { target: { value: "2026-07-10" } });
+    const checkOutInput = screen.getByPlaceholderText("Check-out");
+    fireEvent.mouseDown(checkOutInput);
+
+    expect(checkOutInput).toHaveValue("2026-07-11");
+  });
+
+  it("does not seed the end on mousedown when a value is already present", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    const endInput = screen.getByPlaceholderText("End (optional)");
+    fireEvent.change(endInput, { target: { value: "2026-07-10T14:00" } });
+    fireEvent.mouseDown(endInput);
+
+    expect(endInput).toHaveValue("2026-07-10T14:00");
+  });
+
   it("does not show the All day checkbox for a Stay, since it is already date-only", async () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
