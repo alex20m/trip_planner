@@ -11,13 +11,15 @@ const fitBounds = vi.hoisted(() => vi.fn());
 const latLngBounds = vi.hoisted(() => vi.fn(() => ({ pad: vi.fn().mockReturnThis() })));
 const clearLayers = vi.hoisted(() => vi.fn());
 const mapOptions = vi.hoisted(() => vi.fn());
+const on = vi.hoisted(() => vi.fn());
+const container = vi.hoisted(() => ({ style: {} as Record<string, string> }));
 vi.mock("leaflet", () => {
   const layerGroup = () => ({ addTo: vi.fn().mockReturnThis(), clearLayers });
   return {
     default: {
       map: vi.fn((_el: HTMLElement, options: unknown) => {
         mapOptions(options);
-        return { setView, fitBounds, remove: vi.fn() };
+        return { setView, fitBounds, on, getContainer: () => container, remove: vi.fn() };
       }),
       tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
       layerGroup: vi.fn(layerGroup),
@@ -37,6 +39,8 @@ describe("LocationPreviewMap", () => {
     latLngBounds.mockClear();
     clearLayers.mockClear();
     mapOptions.mockClear();
+    on.mockClear();
+    container.style = {};
   });
 
   it("centers on a single picked place and pins it", () => {
@@ -66,7 +70,9 @@ describe("LocationPreviewMap", () => {
       [65.01, 25.47]
     ]);
     expect(fitBounds).toHaveBeenCalled();
-    expect(setView).not.toHaveBeenCalled();
+    // The only setView is the initial world framing — the two ends are framed
+    // with fitBounds, never centered on one point.
+    expect(setView).toHaveBeenLastCalledWith([20, 0], 2);
   });
 
   it("replaces the pin when a different place is picked", () => {
@@ -86,5 +92,30 @@ describe("LocationPreviewMap", () => {
     render(<LocationPreviewMap points={[{ lat: 60.17, lng: 24.94, label: "Helsinki, Finland" }]} />);
 
     expect(mapOptions).toHaveBeenCalledWith(expect.objectContaining({ scrollWheelZoom: false }));
+  });
+
+  it("starts on a world view so an empty map still has somewhere to click", () => {
+    render(<LocationPreviewMap points={[]} onPick={vi.fn()} />);
+
+    expect(setView).toHaveBeenCalledWith([20, 0], 2);
+    expect(marker).not.toHaveBeenCalled();
+  });
+
+  it("reports the clicked coordinates and shows a crosshair when interactive", () => {
+    const onPick = vi.fn();
+    render(<LocationPreviewMap points={[]} onPick={onPick} />);
+
+    expect(container.style.cursor).toBe("crosshair");
+    const clickHandler = on.mock.calls.find(([evt]) => evt === "click")?.[1] as (e: unknown) => void;
+    expect(clickHandler).toBeTypeOf("function");
+    clickHandler({ latlng: { lat: 41.89, lng: 12.49 } });
+    expect(onPick).toHaveBeenCalledWith(41.89, 12.49);
+  });
+
+  it("stays read-only with no click handler when onPick is omitted", () => {
+    render(<LocationPreviewMap points={[{ lat: 60.17, lng: 24.94, label: "Helsinki, Finland" }]} />);
+
+    expect(on).not.toHaveBeenCalledWith("click", expect.anything());
+    expect(container.style.cursor).toBeUndefined();
   });
 });

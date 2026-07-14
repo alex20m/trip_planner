@@ -37,10 +37,29 @@ function pinIcon() {
 // a same-named town on the wrong continent.
 const SINGLE_POINT_ZOOM = 9;
 
-export default function LocationPreviewMap({ points }: { points: PreviewPoint[] }) {
+// Default view for an empty map (no location picked yet): the whole world, so
+// there's always somewhere to click to drop the first pin.
+const WORLD_VIEW: { center: [number, number]; zoom: number } = { center: [20, 0], zoom: 2 };
+
+export default function LocationPreviewMap({
+  points,
+  onPick
+}: {
+  points: PreviewPoint[];
+  /**
+   * When provided, the map is interactive: clicking anywhere drops a pin there
+   * and reports the coordinates, so a place can be chosen straight off the map
+   * instead of by typing. Omit for a read-only preview.
+   */
+  onPick?: (lat: number, lng: number) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
+  // Kept in a ref so the click handler registered once at mount always calls
+  // the latest onPick without re-creating the map on every render.
+  const onPickRef = useRef(onPick);
+  onPickRef.current = onPick;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -52,6 +71,15 @@ export default function LocationPreviewMap({ points }: { points: PreviewPoint[] 
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
+    // A starting view so the map renders before any place is chosen; the points
+    // effect below recenters as soon as there's something to show.
+    map.setView(WORLD_VIEW.center, WORLD_VIEW.zoom);
+    if (onPickRef.current) {
+      map.getContainer().style.cursor = "crosshair";
+      map.on("click", (e: L.LeafletMouseEvent) => {
+        onPickRef.current?.(e.latlng.lat, e.latlng.lng);
+      });
+    }
     mapRef.current = map;
     markersRef.current = L.layerGroup().addTo(map);
     return () => {
@@ -83,7 +111,7 @@ export default function LocationPreviewMap({ points }: { points: PreviewPoint[] 
       <div
         ref={containerRef}
         role="application"
-        aria-label="Map preview of the chosen location"
+        aria-label={onPick ? "Map — click to drop a location pin" : "Map preview of the chosen location"}
         className="h-full w-full"
       />
     </div>

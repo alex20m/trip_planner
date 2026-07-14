@@ -10,6 +10,7 @@ export interface PlaceSuggestion {
 }
 
 const ENDPOINT = "https://nominatim.openstreetmap.org/search";
+const REVERSE_ENDPOINT = "https://nominatim.openstreetmap.org/reverse";
 
 interface NominatimResult {
   display_name: string;
@@ -52,6 +53,29 @@ export async function searchPlaces(
   if (!cityLevel) return places;
   const seen = new Set<string>();
   return places.filter((p) => !seen.has(p.name) && seen.add(p.name));
+}
+
+// Turn a dropped map pin into the same shape a picked suggestion has. The
+// clicked coordinates are kept exactly as-is (the pin stays where the user put
+// it); only the label comes from the geocoder. Returns null when the point has
+// no known place (e.g. mid-ocean), so the caller can fall back to a coordinate
+// label.
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+  signal?: AbortSignal,
+  { cityLevel = false }: SearchPlacesOptions = {}
+): Promise<PlaceSuggestion | null> {
+  // zoom 10 ≈ city/town; zoom 18 ≈ building. City-level events want the
+  // settlement the pin falls in, not the exact address under the cursor.
+  const zoom = cityLevel ? 10 : 18;
+  const url =
+    `${REVERSE_ENDPOINT}?format=jsonv2&lat=${lat}&lon=${lng}&zoom=${zoom}&addressdetails=1`;
+  const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`Reverse geocode failed (${res.status})`);
+  const d = (await res.json()) as NominatimResult & { error?: string };
+  if (!d || d.error || !d.display_name) return null;
+  return { name: cityLevel ? shortName(d) : d.display_name, lat, lng };
 }
 
 function shortName(d: NominatimResult): string {

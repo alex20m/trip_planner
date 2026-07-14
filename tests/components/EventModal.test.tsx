@@ -13,13 +13,25 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 const searchPlaces = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/geocode", () => ({ searchPlaces }));
+const reverseGeocode = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/geocode", () => ({ searchPlaces, reverseGeocode }));
 
 // The real preview map is Leaflet (browser-only, covered by its own tests);
-// here we only assert when the modal shows it and with which points.
+// here we only assert which points the modal shows and simulate a dropped pin
+// through the onPick callback via a stand-in button.
 vi.mock("@/components/map/LocationPreviewMap", () => ({
-  default: ({ points }: { points: { lat: number; lng: number; label: string }[] }) => (
-    <div data-testid="location-preview" data-points={JSON.stringify(points)} />
+  default: ({
+    points,
+    onPick
+  }: {
+    points: { lat: number; lng: number; label: string }[];
+    onPick?: (lat: number, lng: number) => void;
+  }) => (
+    <div data-testid="location-preview" data-points={JSON.stringify(points)}>
+      <button type="button" onClick={() => onPick?.(41.89, 12.49)}>
+        drop-pin
+      </button>
+    </div>
   )
 }));
 
@@ -29,6 +41,8 @@ describe("EventModal", () => {
     insert.mockClear();
     searchPlaces.mockReset();
     searchPlaces.mockResolvedValue([]);
+    reverseGeocode.mockReset();
+    reverseGeocode.mockResolvedValue(null);
   });
 
   it("requires a check-out date for a Stay event", async () => {
@@ -132,31 +146,99 @@ describe("EventModal", () => {
     );
   });
 
-  it("shows a map preview of the picked location so it can be verified", async () => {
+  it("pins the picked location on the map so it can be verified", async () => {
     searchPlaces.mockResolvedValue([{ name: "Rome, Italy", lat: 41.89, lng: 12.49 }]);
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
-    // No preview while the text is only typed — there is nothing confirmed to show.
+    // The map is always available (it can be clicked to drop a pin), but it has
+    // no pins while the text is only typed — nothing is confirmed to show.
     fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "rome" } });
-    expect(screen.queryByTestId("location-preview")).not.toBeInTheDocument();
+    expect(JSON.parse(screen.getByTestId("location-preview").dataset.points!)).toEqual([]);
 
     fireEvent.mouseDown(await screen.findByText("Rome, Italy", undefined, { timeout: 2000 }));
 
-    const preview = await screen.findByTestId("location-preview");
-    expect(JSON.parse(preview.dataset.points!)).toEqual([{ lat: 41.89, lng: 12.49, label: "Rome, Italy" }]);
+    await waitFor(() =>
+      expect(JSON.parse(screen.getByTestId("location-preview").dataset.points!)).toEqual([
+        { lat: 41.89, lng: 12.49, label: "Rome, Italy" }
+      ])
+    );
   });
 
-  it("hides the preview again when the picked location is typed over", async () => {
+  it("clears the pin again when the picked location is typed over", async () => {
     searchPlaces.mockResolvedValue([{ name: "Rome, Italy", lat: 41.89, lng: 12.49 }]);
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
     fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "rome" } });
     fireEvent.mouseDown(await screen.findByText("Rome, Italy", undefined, { timeout: 2000 }));
-    await screen.findByTestId("location-preview");
+    await waitFor(() =>
+      expect(JSON.parse(screen.getByTestId("location-preview").dataset.points!)).toHaveLength(1)
+    );
 
     // Typing over the picked place unconfirms it, so the stale pin must go too.
     fireEvent.change(screen.getByDisplayValue("Rome, Italy"), { target: { value: "Rome, It" } });
-    await waitFor(() => expect(screen.queryByTestId("location-preview")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(JSON.parse(screen.getByTestId("location-preview").dataset.points!)).toEqual([])
+    );
+  });
+
+  it("drops a pin on the map to fill in a location without typing", async () => {
+    reverseGeocode.mockResolvedValue({ name: "Rome, Italy", lat: 41.89, lng: 12.49 });
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null },
+      error: null
+    });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "drop-pin" }));
+
+    // The dropped pin is reverse-geocoded into the location field…
+    await waitFor(() => expect(screen.getByDisplayValue("Rome, Italy")).toBeInTheDocument());
+    expect(reverseGeocode).toHaveBeenCalledWith(41.89, 12.49, undefined, { cityLevel: true });
+
+    // …and saves as a confirmed place with its coordinates, no typing required.
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ location: "Rome, Italy", location_lat: 41.89, location_lng: 12.49 })
+    );
+  });
+
+  it("keeps a dropped pin usable with a coordinate label when reverse geocoding fails", async () => {
+    reverseGeocode.mockRejectedValue(new Error("offline"));
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null },
+      error: null
+    });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "drop-pin" }));
+
+    // Falls back to a coordinate label, but the pin still counts as confirmed.
+    await waitFor(() =>
+      expect(screen.getByDisplayValue(/Pinned location \(41\.8900, 12\.4900\)/)).toBeInTheDocument()
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ location_lat: 41.89, location_lng: 12.49 })
+    );
+  });
+
+  it("drops the pin on the To destination for travel when To is selected", async () => {
+    reverseGeocode.mockResolvedValue({ name: "Oulu, Finland", lat: 41.89, lng: 12.49 });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Travel" }));
+    await userEvent.click(screen.getByRole("button", { name: "To" }));
+    fireEvent.click(screen.getByRole("button", { name: "drop-pin" }));
+
+    // The reverse-geocoded name lands in the To field, leaving From untouched.
+    await waitFor(() => expect(screen.getByPlaceholderText("To")).toHaveValue("Oulu, Finland"));
+    expect(screen.getByPlaceholderText("From")).toHaveValue("");
   });
 
   it("previews both travel destinations on the same map", async () => {
