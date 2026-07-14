@@ -7,6 +7,7 @@ import type { EventType, TripEvent } from "@/lib/types";
 import { EVENT_COLORS, parseDateOnly } from "@/lib/types";
 import Spinner from "@/components/Spinner";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
+import { reverseGeocode } from "@/lib/geocode";
 import { BedIcon, CompassIcon, PlaneIcon } from "@/components/Icons";
 
 // Leaflet only runs in the browser, so the location preview must skip SSR.
@@ -87,6 +88,11 @@ export default function EventModal({
       : null
   );
   const [endLocationConfirmed, setEndLocationConfirmed] = useState(true);
+  // Which field a map-dropped pin fills. Only travel has two locations to
+  // choose between; every other type always fills the single location.
+  const [pinTarget, setPinTarget] = useState<"start" | "end">("start");
+  // A pin was just dropped and we're naming it from its coordinates.
+  const [locating, setLocating] = useState(false);
   const [description, setDescription] = useState(event?.description ?? "");
   // Refs let us seed the end pickers imperatively before they open (see seedEnd).
   const endRef = useRef<HTMLInputElement>(null);
@@ -107,6 +113,35 @@ export default function EventModal({
     if (isTravel && endCoords) points.push({ ...endCoords, label: `To: ${endLocation}` });
     return points;
   }, [coords, endCoords, isTravel, location, endLocation]);
+
+  // Dropping a pin on the map is an alternative to typing: the click gives us
+  // real coordinates straight away (so the location counts as confirmed), and
+  // we reverse-geocode them into a readable city name. Travel picks the field
+  // named by the From/To toggle; every other type fills its single location.
+  async function handlePinDrop(lat: number, lng: number) {
+    const target = isTravel ? pinTarget : "start";
+    const setName = target === "start" ? setLocation : setEndLocation;
+    const setPoint = target === "start" ? setCoords : setEndCoords;
+    const setConfirmed = target === "start" ? setLocationConfirmed : setEndLocationConfirmed;
+    setPoint({ lat, lng });
+    setConfirmed(true);
+    // Show the coordinates until the name resolves, so the field is never empty
+    // and there's a sensible label if reverse geocoding fails or is offline.
+    const coordLabel = `Pinned location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+    setName(coordLabel);
+    setLocating(true);
+    try {
+      const place = await reverseGeocode(lat, lng, undefined, { cityLevel: true });
+      if (place) {
+        setName(place.name);
+        setPoint({ lat: place.lat, lng: place.lng });
+      }
+    } catch {
+      // Keep the coordinate label — the pin is still a valid, confirmed place.
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function save() {
     setError(null);
@@ -285,14 +320,35 @@ export default function EventModal({
               }}
             />
           )}
-          {previewPoints.length > 0 && (
-            <div>
-              <LocationPreviewMap points={previewPoints} />
-              <p className="mt-1.5 text-xs text-ink/50">
-                Check the pin is where you expect — this is where the event will appear on the trip map.
-              </p>
-            </div>
-          )}
+          <div>
+            {isTravel && (
+              <div className="mb-1.5 flex items-center gap-2 text-xs text-ink/60">
+                <span>Drop pin on:</span>
+                <div className="flex gap-1">
+                  {(["start", "end"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setPinTarget(t)}
+                      aria-pressed={pinTarget === t}
+                      className={`rounded-lg px-2 py-0.5 ${
+                        pinTarget === t ? "bg-ink/10 text-ink" : "text-ink/60 hover:bg-ink/5"
+                      }`}
+                    >
+                      {t === "start" ? "From" : "To"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <LocationPreviewMap points={previewPoints} onPick={handlePinDrop} />
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-ink/50">
+              {locating && <Spinner className="h-3 w-3" />}
+              {locating
+                ? "Finding the place you pinned…"
+                : "Search above, or click the map to drop a pin — this is where the event will appear on the trip map."}
+            </p>
+          </div>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
