@@ -9,12 +9,30 @@ import type { Trip } from "@/lib/types";
 
 const deleteEq = vi.fn();
 
+// Per-table rows returned by the refresh select chain. Tests mutate this to
+// control what a refresh pulls from the server.
+const refreshData: Record<string, unknown> = {
+  trips: null,
+  trip_events: [],
+  note_sections: []
+};
+
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
-    from: () => ({
+    from: (table: string) => ({
       delete: () => ({
         eq: (...args: unknown[]) => deleteEq(...args)
-      })
+      }),
+      // Supports both `.eq().single()` (trips) and `.eq().order()` (events,
+      // sections) refresh queries against the same per-table row set.
+      select: () => {
+        const chain: any = {
+          eq: () => chain,
+          order: () => Promise.resolve({ data: refreshData[table] }),
+          single: () => Promise.resolve({ data: refreshData[table] })
+        };
+        return chain;
+      }
     })
   })
 }));
@@ -227,5 +245,68 @@ describe("TripView — deleting a trip", () => {
 
     render(<TripView trip={trip} role="read" initialEvents={[]} initialSections={[]} />);
     expect(screen.queryByTitle("Edit trip dates")).not.toBeInTheDocument();
+  });
+});
+
+describe("TripView — refreshing for the latest changes", () => {
+  beforeEach(() => {
+    online = true;
+    idbGet.mockResolvedValue(undefined);
+    idbSet.mockResolvedValue(undefined);
+    refreshData.trips = null;
+    refreshData.trip_events = [];
+    refreshData.note_sections = [];
+    vi.mocked(useRouter).mockReturnValue({
+      push: vi.fn(),
+      replace: vi.fn(),
+      prefetch: vi.fn(),
+      back: vi.fn(),
+      refresh: vi.fn()
+    } as any);
+  });
+
+  it("offers a Refresh item in the menu to every role", async () => {
+    for (const role of ["owner", "edit", "read"] as const) {
+      const { unmount } = render(<TripView trip={trip} role={role} initialEvents={[]} initialSections={[]} />);
+      await userEvent.click(screen.getByRole("button", { name: "More trip options" }));
+      expect(screen.getByRole("menuitem", { name: "Refresh" })).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("pulls the latest events from the server and shows them", async () => {
+    refreshData.trip_events = [
+      {
+        id: "e1",
+        trip_id: "trip-1",
+        title: "Colosseum tour",
+        type: "activity",
+        start_at: "2026-08-01T10:00:00Z",
+        end_at: "2026-08-01T11:00:00Z",
+        location: null,
+        location_lat: null,
+        location_lng: null,
+        description: null,
+        all_day: false
+      }
+    ];
+
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    // Not on screen until we refresh.
+    expect(screen.queryByText("Colosseum tour")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "More trip options" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Refresh" }));
+
+    expect((await screen.findAllByText("Colosseum tour")).length).toBeGreaterThan(0);
+  });
+
+  it("disables the Refresh item while offline", async () => {
+    online = false;
+    render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "More trip options" }));
+    expect(screen.getByRole("menuitem", { name: "Refresh" })).toBeDisabled();
   });
 });

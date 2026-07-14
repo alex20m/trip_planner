@@ -62,6 +62,7 @@ export default function TripView({
   const [sharing, setSharing] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [editingDates, setEditingDates] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Editing and sharing require a connection; offline is always read-only.
   const editable = canEdit(role) && online;
@@ -125,6 +126,36 @@ export default function TripView({
     setLastSynced(now).then(setSavedAt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, sections]);
+
+  // Pull the latest trip, events, and notes from the server, e.g. when someone
+  // else is editing the same trip at the same time. Mirrors the queries in the
+  // trip page's server component so the refreshed state matches a fresh load.
+  async function refreshTrip() {
+    if (!online || !navigator.onLine || refreshing) return;
+    setRefreshing(true);
+    try {
+      const supabase = createClient();
+      const [{ data: freshTrip }, { data: freshEvents }, { data: freshSections }] = await Promise.all([
+        supabase.from("trips").select("*").eq("id", trip.id).single(),
+        supabase.from("trip_events").select("*").eq("trip_id", trip.id).order("start_at"),
+        supabase.from("note_sections").select("*, notes(*)").eq("trip_id", trip.id).order("sort_order")
+      ]);
+      if (freshTrip) setTrip(freshTrip as Trip);
+      if (freshEvents) setEvents(freshEvents as TripEvent[]);
+      if (freshSections) {
+        setSections(
+          (freshSections as any[]).map((s) => ({
+            ...s,
+            notes: (s.notes ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order)
+          })) as NoteSection[]
+        );
+      }
+      // Keep the server-rendered tree in sync so a later navigation is fresh too.
+      router.refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function deleteTrip() {
     if (!confirm(`Delete "${trip.name}"? This removes its events, notes, and sharing for everyone. This cannot be undone.`)) {
@@ -205,6 +236,8 @@ export default function TripView({
               deleting={deletingTrip}
               open={menuOpen}
               setOpen={setMenuOpen}
+              refreshing={refreshing}
+              onRefresh={refreshTrip}
               onShare={() => setSharing(true)}
               onSync={() => setSyncing(true)}
               onDelete={deleteTrip}
@@ -355,6 +388,8 @@ function TripMenu({
   deleting,
   open,
   setOpen,
+  refreshing,
+  onRefresh,
   onShare,
   onSync,
   onDelete
@@ -365,6 +400,8 @@ function TripMenu({
   deleting: boolean;
   open: boolean;
   setOpen: (v: boolean) => void;
+  refreshing: boolean;
+  onRefresh: () => void;
   onShare: () => void;
   onSync: () => void;
   onDelete: () => void;
@@ -396,6 +433,20 @@ function TripMenu({
           role="menu"
           className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-ink/10 bg-surface p-1.5 shadow-panel"
         >
+          <button
+            role="menuitem"
+            onClick={() => {
+              if (!online || refreshing) return;
+              // Leave the menu open so the spinner/"Refreshing…" label is visible.
+              onRefresh();
+            }}
+            disabled={!online || refreshing}
+            title={online ? "Get the latest changes" : "Requires internet"}
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-ink hover:bg-ink/5 disabled:opacity-40"
+          >
+            <RefreshIcon className={`h-4 w-4 text-ink/50${refreshing ? " animate-spin" : ""}`} />
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
           <button
             role="menuitem"
             onClick={() => {
