@@ -176,6 +176,10 @@ h2 {
     @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm;
   }
   .modal-panel {
-    @apply w-full max-w-md rounded-3xl border border-ink/10 bg-surface p-5 shadow-panel;
+    /* Cap the panel to the viewport (the backdrop adds 1rem of padding on each
+       side) and scroll its own content, so tall modals like a new stay stay
+       fully reachable instead of overflowing off-screen. dvh tracks the real
+       visible height on mobile as browser chrome shows/hides. */
+    @apply max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-ink/10 bg-surface p-5 shadow-panel;
   }
 }
