@@ -39,15 +39,36 @@ function esc(s: string | null | undefined): string {
     .replace(/\r?\n/g, "\\n");
 }
 
-// RFC 5545: fold lines longer than 75 chars (char-based approx, fine for latin/emoji)
+// RFC 5545 §3.1: no content line may exceed 75 octets (excluding CRLF), and a
+// multi-octet UTF-8 character MUST NOT be split across a fold. We therefore
+// measure in UTF-8 bytes and only ever break on code-point boundaries;
+// continuation lines start with a single space (which counts toward the 75).
+//
+// The previous version folded on `String.length` (UTF-16 code units), so a
+// break could land in the middle of a surrogate pair (emoji) or count a
+// multi-byte char as one octet. The first corrupts the feed with invalid UTF-8
+// once encoded — and calendar clients like Apple's silently drop events whose
+// VEVENT contains it — so events with emoji or accented place names would go
+// missing while plain-ASCII ones came through.
+const enc = new TextEncoder();
 function fold(line: string): string {
   const out: string[] = [];
-  let l = line;
-  while (l.length > 74) {
-    out.push(l.slice(0, 74));
-    l = " " + l.slice(74);
+  let cur = "";
+  let curLen = 0; // octets already on the current physical line
+  // `for..of` iterates by code point, so a surrogate pair is one step and its
+  // bytes are never split.
+  for (const ch of line) {
+    const n = enc.encode(ch).length;
+    if (curLen + n > 75) {
+      out.push(cur);
+      cur = " " + ch; // continuation line begins with a space
+      curLen = 1 + n;
+    } else {
+      cur += ch;
+      curLen += n;
+    }
   }
-  out.push(l);
+  out.push(cur);
   return out.join("\r\n");
 }
 
@@ -67,7 +88,7 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
     "PRODID:-//PlanPal//EN//",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    fold("X-WR-CALNAME:" + esc(trip.name)),
+    "X-WR-CALNAME:" + esc(trip.name),
     "X-PUBLISHED-TTL:PT15M",
     "REFRESH-INTERVAL;VALUE=DURATION:PT15M"
   ];
@@ -83,7 +104,7 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
     lines.push("DTSTART;VALUE=DATE:" + fmtDate(`${trip.start_date}T00:00:00Z`));
     lines.push("DTEND;VALUE=DATE:" + addDaysDate(`${trip.end_date}T00:00:00Z`, 1));
     lines.push("TRANSP:TRANSPARENT");
-    lines.push(fold("SUMMARY:" + esc("🌍 " + trip.name)));
+    lines.push("SUMMARY:" + esc("🌍 " + trip.name));
     lines.push("END:VEVENT");
   }
 
@@ -107,14 +128,17 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
       if (e.end_at) lines.push("DTEND:" + fmtUTC(e.end_at));
     }
 
-    lines.push(fold("SUMMARY:" + esc(prefix + e.title)));
+    lines.push("SUMMARY:" + esc(prefix + e.title));
     // Travel legs run between two places; show the direction in the location.
     const location = e.type === "travel" && e.location && e.end_location ? `${e.location} → ${e.end_location}` : e.location;
-    if (location) lines.push(fold("LOCATION:" + esc(location)));
-    if (e.description) lines.push(fold("DESCRIPTION:" + esc(e.description)));
+    if (location) lines.push("LOCATION:" + esc(location));
+    if (e.description) lines.push("DESCRIPTION:" + esc(e.description));
     lines.push("END:VEVENT");
   }
 
   lines.push("END:VCALENDAR");
-  return lines.join("\r\n") + "\r\n";
+  // Fold every line at emit time so any long value (a title, a description, or
+  // even a long UID/host) is wrapped safely — never just the few we used to
+  // fold inline.
+  return lines.map(fold).join("\r\n") + "\r\n";
 }
