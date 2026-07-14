@@ -17,15 +17,26 @@ interface NominatimResult {
   name?: string;
   lat: string;
   lon: string;
-  address?: { country?: string };
+  address?: {
+    house_number?: string;
+    road?: string;
+    pedestrian?: string;
+    footway?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    suburb?: string;
+    country?: string;
+  };
 }
 
 export interface SearchPlacesOptions {
   /**
    * Match settlements (cities, towns, villages) instead of exact places, and
-   * label them as "City, Country". All event locations (travel, activities,
-   * stays) use this — an event only needs to say which city it happens in,
-   * not a street address.
+   * label them as "City, Country". Off by default: a plain search resolves
+   * anything the geocoder knows, including exact street addresses like
+   * "Itämerenkatu 20", so an event can pin a precise spot and not just a city.
    */
   cityLevel?: boolean;
 }
@@ -37,13 +48,13 @@ export async function searchPlaces(
 ): Promise<PlaceSuggestion[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  let url = `${ENDPOINT}?format=jsonv2&limit=5&q=${encodeURIComponent(q)}`;
-  if (cityLevel) url += "&featuretype=settlement&addressdetails=1";
+  let url = `${ENDPOINT}?format=jsonv2&limit=5&addressdetails=1&q=${encodeURIComponent(q)}`;
+  if (cityLevel) url += "&featuretype=settlement";
   const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`Place search failed (${res.status})`);
   const data = (await res.json()) as NominatimResult[];
   const places = data.map((d) => ({
-    name: cityLevel ? shortName(d) : d.display_name,
+    name: cityLevel ? shortName(d) : placeLabel(d),
     lat: parseFloat(d.lat),
     lng: parseFloat(d.lon)
   }));
@@ -75,7 +86,7 @@ export async function reverseGeocode(
   if (!res.ok) throw new Error(`Reverse geocode failed (${res.status})`);
   const d = (await res.json()) as NominatimResult & { error?: string };
   if (!d || d.error || !d.display_name) return null;
-  return { name: cityLevel ? shortName(d) : d.display_name, lat, lng };
+  return { name: cityLevel ? shortName(d) : placeLabel(d), lat, lng };
 }
 
 function shortName(d: NominatimResult): string {
@@ -83,4 +94,27 @@ function shortName(d: NominatimResult): string {
   const country = d.address?.country?.trim();
   if (!place) return d.display_name;
   return country && country !== place ? `${place}, ${country}` : place;
+}
+
+// Concise label for a full-precision result. Nominatim's raw display_name can
+// run to a dozen comma-separated parts; instead show the specific place (a POI
+// name or a "street number" address) followed by its city and country. Falls
+// back to display_name when there aren't enough address details to build one.
+function placeLabel(d: NominatimResult): string {
+  const a = d.address ?? {};
+  const street = a.road || a.pedestrian || a.footway;
+  const primary =
+    d.name?.trim() ||
+    (street ? [street, a.house_number].filter(Boolean).join(" ") : "") ||
+    d.display_name.split(",")[0].trim();
+  const locality = a.city || a.town || a.village || a.municipality || a.suburb;
+  // Without a locality or country there's no structure to condense, so keep
+  // Nominatim's full display name rather than collapse to a bare first segment.
+  if (!locality && !a.country) return d.display_name;
+  const parts: string[] = [];
+  for (const part of [primary, locality, a.country]) {
+    const t = part?.trim();
+    if (t && !parts.includes(t)) parts.push(t);
+  }
+  return parts.length ? parts.join(", ") : d.display_name;
 }

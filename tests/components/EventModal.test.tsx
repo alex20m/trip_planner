@@ -215,7 +215,7 @@ describe("EventModal", () => {
 
     // The dropped pin is reverse-geocoded into the location field…
     await waitFor(() => expect(screen.getByDisplayValue("Rome, Italy")).toBeInTheDocument());
-    expect(reverseGeocode).toHaveBeenCalledWith(41.89, 12.49, undefined, { cityLevel: true });
+    expect(reverseGeocode).toHaveBeenCalledWith(41.89, 12.49);
 
     // …and saves as a confirmed place with its coordinates, no typing required.
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -306,25 +306,25 @@ describe("EventModal", () => {
     expect(JSON.parse(preview.dataset.points!)).toEqual([{ lat: 41.89, lng: 12.49, label: "Rome, Italy" }]);
   });
 
-  it("searches city-level locations for an Activity, like Travel does", async () => {
+  it("searches full-precision locations for an Activity, so an address can be picked", async () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
     fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "rome" } });
 
     await waitFor(
-      () => expect(searchPlaces).toHaveBeenCalledWith("rome", expect.anything(), { cityLevel: true }),
+      () => expect(searchPlaces).toHaveBeenCalledWith("rome", expect.anything(), { cityLevel: false }),
       { timeout: 2000 }
     );
   });
 
-  it("searches city-level locations for a Stay, like Travel does", async () => {
+  it("searches full-precision locations for a Stay, so an address can be picked", async () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Stay" }));
     fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "oulu" } });
 
     await waitFor(
-      () => expect(searchPlaces).toHaveBeenCalledWith("oulu", expect.anything(), { cityLevel: true }),
+      () => expect(searchPlaces).toHaveBeenCalledWith("oulu", expect.anything(), { cityLevel: false }),
       { timeout: 2000 }
     );
   });

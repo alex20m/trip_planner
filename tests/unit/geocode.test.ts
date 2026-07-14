@@ -15,15 +15,57 @@ describe("searchPlaces", () => {
     vi.unstubAllGlobals();
   });
 
-  it("returns full display names for exact place search", async () => {
+  it("searches everything (no settlement filter) so exact addresses resolve", async () => {
     const fetchMock = mockFetch([
+      { display_name: "Colosseum, Rome, Lazio, Italy", lat: "41.8902", lon: "12.4922" }
+    ]);
+
+    await searchPlaces("colosseum");
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).not.toContain("featuretype");
+    expect(url).toContain("addressdetails=1");
+  });
+
+  it("labels a street address concisely as 'Street Number, City, Country'", async () => {
+    mockFetch([
+      {
+        display_name:
+          "20, Itämerenkatu, Ruoholahti, Helsinki, Uusimaa, 00180, Finland",
+        lat: "60.1616",
+        lon: "24.9152",
+        address: { house_number: "20", road: "Itämerenkatu", city: "Helsinki", country: "Finland" }
+      }
+    ]);
+
+    const places = await searchPlaces("itämerenkatu 20");
+
+    expect(places).toEqual([{ name: "Itämerenkatu 20, Helsinki, Finland", lat: 60.1616, lng: 24.9152 }]);
+  });
+
+  it("labels a named place as 'Name, City, Country' without repeating parts", async () => {
+    mockFetch([
+      {
+        display_name: "Colosseum, Rome, Lazio, Italy",
+        name: "Colosseum",
+        lat: "41.8902",
+        lon: "12.4922",
+        address: { city: "Rome", country: "Italy" }
+      }
+    ]);
+
+    const places = await searchPlaces("colosseum");
+
+    expect(places).toEqual([{ name: "Colosseum, Rome, Italy", lat: 41.8902, lng: 12.4922 }]);
+  });
+
+  it("falls back to the full display name when no address details are returned", async () => {
+    mockFetch([
       { display_name: "Colosseum, Rome, Lazio, Italy", lat: "41.8902", lon: "12.4922" }
     ]);
 
     const places = await searchPlaces("colosseum");
 
-    const url = fetchMock.mock.calls[0][0] as string;
-    expect(url).not.toContain("featuretype");
     expect(places).toEqual([{ name: "Colosseum, Rome, Lazio, Italy", lat: 41.8902, lng: 12.4922 }]);
   });
 
@@ -98,6 +140,21 @@ describe("reverseGeocode", () => {
     expect(url).toContain("zoom=10");
     // The label comes from the geocoder, but the pin stays exactly where it was dropped.
     expect(place).toEqual({ name: "Helsinki, Finland", lat: 60.1699, lng: 24.9384 });
+  });
+
+  it("names a dropped pin with its exact address at building zoom by default", async () => {
+    const fetchMock = mockReverse({
+      display_name: "20, Itämerenkatu, Ruoholahti, Helsinki, Uusimaa, 00180, Finland",
+      lat: "60.1616",
+      lon: "24.9152",
+      address: { house_number: "20", road: "Itämerenkatu", city: "Helsinki", country: "Finland" }
+    });
+
+    const place = await reverseGeocode(60.1616, 24.9152);
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain("zoom=18");
+    expect(place).toEqual({ name: "Itämerenkatu 20, Helsinki, Finland", lat: 60.1616, lng: 24.9152 });
   });
 
   it("returns null when the pin falls on nothing Nominatim can name", async () => {

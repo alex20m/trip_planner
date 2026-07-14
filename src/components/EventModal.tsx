@@ -141,7 +141,7 @@ export default function EventModal({
     setName(coordLabel);
     setLocating(true);
     try {
-      const place = await reverseGeocode(lat, lng, undefined, { cityLevel: true });
+      const place = await reverseGeocode(lat, lng);
       if (place) {
         setName(place.name);
         setPoint({ lat: place.lat, lng: place.lng });
@@ -331,12 +331,12 @@ export default function EventModal({
               </div>
             </div>
           )}
-          {/* Every event location is city-level — "Helsinki, Finland" — so
-              trips, activities, and stays all label places the same way. */}
+          {/* Locations resolve at full precision, so an event can pin an exact
+              address ("Itämerenkatu 20, Helsinki") or just a city — whatever
+              the geocoder matches for what was typed. */}
           <LocationAutocomplete
             value={location}
             placeholder={isTravel ? "From" : undefined}
-            cityLevel
             onChange={(text) => {
               setLocation(text);
               setCoords(null);
@@ -353,7 +353,6 @@ export default function EventModal({
             <LocationAutocomplete
               value={endLocation}
               placeholder="To"
-              cityLevel
               onChange={(text) => {
                 setEndLocation(text);
                 setEndCoords(null);
