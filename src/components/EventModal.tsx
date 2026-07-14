@@ -52,6 +52,8 @@ export default function EventModal({
   tripId,
   event,
   defaultStart,
+  tripStart,
+  tripEnd,
   onClose,
   onSaved
 }: {
@@ -60,6 +62,10 @@ export default function EventModal({
   // Prefill for a new event, as a local "yyyy-MM-ddTHH:mm" — set when the
   // modal was opened by pressing a day in the calendar. Ignored when editing.
   defaultStart?: string | null;
+  // Trip bounds as "yyyy-MM-dd"; when set, an event's dates must fall inside
+  // them so events can't be placed outside the trip they belong to.
+  tripStart?: string;
+  tripEnd?: string;
   onClose: () => void;
   onSaved: (e: TripEvent, deleted?: boolean) => void;
 }) {
@@ -155,6 +161,22 @@ export default function EventModal({
     if (isAllDay && end_at && end_at <= start_at) {
       setError(isStay ? "Check-out date must be after check-in date." : "End date must be after start date.");
       return;
+    }
+    // Keep every date the event touches inside the trip's own range — ISO
+    // "yyyy-MM-dd" strings compare correctly, so slice the day off each field.
+    if (tripStart && tripEnd) {
+      const startDay = isAllDay ? startDate : start.slice(0, 10);
+      const endDay = isAllDay ? endDate : end ? end.slice(0, 10) : "";
+      const outOfRange = (d: string) => !!d && (d < tripStart || d > tripEnd);
+      if (outOfRange(startDay) || outOfRange(endDay)) {
+        setError(
+          `Event dates must be within the trip (${format(parseDateOnly(tripStart), "MMM d")} – ${format(
+            parseDateOnly(tripEnd),
+            "MMM d, yyyy"
+          )}).`
+        );
+        return;
+      }
     }
     if (isTravel && (!location.trim() || !endLocation.trim())) {
       setError("Travel needs both a start and an end destination.");

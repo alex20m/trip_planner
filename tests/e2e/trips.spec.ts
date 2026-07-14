@@ -1,8 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
 
-async function createTrip(page: Page, name: string) {
+async function createTrip(page: Page, name: string, dates?: { start: string; end: string }) {
   await page.getByRole("button", { name: "New trip" }).click();
   await page.getByPlaceholder(/trip name/i).fill(name);
+  // Events must fall within the trip's range, so tests that add a dated event
+  // pin the trip to a window that covers it instead of the default "today".
+  if (dates) {
+    await page.getByLabel("Start").fill(dates.start);
+    await page.getByLabel("End").fill(dates.end);
+  }
   await page.getByRole("button", { name: "Create trip" }).click();
 }
 
@@ -11,7 +17,7 @@ test("create a trip, add an event, and read it back via the calendar feed", asyn
   await expect(page.getByRole("heading", { name: "My trips" })).toBeVisible();
 
   const tripName = `E2E Trip ${Date.now()}`;
-  await createTrip(page, tripName);
+  await createTrip(page, tripName, { start: "2026-08-01", end: "2026-08-07" });
 
   await expect(page).toHaveURL(/\/trips\/[0-9a-f-]+/);
   await expect(page.getByRole("heading", { name: tripName })).toBeVisible();

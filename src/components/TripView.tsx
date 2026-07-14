@@ -355,6 +355,8 @@ export default function TripView({
           tripId={trip.id}
           event={editing === "new" ? null : editing}
           defaultStart={editing === "new" ? newEventStart : null}
+          tripStart={trip.start_date}
+          tripEnd={trip.end_date}
           onClose={() => {
             setEditing(null);
             setNewEventStart(null);
