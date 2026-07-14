@@ -289,6 +289,15 @@ export default function EventModal({
                   onFocus={() => startDate && seedEnd(endDateRef.current, () => dayAfter(startDate), setEndDate)}
                   placeholder={isStay ? "Check-out" : "End date (optional)"} className={`field${endDate ? " has-value" : ""}`} />
                 {!endDate && <span className="date-placeholder">{isStay ? "Check-out" : "End date (optional)"}</span>}
+                {/* The end date is optional for non-stays, and native date inputs
+                    are awkward to clear (no reset on mobile), so offer an explicit
+                    reset for one picked by mistake. */}
+                {endDate && !isStay && (
+                  <button type="button" onClick={() => setEndDate("")}
+                    aria-label="Clear end date" className="field-clear">
+                    Clear
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -304,6 +313,14 @@ export default function EventModal({
                   onFocus={() => start && seedEnd(endRef.current, () => hourAfter(start), setEnd)}
                   placeholder="End (optional)" className={`field${end ? " has-value" : ""}`} />
                 {!end && <span className="date-placeholder">End (optional)</span>}
+                {/* The end time is always optional, and native pickers are awkward
+                    to clear, so offer an explicit reset for one set by mistake. */}
+                {end && (
+                  <button type="button" onClick={() => setEnd("")}
+                    aria-label="Clear end time" className="field-clear">
+                    Clear
+                  </button>
+                )}
               </div>
             </div>
           )}
