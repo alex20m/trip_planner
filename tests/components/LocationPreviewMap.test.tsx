@@ -133,6 +133,17 @@ describe("LocationPreviewMap", () => {
     expect(container.style.cursor).toBeUndefined();
   });
 
+  it("isolates the inline map so Leaflet's panes can't cover the location dropdown", () => {
+    // The suggestions dropdown above the map is only z-30, while Leaflet's
+    // panes are z-index 400+. Without a stacking context of its own the map
+    // would paint over the open dropdown and hide the options; `isolate`
+    // contains those z-indexes so the dropdown stays visible.
+    render(<LocationPreviewMap points={[]} onPick={vi.fn()} />);
+
+    const wrapper = screen.getByRole("application").parentElement;
+    expect(wrapper).toHaveClass("isolate");
+  });
+
   it("toggles the preview map into and out of full screen", () => {
     render(<LocationPreviewMap points={[{ lat: 60.17, lng: 24.94, label: "Helsinki, Finland" }]} />);
 
