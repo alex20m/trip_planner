@@ -434,6 +434,61 @@ describe("EventModal", () => {
     expect(endInput).toHaveValue("2026-07-10T14:00");
   });
 
+  it("clears an optional end time chosen by mistake with the Clear button", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    const endInput = screen.getByPlaceholderText("End (optional)");
+    // No reset is offered until an end is actually set.
+    expect(screen.queryByRole("button", { name: "Clear end time" })).not.toBeInTheDocument();
+
+    fireEvent.change(endInput, { target: { value: "2026-07-10T14:00" } });
+    await userEvent.click(screen.getByRole("button", { name: "Clear end time" }));
+
+    expect(endInput).toHaveValue("");
+    expect(screen.queryByRole("button", { name: "Clear end time" })).not.toBeInTheDocument();
+  });
+
+  it("clears an optional all-day end date chosen by mistake with the Clear button", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "All day" }));
+    fireEvent.change(screen.getByPlaceholderText("Date"), { target: { value: "2026-07-10" } });
+    const endInput = screen.getByPlaceholderText("End date (optional)");
+    fireEvent.change(endInput, { target: { value: "2026-07-12" } });
+    await userEvent.click(screen.getByRole("button", { name: "Clear end date" }));
+
+    expect(endInput).toHaveValue("");
+  });
+
+  it("does not offer a Clear button for a Stay check-out, which is required", async () => {
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+    fireEvent.change(screen.getByPlaceholderText("Check-in"), { target: { value: "2026-07-10" } });
+    fireEvent.change(screen.getByPlaceholderText("Check-out"), { target: { value: "2026-07-12" } });
+
+    expect(screen.queryByRole("button", { name: "Clear end date" })).not.toBeInTheDocument();
+  });
+
+  it("saves a null end after the optional end time is cleared", async () => {
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T10:00:00Z", end_at: null },
+      error: null
+    });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    const endInput = screen.getByPlaceholderText("End (optional)");
+    fireEvent.change(endInput, { target: { value: "2026-07-10T14:00" } });
+    await userEvent.click(screen.getByRole("button", { name: "Clear end time" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ end_at: null }));
+  });
+
   it("does not show the All day checkbox for a Stay, since it is already date-only", async () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
