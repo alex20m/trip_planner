@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import LocationPreviewMap from "@/components/map/LocationPreviewMap";
 
 // Leaflet needs real layout measurements, so it is stubbed out in jsdom; the
@@ -12,6 +12,9 @@ const latLngBounds = vi.hoisted(() => vi.fn(() => ({ pad: vi.fn().mockReturnThis
 const clearLayers = vi.hoisted(() => vi.fn());
 const mapOptions = vi.hoisted(() => vi.fn());
 const on = vi.hoisted(() => vi.fn());
+const invalidateSize = vi.hoisted(() => vi.fn());
+const scrollWheelEnable = vi.hoisted(() => vi.fn());
+const scrollWheelDisable = vi.hoisted(() => vi.fn());
 const container = vi.hoisted(() => ({ style: {} as Record<string, string> }));
 vi.mock("leaflet", () => {
   const layerGroup = () => ({ addTo: vi.fn().mockReturnThis(), clearLayers });
@@ -19,7 +22,15 @@ vi.mock("leaflet", () => {
     default: {
       map: vi.fn((_el: HTMLElement, options: unknown) => {
         mapOptions(options);
-        return { setView, fitBounds, on, getContainer: () => container, remove: vi.fn() };
+        return {
+          setView,
+          fitBounds,
+          on,
+          getContainer: () => container,
+          remove: vi.fn(),
+          invalidateSize,
+          scrollWheelZoom: { enable: scrollWheelEnable, disable: scrollWheelDisable }
+        };
       }),
       tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
       layerGroup: vi.fn(layerGroup),
@@ -40,6 +51,9 @@ describe("LocationPreviewMap", () => {
     clearLayers.mockClear();
     mapOptions.mockClear();
     on.mockClear();
+    invalidateSize.mockClear();
+    scrollWheelEnable.mockClear();
+    scrollWheelDisable.mockClear();
     container.style = {};
   });
 
@@ -117,5 +131,49 @@ describe("LocationPreviewMap", () => {
 
     expect(on).not.toHaveBeenCalledWith("click", expect.anything());
     expect(container.style.cursor).toBeUndefined();
+  });
+
+  it("toggles the preview map into and out of full screen", () => {
+    render(<LocationPreviewMap points={[{ lat: 60.17, lng: 24.94, label: "Helsinki, Finland" }]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
+    // Leaflet must re-measure the container after the layout change, and wheel
+    // zoom is enabled now that the map fills the viewport instead of a modal.
+    expect(invalidateSize).toHaveBeenCalled();
+    expect(scrollWheelEnable).toHaveBeenCalled();
+    // The overlay must NOT lock body scroll: toggling body overflow makes iOS
+    // re-evaluate the standalone-PWA viewport chrome, which flips the status
+    // bar to its default white and leaves it stuck after the overlay closes.
+    expect(document.body.style.overflow).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: /exit full screen/i }));
+    // Back inline, wheel zoom is disabled again so the modal keeps scrolling.
+    expect(scrollWheelDisable).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /view map in full screen/i })).toBeInTheDocument();
+  });
+
+  it("keeps Leaflet's imperatively added classes on the map container across the full-screen toggle", () => {
+    render(<LocationPreviewMap points={[{ lat: 60.17, lng: 24.94, label: "Helsinki, Finland" }]} />);
+    // Leaflet adds classes like this to the container it is mounted on; a
+    // React className rewrite on toggle would wipe them and break the map
+    // until the page is reloaded.
+    const container = screen.getByRole("application");
+    container.classList.add("leaflet-container");
+
+    fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
+    expect(container).toHaveClass("leaflet-container");
+
+    fireEvent.click(screen.getByRole("button", { name: /exit full screen/i }));
+    expect(container).toHaveClass("leaflet-container");
+  });
+
+  it("exits full screen when Escape is pressed", () => {
+    render(<LocationPreviewMap points={[{ lat: 60.17, lng: 24.94, label: "Helsinki, Finland" }]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /view map in full screen/i }));
+    expect(screen.getByRole("button", { name: /exit full screen/i })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("button", { name: /view map in full screen/i })).toBeInTheDocument();
   });
 });
