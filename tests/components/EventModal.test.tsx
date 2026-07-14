@@ -110,6 +110,26 @@ describe("EventModal", () => {
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ description: "Bring tickets" }));
   });
 
+  it("passes null to onSaved (not a crash) when a successful save returns no row", async () => {
+    // Supabase returns { data: null, error: null } when the insert succeeds but
+    // its RETURNING representation is empty — e.g. an editor on a shared trip.
+    // The old code handed that null straight into the calendar and threw a
+    // TypeError; onSaved must instead receive null so the parent can reload.
+    insertSingle.mockResolvedValue({ data: null, error: null });
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    render(<EventModal tripId="trip-1" event={null} onClose={onClose} onSaved={onSaved} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    await userEvent.type(screen.getByPlaceholderText("Notes (optional)"), "Bring tickets");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(onSaved).toHaveBeenCalledWith(null);
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it("rejects a location typed by hand that wasn't picked from the suggestions", async () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 

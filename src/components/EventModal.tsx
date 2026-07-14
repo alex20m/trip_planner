@@ -67,7 +67,11 @@ export default function EventModal({
   tripStart?: string;
   tripEnd?: string;
   onClose: () => void;
-  onSaved: (e: TripEvent, deleted?: boolean) => void;
+  // `e` is null when a write succeeds but the row isn't returned (Supabase
+  // gives back { data: null } when the insert/update representation comes back
+  // empty — e.g. for non-owner editors on a shared trip). The parent reloads
+  // in that case instead of trying to render a missing event.
+  onSaved: (e: TripEvent | null, deleted?: boolean) => void;
 }) {
   const [title, setTitle] = useState(event?.title ?? "");
   const [type, setType] = useState<EventType>(event?.type ?? "activity");
@@ -210,7 +214,10 @@ export default function EventModal({
     setSaving(false);
     if (error) setError(error.message);
     else {
-      onSaved(data as TripEvent);
+      // `data` may be null even on success (empty RETURNING representation);
+      // hand it up as-is so the parent can reload rather than crash on a
+      // missing event.
+      onSaved((data as TripEvent | null) ?? null);
       onClose();
     }
   }
