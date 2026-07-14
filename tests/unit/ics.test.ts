@@ -114,6 +114,24 @@ describe("buildICS", () => {
     expect(lines[summaryLineIndex + 1].startsWith(" ")).toBe(true);
   });
 
+  it("never splits a multi-byte character across a fold boundary", () => {
+    // An accented, emoji-laden title long enough to fold, engineered so a
+    // naive UTF-16 fold at char 74 would cut through the middle of a
+    // multi-byte character. The output must stay valid UTF-8 (no replacement
+    // characters) or Apple Calendar silently drops the event.
+    const title = "Kaffe i København ☕️ med Zürich-vänner 🏔️ " + "å".repeat(40) + " 🎉";
+    const ics = buildICS({ id: "trip-1", name: "Trip" }, [event({ title })], "example.com");
+    expect(ics).not.toContain("�"); // no lone-surrogate corruption
+    // A round-trip through UTF-8 must be lossless (lone surrogates would not be).
+    expect(Buffer.from(ics, "utf8").toString("utf8")).toBe(ics);
+    for (const line of ics.split("\r\n")) {
+      expect(Buffer.byteLength(line, "utf8")).toBeLessThanOrEqual(75);
+    }
+    // Unfolding (drop CRLF + one leading continuation space) restores the title.
+    const unfolded = ics.split("\r\n").reduce((acc, l) => (l.startsWith(" ") ? acc + l.slice(1) : acc + "\n" + l), "");
+    expect(unfolded).toContain(`SUMMARY:${title}`);
+  });
+
   it("includes SEQUENCE 0 and omits LAST-MODIFIED when there is no updated_at", () => {
     const ics = buildICS({ id: "trip-1", name: "Trip" },[event()], "example.com");
     expect(ics).toContain("SEQUENCE:0");
