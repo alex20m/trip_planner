@@ -359,15 +359,24 @@ export default function TripView({
             setEditing(null);
             setNewEventStart(null);
           }}
-          onSaved={(e, deleted) =>
+          onSaved={(e, deleted) => {
+            // A successful write can return no row (Supabase hands back
+            // { data: null } when the RETURNING representation is empty, seen
+            // for editors on shared trips). We can't reconcile the list without
+            // the saved row, so refetch from the server instead of reading `id`
+            // off null — which used to throw a TypeError and blank the page.
+            if (!e) {
+              refreshTrip();
+              return;
+            }
             setEvents((prev) =>
               deleted
                 ? prev.filter((x) => x.id !== e.id)
                 : prev.some((x) => x.id === e.id)
                   ? prev.map((x) => (x.id === e.id ? e : x))
                   : [...prev, e]
-            )
-          }
+            );
+          }}
         />
       )}
       {sharing && <ShareModal tripId={trip.id} myRole={role} onClose={() => setSharing(false)} />}

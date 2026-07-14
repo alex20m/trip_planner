@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -8,6 +8,7 @@ import TripView from "@/components/TripView";
 import type { Trip } from "@/lib/types";
 
 const deleteEq = vi.fn();
+const insertSingle = vi.fn();
 
 // Per-table rows returned by the refresh select chain. Tests mutate this to
 // control what a refresh pulls from the server.
@@ -32,10 +33,14 @@ vi.mock("@/lib/supabase/client", () => ({
           single: () => Promise.resolve({ data: refreshData[table] })
         };
         return chain;
-      }
+      },
+      insert: () => ({ select: () => ({ single: insertSingle }) })
     })
   })
 }));
+
+// The geocoder isn't exercised here, but EventModal imports it.
+vi.mock("@/lib/geocode", () => ({ searchPlaces: vi.fn().mockResolvedValue([]) }));
 
 const idbGet = vi.fn().mockResolvedValue(undefined);
 const idbSet = vi.fn().mockResolvedValue(undefined);
@@ -308,5 +313,66 @@ describe("TripView — refreshing for the latest changes", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "More trip options" }));
     expect(screen.getByRole("menuitem", { name: "Refresh" })).toBeDisabled();
+  });
+});
+
+describe("TripView — saving an event", () => {
+  beforeEach(() => {
+    online = true;
+    insertSingle.mockReset();
+    idbGet.mockResolvedValue(undefined);
+    idbSet.mockResolvedValue(undefined);
+    refreshData.trips = null;
+    refreshData.trip_events = [];
+    refreshData.note_sections = [];
+  });
+
+  // Regression: an editor's insert can succeed while Supabase returns no row
+  // ({ data: null }). TripView used to read `.id` off that null and throw a
+  // TypeError that blanked the whole page. It must instead refetch from the
+  // server, which brings the just-saved event into view.
+  it("refetches from the server (no crash) when a saved event comes back empty", async () => {
+    vi.mocked(useRouter).mockReturnValue({
+      push: vi.fn(),
+      replace: vi.fn(),
+      prefetch: vi.fn(),
+      back: vi.fn(),
+      refresh: vi.fn()
+    } as any);
+    insertSingle.mockResolvedValue({ data: null, error: null });
+
+    const existing = {
+      id: "evt-existing",
+      trip_id: "trip-1",
+      title: "Colosseum",
+      type: "activity",
+      all_day: false,
+      start_at: "2026-08-02T09:00:00Z",
+      end_at: null,
+      location: null,
+      location_lat: null,
+      location_lng: null,
+      description: null
+    } as any;
+    // What the server returns on the post-save refetch: the existing event plus
+    // the freshly-saved one whose row the insert didn't echo back.
+    refreshData.trip_events = [
+      existing,
+      { ...existing, id: "evt-new", title: "Museum", start_at: "2026-08-02T10:00:00Z" }
+    ];
+
+    render(<TripView trip={trip} role="edit" initialEvents={[existing]} initialSections={[]} />);
+    expect(screen.queryAllByText("Museum")).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add event" }));
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-08-02T10:00" } });
+    await userEvent.type(screen.getByPlaceholderText("Notes (optional)"), "Bring tickets");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    // No crash: the refetch runs and the just-saved event shows up, with the
+    // pre-existing one still there.
+    expect((await screen.findAllByText("Museum")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Colosseum").length).toBeGreaterThan(0);
   });
 });
