@@ -338,6 +338,92 @@ describe("EventModal", () => {
     expect(insertSingle).not.toHaveBeenCalled();
   });
 
+  it("rejects an event whose start falls before the trip starts", async () => {
+    render(
+      <EventModal
+        tripId="trip-1"
+        event={null}
+        tripStart="2026-07-10"
+        tripEnd="2026-07-14"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-09T10:00" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText(/must be within the trip/i)).toBeInTheDocument();
+    expect(insertSingle).not.toHaveBeenCalled();
+  });
+
+  it("rejects an event whose end falls after the trip ends", async () => {
+    render(
+      <EventModal
+        tripId="trip-1"
+        event={null}
+        tripStart="2026-07-10"
+        tripEnd="2026-07-14"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-14T10:00" } });
+    fireEvent.change(screen.getByPlaceholderText("End (optional)"), { target: { value: "2026-07-15T10:00" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText(/must be within the trip/i)).toBeInTheDocument();
+    expect(insertSingle).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Stay that checks out after the trip ends", async () => {
+    render(
+      <EventModal
+        tripId="trip-1"
+        event={null}
+        tripStart="2026-07-10"
+        tripEnd="2026-07-14"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Hotel Rome");
+    fireEvent.change(screen.getByPlaceholderText("Check-in"), { target: { value: "2026-07-13" } });
+    fireEvent.change(screen.getByPlaceholderText("Check-out"), { target: { value: "2026-07-16" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText(/must be within the trip/i)).toBeInTheDocument();
+    expect(insertSingle).not.toHaveBeenCalled();
+  });
+
+  it("saves an event whose dates sit on the trip's boundary days", async () => {
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T10:00:00Z", end_at: null },
+      error: null
+    });
+    render(
+      <EventModal
+        tripId="trip-1"
+        event={null}
+        tripStart="2026-07-10"
+        tripEnd="2026-07-14"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-14T10:00" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+  });
+
   it("prefills the end time to an hour after the start when the empty end field is focused", async () => {
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
