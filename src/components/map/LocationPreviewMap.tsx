@@ -154,7 +154,10 @@ export default function LocationPreviewMap({
       className={
         fullscreen
           ? "fixed inset-0 z-[60] bg-paper"
-          : "relative h-44 w-full overflow-hidden rounded-2xl border border-ink/10"
+          : // `isolate` keeps Leaflet's internal panes (z-index 400+) from
+            // leaking into the modal's stacking context and painting over the
+            // location suggestions dropdown that sits just above this map.
+            "relative isolate h-44 w-full overflow-hidden rounded-2xl border border-ink/10"
       }
     >
       <div
