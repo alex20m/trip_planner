@@ -130,16 +130,58 @@ describe("EventModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("rejects a location typed by hand that wasn't picked from the suggestions", async () => {
+  it("saves a freely typed address, geocoding it for a map pin", async () => {
+    // The geocoder pins the building; the exact typed text (down to the
+    // apartment it can't pin) is what gets stored.
+    searchPlaces.mockResolvedValue([
+      { name: "Itämerenkatu 35b, Helsinki, Finland", lat: 60.1616, lng: 24.9152 }
+    ]);
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null },
+      error: null
+    });
     render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
 
-    await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Dinner");
     fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
-    fireEvent.change(screen.getByPlaceholderText("Location (optional)"), { target: { value: "made-up place" } });
+    fireEvent.change(screen.getByPlaceholderText("Location (optional)"), {
+      target: { value: "Itämerenkatu 35B 39" }
+    });
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(screen.getByText(/choose a location from the suggestions/i)).toBeInTheDocument();
-    expect(insertSingle).not.toHaveBeenCalled();
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        location: "Itämerenkatu 35B 39",
+        location_lat: 60.1616,
+        location_lng: 24.9152
+      })
+    );
+  });
+
+  it("saves a typed location without a pin when the geocoder finds nothing", async () => {
+    searchPlaces.mockResolvedValue([]);
+    insertSingle.mockResolvedValue({
+      data: { id: "evt-1", type: "activity", start_at: "2026-07-10T00:00:00Z", end_at: null },
+      error: null
+    });
+    render(<EventModal tripId="trip-1" event={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Title"), "Secret spot");
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-07-10T10:00" } });
+    fireEvent.change(screen.getByPlaceholderText("Location (optional)"), {
+      target: { value: "somewhere only we know" }
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(insertSingle).toHaveBeenCalled());
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        location: "somewhere only we know",
+        location_lat: null,
+        location_lng: null
+      })
+    );
   });
 
   it("saves the place name and coordinates of a picked suggestion", async () => {

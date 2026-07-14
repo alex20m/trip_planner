@@ -7,7 +7,7 @@ import type { EventType, TripEvent } from "@/lib/types";
 import { EVENT_COLORS, parseDateOnly } from "@/lib/types";
 import Spinner from "@/components/Spinner";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
-import { reverseGeocode } from "@/lib/geocode";
+import { reverseGeocode, searchPlaces } from "@/lib/geocode";
 import { BedIcon, CompassIcon, PlaneIcon } from "@/components/Icons";
 
 // Leaflet only runs in the browser, so the location preview must skip SSR.
@@ -48,6 +48,22 @@ const seedEnd = (
   set(v);
 };
 
+// Best-effort coordinates for a freely typed location. Locations no longer have
+// to be picked from the suggestions, so on save we geocode whatever text the
+// user entered to give the event a map pin. The geocoder pins buildings, not
+// apartments, so "Itämerenkatu 35B 39" resolves to the building — the exact
+// text is still what we store; this only supplies the pin. Returns null (no
+// pin) when nothing matches or the geocoder is unreachable, which is fine: an
+// event can have a location without a map pin.
+async function resolveCoords(text: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const [best] = await searchPlaces(text);
+    return best ? { lat: best.lat, lng: best.lng } : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function EventModal({
   tripId,
   event,
@@ -86,9 +102,6 @@ export default function EventModal({
       ? { lat: event.location_lat, lng: event.location_lng }
       : null
   );
-  // Locations must be picked from the geocoder suggestions, not typed freely.
-  // The stored location of an existing event counts as already confirmed.
-  const [locationConfirmed, setLocationConfirmed] = useState(true);
   // Travel legs also have an end destination, kept in its own field so
   // switching the type back and forth doesn't clobber the start location.
   const [endLocation, setEndLocation] = useState(event?.end_location ?? "");
@@ -97,7 +110,6 @@ export default function EventModal({
       ? { lat: event.end_location_lat, lng: event.end_location_lng }
       : null
   );
-  const [endLocationConfirmed, setEndLocationConfirmed] = useState(true);
   // Which field a map-dropped pin fills. Only travel has two locations to
   // choose between; every other type always fills the single location.
   const [pinTarget, setPinTarget] = useState<"start" | "end">("start");
@@ -115,8 +127,10 @@ export default function EventModal({
   const isTravel = type === "travel";
   const isAllDay = isStay || allDay;
 
-  // Confirmed locations only — coordinates are cleared as soon as the user
-  // types over a picked place, so the preview never shows a stale pin.
+  // Only places with coordinates get a pin — coordinates are cleared as soon as
+  // the user types over a picked place, so the preview never shows a stale pin.
+  // Freely typed text has no coordinates until it's geocoded on save, so it
+  // shows no pin here; that's expected.
   const previewPoints = useMemo(() => {
     const points: { lat: number; lng: number; label: string }[] = [];
     if (coords) points.push({ ...coords, label: isTravel ? `From: ${location}` : location });
@@ -132,9 +146,7 @@ export default function EventModal({
     const target = isTravel ? pinTarget : "start";
     const setName = target === "start" ? setLocation : setEndLocation;
     const setPoint = target === "start" ? setCoords : setEndCoords;
-    const setConfirmed = target === "start" ? setLocationConfirmed : setEndLocationConfirmed;
     setPoint({ lat, lng });
-    setConfirmed(true);
     // Show the coordinates until the name resolves, so the field is never empty
     // and there's a sensible label if reverse geocoding fails or is offline.
     const coordLabel = `Pinned location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
@@ -186,11 +198,14 @@ export default function EventModal({
       setError("Travel needs both a start and an end destination.");
       return;
     }
-    if ((location.trim() && !locationConfirmed) || (isTravel && endLocation.trim() && !endLocationConfirmed)) {
-      setError("Choose a location from the suggestions — only real places can be used.");
-      return;
-    }
     setSaving(true);
+    // A location can be typed freely instead of picked, so fill in a map pin for
+    // any text that doesn't already have coordinates (from a picked suggestion
+    // or a dropped pin). resolveCoords keeps the typed text untouched.
+    let startPoint = coords;
+    let endPoint = endCoords;
+    if (location.trim() && !startPoint) startPoint = await resolveCoords(location);
+    if (isTravel && endLocation.trim() && !endPoint) endPoint = await resolveCoords(endLocation);
     const supabase = createClient();
     const payload = {
       trip_id: tripId,
@@ -200,11 +215,11 @@ export default function EventModal({
       start_at: new Date(start_at).toISOString(),
       end_at: end_at ? new Date(end_at).toISOString() : null,
       location: location.trim() || null,
-      location_lat: location.trim() ? (coords?.lat ?? null) : null,
-      location_lng: location.trim() ? (coords?.lng ?? null) : null,
+      location_lat: location.trim() ? (startPoint?.lat ?? null) : null,
+      location_lng: location.trim() ? (startPoint?.lng ?? null) : null,
       end_location: isTravel && endLocation.trim() ? endLocation.trim() : null,
-      end_location_lat: isTravel && endLocation.trim() ? (endCoords?.lat ?? null) : null,
-      end_location_lng: isTravel && endLocation.trim() ? (endCoords?.lng ?? null) : null,
+      end_location_lat: isTravel && endLocation.trim() ? (endPoint?.lat ?? null) : null,
+      end_location_lng: isTravel && endLocation.trim() ? (endPoint?.lng ?? null) : null,
       description: description.trim() || null
     };
     const q = event
@@ -331,22 +346,22 @@ export default function EventModal({
               </div>
             </div>
           )}
-          {/* Locations resolve at full precision, so an event can pin an exact
-              address ("Itämerenkatu 20, Helsinki") or just a city — whatever
-              the geocoder matches for what was typed. */}
+          {/* Pick a suggestion for an instant map pin, or just type any address
+              — down to a stair and apartment like "Itämerenkatu 35B 39". Typed
+              text is kept verbatim and geocoded for a pin on save (see save()).
+              Picking a suggestion still sets coordinates straight away so the
+              preview updates as you go. */}
           <LocationAutocomplete
             value={location}
             placeholder={isTravel ? "From" : undefined}
             onChange={(text) => {
               setLocation(text);
+              // Drop any pin from a previous pick — the text no longer matches it.
               setCoords(null);
-              // Typed text is unconfirmed until picked; clearing the field is fine.
-              setLocationConfirmed(text.trim() === "");
             }}
             onSelect={(place) => {
               setLocation(place.name);
               setCoords({ lat: place.lat, lng: place.lng });
-              setLocationConfirmed(true);
             }}
           />
           {isTravel && (
@@ -356,12 +371,10 @@ export default function EventModal({
               onChange={(text) => {
                 setEndLocation(text);
                 setEndCoords(null);
-                setEndLocationConfirmed(text.trim() === "");
               }}
               onSelect={(place) => {
                 setEndLocation(place.name);
                 setEndCoords({ lat: place.lat, lng: place.lng });
-                setEndLocationConfirmed(true);
               }}
             />
           )}
@@ -391,7 +404,7 @@ export default function EventModal({
               {locating && <Spinner className="h-3 w-3" />}
               {locating
                 ? "Finding the place you pinned…"
-                : "Search above, or click the map to drop a pin — this is where the event will appear on the trip map."}
+                : "Search or type an address above, or click the map to drop a pin — this is where the event will appear on the trip map."}
             </p>
           </div>
           <textarea
