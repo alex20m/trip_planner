@@ -1,7 +1,9 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { ExpandIcon, ShrinkIcon } from "@/components/Icons";
+import { syncThemeColor } from "@/lib/theme";
 
 // Loaded with next/dynamic({ ssr: false }) from EventModal — Leaflet can only
 // run in the browser.
@@ -56,6 +58,10 @@ export default function LocationPreviewMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
+  // A fixed overlay rather than the Fullscreen API: iOS Safari has no element
+  // fullscreen, and this way Escape/exit behavior is identical everywhere.
+  // Matches the trip map (MapPanel) so both maps open the same way.
+  const [fullscreen, setFullscreen] = useState(false);
   // Kept in a ref so the click handler registered once at mount always calls
   // the latest onPick without re-creating the map on every render.
   const onPickRef = useRef(onPick);
@@ -106,14 +112,66 @@ export default function LocationPreviewMap({
     }
   }, [points]);
 
+  // Leaflet sizes its tile grid to the container, so it must re-measure when
+  // the map jumps between the inline card and the full-screen overlay. Wheel
+  // zoom is only enabled full screen: inline the map sits in a scrollable
+  // modal, where hijacking the wheel to zoom mid-scroll is disorienting.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (fullscreen) map.scrollWheelZoom.enable();
+    else map.scrollWheelZoom.disable();
+    map.invalidateSize();
+  }, [fullscreen]);
+
+  // Deliberately NO body scroll lock while the overlay is open. Toggling
+  // body overflow makes iOS re-evaluate the standalone-PWA viewport chrome,
+  // which flips the status bar to its default white and leaves it stuck after
+  // the overlay closes. The overlay is opaque and covers the viewport, so
+  // scrolling of the page behind it is invisible and harmless.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      // Re-assert the status-bar tint after the overlay closes; the second,
+      // delayed call covers WebKit re-evaluating the bar once the overlay
+      // teardown has settled.
+      syncThemeColor();
+      window.setTimeout(() => syncThemeColor(), 400);
+    };
+  }, [fullscreen]);
+
   return (
-    <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-ink/10">
+    // The inline-card vs. overlay styles live on this wrapper, NOT on the map
+    // div: Leaflet adds its own classes to the map div imperatively, and a
+    // React className update would wipe them, breaking the map until remount
+    // (the container div's className must stay constant).
+    <div
+      className={
+        fullscreen
+          ? "fixed inset-0 z-[60] bg-paper"
+          : "relative h-44 w-full overflow-hidden rounded-2xl border border-ink/10"
+      }
+    >
       <div
         ref={containerRef}
         role="application"
         aria-label={onPick ? "Map — click to drop a location pin" : "Map preview of the chosen location"}
         className="h-full w-full"
       />
+      <button
+        type="button"
+        onClick={() => setFullscreen((f) => !f)}
+        aria-label={fullscreen ? "Exit full screen" : "View map in full screen"}
+        title={fullscreen ? "Exit full screen (Esc)" : "View map in full screen"}
+        className="absolute right-3 top-3 z-[1000] rounded-xl border border-ink/10 bg-paper/95 p-2 text-ink shadow-soft transition-colors duration-150 hover:bg-paper"
+      >
+        {fullscreen ? <ShrinkIcon className="h-5 w-5" /> : <ExpandIcon className="h-5 w-5" />}
+      </button>
     </div>
   );
 }
