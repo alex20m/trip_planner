@@ -20,7 +20,10 @@ for (const { size, out } of targets) {
   const page = await browser.newPage({ viewport: { width: size, height: size } });
   const sized = svg.replace('width="512" height="512"', `width="${size}" height="${size}"`);
   await page.setContent(`<!doctype html><html><body style="margin:0;padding:0;">${sized}</body></html>`);
-  await page.screenshot({ path: path.join(root, out) });
+  // omitBackground keeps the page's default white out of the PNG, so the SVG's
+  // rounded (rx=112) corners stay transparent instead of baking to white — which
+  // otherwise shows as a white square framing the logo in the browser tab.
+  await page.screenshot({ path: path.join(root, out), omitBackground: true });
   await page.close();
   console.log(`wrote ${out} (${size}x${size})`);
 }
