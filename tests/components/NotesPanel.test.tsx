@@ -63,6 +63,23 @@ describe("NotesPanel — toggling a note", () => {
 
     await waitFor(() => expect(screen.getByRole("checkbox")).not.toBeChecked());
   });
+
+  // On touch devices (no hover), a `group-hover`-revealed delete button makes
+  // the first tap on a note only trigger the row's :hover instead of toggling
+  // the checkbox, so it takes two taps. The reveal must be gated behind
+  // `@media (hover: hover)` — never an unconditional `hidden` — so the button
+  // stays visible on touch and the checkbox toggles on the first tap.
+  it("does not hide the delete button behind a plain hover state on touch", () => {
+    render(<Harness />);
+
+    const del = screen.getByRole("button", { name: "Delete note" });
+    const classes = del.className.split(/\s+/);
+    // No unconditional `hidden`/`group-hover:block` — only their hover-gated forms.
+    expect(classes).not.toContain("hidden");
+    expect(classes).not.toContain("group-hover:block");
+    expect(classes).toContain("[@media(hover:hover)]:hidden");
+    expect(classes).toContain("[@media(hover:hover)]:group-hover:block");
+  });
 });
 
 describe("NotesPanel — adding a note", () => {
