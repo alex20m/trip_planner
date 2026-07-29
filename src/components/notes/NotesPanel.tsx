@@ -293,7 +293,13 @@ function SectionCard({
                 <button
                   onClick={() => onDeleteNote(n)}
                   aria-label="Delete note"
-                  className="ml-auto hidden text-ink/30 transition-colors hover:text-red-600 group-hover:block"
+                  // Touch devices have no hover, so a `group-hover`-revealed
+                  // button would make the first tap on a note only trigger the
+                  // row's :hover (revealing this button) instead of toggling the
+                  // checkbox — forcing a second tap. Gate the hide-until-hover
+                  // behaviour behind `@media (hover: hover)` so it stays visible
+                  // on touch and the checkbox toggles on the very first tap.
+                  className="ml-auto text-ink/30 transition-colors hover:text-red-600 [@media(hover:hover)]:hidden [@media(hover:hover)]:group-hover:block"
                 >
                   <XIcon className="h-3.5 w-3.5" />
                 </button>
