@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Note, NoteSection, NoteSectionKind } from "@/lib/types";
+import { movedNotes, resequenceNotes, sortNotesByDone } from "@/lib/notes";
 import Spinner from "@/components/Spinner";
 import { PlusIcon, TrashIcon, XIcon } from "@/components/Icons";
 
@@ -73,6 +74,21 @@ export default function NotesPanel({
     await supabase.from("note_sections").update({ body }).eq("id", sectionId);
   }
 
+  function setNotes(sectionId: string, notes: Note[]) {
+    setSections((prev) => prev.map((s) => (s.id === sectionId ? { ...s, notes } : s)));
+  }
+
+  // Writes the new positions for the notes that actually shifted. The order is
+  // cosmetic, so a failure here leaves the (already saved) checked state alone
+  // and simply means the section reloads in its previous arrangement.
+  async function saveOrder(before: Note[], after: Note[]) {
+    await Promise.all(
+      movedNotes(before, after).map((n) =>
+        supabase.from("notes").update({ sort_order: n.sort_order }).eq("id", n.id)
+      )
+    );
+  }
+
   async function addNote(sectionId: string, content: string) {
     if (!content.trim() || pendingSections.has(sectionId)) return;
     markSectionPending(sectionId, true);
@@ -82,26 +98,39 @@ export default function NotesPanel({
       .insert({ section_id: sectionId, content: content.trim(), sort_order: section.notes.length })
       .select()
       .single();
-    if (data)
-      setSections((prev) =>
-        prev.map((s) => (s.id === sectionId ? { ...s, notes: [...s.notes, data as Note] } : s))
-      );
+    if (data) {
+      // A brand-new note is unchecked, so it belongs above anything already
+      // ticked off rather than at the very bottom where it was appended.
+      const appended = [...section.notes, data as Note];
+      const reordered = resequenceNotes(sortNotesByDone(appended, (data as Note).id));
+      setNotes(sectionId, reordered);
+      await saveOrder(appended, reordered);
+    }
     markSectionPending(sectionId, false);
   }
 
-  // Optimistic: check/uncheck instantly (no spinner), roll back if the server rejects it.
+  // Optimistic: check/uncheck instantly (no spinner), roll back if the server
+  // rejects it. Checking sinks the note to the bottom of the section; unchecking
+  // lifts it back above the ticked ones, as the last unchecked note.
   async function toggleNote(note: Note) {
-    const setDone = (done: boolean) =>
-      setSections((prev) =>
-        prev.map((s) =>
-          s.id === note.section_id
-            ? { ...s, notes: s.notes.map((n) => (n.id === note.id ? { ...n, done } : n)) }
-            : s
-        )
-      );
-    setDone(!note.done);
-    const { error } = await supabase.from("notes").update({ done: !note.done }).eq("id", note.id);
-    if (error) setDone(note.done);
+    const section = sections.find((s) => s.id === note.section_id);
+    if (!section) return;
+    const done = !note.done;
+    const before = section.notes;
+    const reordered = resequenceNotes(
+      sortNotesByDone(
+        before.map((n) => (n.id === note.id ? { ...n, done } : n)),
+        note.id
+      )
+    );
+    setNotes(note.section_id, reordered);
+
+    const { error } = await supabase.from("notes").update({ done }).eq("id", note.id);
+    if (error) {
+      setNotes(note.section_id, before);
+      return;
+    }
+    await saveOrder(before, reordered);
   }
 
   async function deleteNote(note: Note) {
@@ -245,7 +274,9 @@ function SectionCard({
       ) : (
       <>
       <ul className="space-y-1.5">
-        {section.notes.map((n) => {
+        {/* Sort on render too, so sections saved before this ordering existed
+            (and any stale server snapshot) still show ticked notes last. */}
+        {sortNotesByDone(section.notes).map((n) => {
           const notePending = pendingNotes.has(n.id);
           return (
             <li key={n.id} className="group flex items-start gap-2 text-sm">
