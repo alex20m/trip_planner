@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Note, NoteSection, NoteSectionKind } from "@/lib/types";
-import { movedNotes, resequenceNotes, sortNotesByDone } from "@/lib/notes";
+import { movedNotes, NOTE_SETTLE_MS, resequenceNotes, sortNotesByDone } from "@/lib/notes";
+import { useSlideOnReorder } from "@/components/notes/useSlideOnReorder";
 import Spinner from "@/components/Spinner";
 import { PlusIcon, TrashIcon, XIcon } from "@/components/Icons";
 
@@ -23,7 +24,22 @@ export default function NotesPanel({
   const [sectionHint, setSectionHint] = useState(false);
   const [pendingNotes, setPendingNotes] = useState<Set<string>>(new Set());
   const [pendingSections, setPendingSections] = useState<Set<string>>(new Set());
+  // Notes shown as ticked/unticked before the list has caught up: id -> new done.
+  const [settling, setSettling] = useState<Map<string, boolean>>(new Map());
   const supabase = createClient();
+
+  // Callbacks that resume after an await must not reorder from the snapshot the
+  // render closure captured, which by then can be several toggles out of date.
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
+
+  function clearSettling(id: string) {
+    setSettling((prev) => {
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+  }
 
   function markNotePending(id: string, pending: boolean) {
     setPendingNotes((prev) => {
@@ -109,13 +125,31 @@ export default function NotesPanel({
     markSectionPending(sectionId, false);
   }
 
-  // Optimistic: check/uncheck instantly (no spinner), roll back if the server
-  // rejects it. Checking sinks the note to the bottom of the section; unchecking
-  // lifts it back above the ticked ones, as the last unchecked note.
+  // Optimistic: the box ticks instantly (no spinner), and rolls back if the
+  // server rejects it. Checking sinks the note to the bottom of the section;
+  // unchecking lifts it back above the ticked ones, as the last unchecked note.
+  //
+  // The move is deliberately held back: `settling` carries the new checked state
+  // on its own for a beat, so the note is visibly ticked where the user clicked
+  // it before the list rearranges. Because the note's own `done` is untouched
+  // until then, the render-time sort leaves it in place meanwhile.
   async function toggleNote(note: Note) {
-    const section = sections.find((s) => s.id === note.section_id);
-    if (!section) return;
+    if (settling.has(note.id)) return;
     const done = !note.done;
+    setSettling((prev) => new Map(prev).set(note.id, done));
+
+    const settled = new Promise((resolve) => setTimeout(resolve, NOTE_SETTLE_MS));
+    const { error } = await supabase.from("notes").update({ done }).eq("id", note.id);
+    if (error) {
+      clearSettling(note.id);
+      return;
+    }
+    await settled;
+
+    // Reorder against the freshest notes: another toggle may have landed while
+    // this one was settling, and the render closure would not have seen it.
+    const section = sectionsRef.current.find((s) => s.id === note.section_id);
+    if (!section) return;
     const before = section.notes;
     const reordered = resequenceNotes(
       sortNotesByDone(
@@ -124,12 +158,7 @@ export default function NotesPanel({
       )
     );
     setNotes(note.section_id, reordered);
-
-    const { error } = await supabase.from("notes").update({ done }).eq("id", note.id);
-    if (error) {
-      setNotes(note.section_id, before);
-      return;
-    }
+    clearSettling(note.id);
     await saveOrder(before, reordered);
   }
 
@@ -159,6 +188,7 @@ export default function NotesPanel({
             editable={editable}
             busy={pendingSections.has(s.id)}
             pendingNotes={pendingNotes}
+            settling={settling}
             onAdd={(c) => addNote(s.id, c)}
             onToggle={toggleNote}
             onDeleteNote={deleteNote}
@@ -226,6 +256,7 @@ function SectionCard({
   editable,
   busy,
   pendingNotes,
+  settling,
   onAdd,
   onToggle,
   onDeleteNote,
@@ -236,6 +267,7 @@ function SectionCard({
   editable: boolean;
   busy: boolean;
   pendingNotes: Set<string>;
+  settling: Map<string, boolean>;
   onAdd: (content: string) => void;
   onToggle: (n: Note) => void;
   onDeleteNote: (n: Note) => void;
@@ -243,6 +275,7 @@ function SectionCard({
   onSaveBody: (body: string) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const rowRef = useSlideOnReorder<HTMLLIElement>();
   const freeform = section.kind === "freeform";
   function submitNote() {
     if (!draft.trim() || busy) return;
@@ -278,16 +311,23 @@ function SectionCard({
             (and any stale server snapshot) still show ticked notes last. */}
         {sortNotesByDone(section.notes).map((n) => {
           const notePending = pendingNotes.has(n.id);
+          // While a note is settling its new state is shown here, ahead of the
+          // note itself, so the tick lands before the row travels.
+          const done = settling.get(n.id) ?? n.done;
           return (
-            <li key={n.id} className="group flex items-start gap-2 text-sm">
+            <li key={n.id} ref={rowRef(n.id)} className="group flex items-start gap-2 text-sm">
               <input
                 type="checkbox"
-                checked={n.done}
+                checked={done}
                 onChange={() => editable && onToggle(n)}
                 disabled={!editable || notePending}
                 className="mt-0.5 accent-accent"
               />
-              <span className={n.done ? "text-ink/35 line-through" : ""}>{n.content}</span>
+              <span
+                className={`transition-colors duration-200 ${done ? "text-ink/35 line-through" : ""}`}
+              >
+                {n.content}
+              </span>
               {notePending && <Spinner className="h-3 w-3 text-ink/30" />}
               {editable && !notePending && (
                 <button

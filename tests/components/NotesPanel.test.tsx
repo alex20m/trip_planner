@@ -110,6 +110,29 @@ describe("NotesPanel — ordering by checked state", () => {
     updateEq.mockResolvedValue({ error: null });
   });
 
+  it("ticks the box where the user clicked and holds the note there before moving it", async () => {
+    render(<ChecklistHarness />);
+
+    await userEvent.click(screen.getAllByRole("checkbox")[0]);
+
+    // Still first, but visibly checked — the move must not steal the feedback.
+    expect(noteOrder()).toEqual(["Passport", "Charger", "Socks"]);
+    expect(screen.getAllByRole("checkbox")[0]).toBeChecked();
+    expect(screen.getByText("Passport")).toHaveClass("line-through");
+
+    await waitFor(() => expect(noteOrder()).toEqual(["Charger", "Socks", "Passport"]));
+  });
+
+  it("unticks the box in place when the server rejects the update, without moving it", async () => {
+    updateEq.mockResolvedValue({ error: { message: "nope" } });
+    render(<ChecklistHarness />);
+
+    await userEvent.click(screen.getAllByRole("checkbox")[0]);
+
+    await waitFor(() => expect(screen.getAllByRole("checkbox")[0]).not.toBeChecked());
+    expect(noteOrder()).toEqual(["Passport", "Charger", "Socks"]);
+  });
+
   it("sends a note to the bottom of the section when it is checked", async () => {
     render(<ChecklistHarness />);
     expect(noteOrder()).toEqual(["Passport", "Charger", "Socks"]);
@@ -133,14 +156,18 @@ describe("NotesPanel — ordering by checked state", () => {
     expect(updateEq).toHaveBeenCalledWith({ done: false }, "id", "note-3");
   });
 
-  it("restores the original order when the server rejects the update", async () => {
-    updateEq.mockResolvedValue({ error: { message: "nope" } });
+  it("keeps both moves when a second note is ticked while the first is still settling", async () => {
     render(<ChecklistHarness />);
 
-    await userEvent.click(screen.getAllByRole("checkbox")[0]);
+    await userEvent.click(screen.getAllByRole("checkbox")[0]); // Passport
+    await userEvent.click(screen.getAllByRole("checkbox")[1]); // Charger
 
-    await waitFor(() => expect(noteOrder()).toEqual(["Passport", "Charger", "Socks"]));
-    expect(screen.getAllByRole("checkbox")[0]).not.toBeChecked();
+    // Neither has moved yet, and both read as checked.
+    expect(noteOrder()).toEqual(["Passport", "Charger", "Socks"]);
+
+    // The later move must not be computed from a snapshot taken before the
+    // earlier one landed, which would put Passport back where it started.
+    await waitFor(() => expect(noteOrder()).toEqual(["Socks", "Passport", "Charger"]));
   });
 
   it("shows checked notes last even for sections saved before this ordering existed", () => {
