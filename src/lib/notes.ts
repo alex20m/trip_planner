@@ -1,6 +1,14 @@
 import type { Note } from "@/lib/types";
 
 /**
+ * How long a just-toggled note holds its place before the list rearranges.
+ * Ticking a box and having the row leave in the same frame reads as "the note
+ * vanished"; pausing on the spot lets the tick and strike-through register as
+ * the reason it then moves.
+ */
+export const NOTE_SETTLE_MS = 450;
+
+/**
  * Checklist ordering: ticked-off notes sink to the bottom of their section so
  * the outstanding ones stay together at the top.
  *
