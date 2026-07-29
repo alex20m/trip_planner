@@ -65,6 +65,88 @@ describe("NotesPanel — toggling a note", () => {
   });
 });
 
+describe("NotesPanel — ordering by checked state", () => {
+  const checklist: NoteSection[] = [
+    {
+      id: "section-1",
+      trip_id: "trip-1",
+      title: "Packing list",
+      sort_order: 0,
+      notes: [
+        { id: "note-1", section_id: "section-1", content: "Passport", done: false, sort_order: 0 },
+        { id: "note-2", section_id: "section-1", content: "Charger", done: false, sort_order: 1 },
+        { id: "note-3", section_id: "section-1", content: "Socks", done: true, sort_order: 2 }
+      ]
+    }
+  ];
+
+  function ChecklistHarness() {
+    const [state, setState] = useState(checklist);
+    return <NotesPanel tripId="trip-1" sections={state} setSections={setState} editable />;
+  }
+
+  const noteOrder = () =>
+    screen.getAllByRole("listitem").map((li) => li.textContent?.replace(/\s+$/, ""));
+
+  beforeEach(() => {
+    updateEq.mockReset();
+    updateEq.mockResolvedValue({ error: null });
+  });
+
+  it("sends a note to the bottom of the section when it is checked", async () => {
+    render(<ChecklistHarness />);
+    expect(noteOrder()).toEqual(["Passport", "Charger", "Socks"]);
+
+    await userEvent.click(screen.getAllByRole("checkbox")[0]);
+
+    await waitFor(() => expect(noteOrder()).toEqual(["Charger", "Socks", "Passport"]));
+    // The new positions are persisted so the order survives a reload.
+    expect(updateEq).toHaveBeenCalledWith({ done: true }, "id", "note-1");
+    expect(updateEq).toHaveBeenCalledWith({ sort_order: 0 }, "id", "note-2");
+    expect(updateEq).toHaveBeenCalledWith({ sort_order: 2 }, "id", "note-1");
+  });
+
+  it("brings a note back as the last unchecked note when it is unchecked", async () => {
+    render(<ChecklistHarness />);
+
+    // "Socks" starts checked, and sits last.
+    await userEvent.click(screen.getAllByRole("checkbox")[2]);
+
+    await waitFor(() => expect(noteOrder()).toEqual(["Passport", "Charger", "Socks"]));
+    expect(updateEq).toHaveBeenCalledWith({ done: false }, "id", "note-3");
+  });
+
+  it("restores the original order when the server rejects the update", async () => {
+    updateEq.mockResolvedValue({ error: { message: "nope" } });
+    render(<ChecklistHarness />);
+
+    await userEvent.click(screen.getAllByRole("checkbox")[0]);
+
+    await waitFor(() => expect(noteOrder()).toEqual(["Passport", "Charger", "Socks"]));
+    expect(screen.getAllByRole("checkbox")[0]).not.toBeChecked();
+  });
+
+  it("shows checked notes last even for sections saved before this ordering existed", () => {
+    const legacy: NoteSection[] = [
+      {
+        ...checklist[0],
+        notes: [
+          { id: "note-1", section_id: "section-1", content: "Passport", done: true, sort_order: 0 },
+          { id: "note-2", section_id: "section-1", content: "Charger", done: false, sort_order: 1 }
+        ]
+      }
+    ];
+    function LegacyHarness() {
+      const [state, setState] = useState(legacy);
+      return <NotesPanel tripId="trip-1" sections={state} setSections={setState} editable />;
+    }
+
+    render(<LegacyHarness />);
+
+    expect(noteOrder()).toEqual(["Charger", "Passport"]);
+  });
+});
+
 describe("NotesPanel — adding a note", () => {
   beforeEach(() => {
     insert.mockReset();
