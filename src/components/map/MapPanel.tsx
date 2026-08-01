@@ -2,15 +2,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { TripEvent } from "@/lib/types";
 import { EVENT_COLORS } from "@/lib/types";
+import { formatWallClockDay, wallClockTime } from "@/lib/datetime";
 import { ExpandIcon, ShrinkIcon } from "@/components/Icons";
 import { syncThemeColor } from "@/lib/theme";
 
 // Loaded with next/dynamic({ ssr: false }) from TripView — Leaflet can only
 // run in the browser.
+
+// Popup timestamp. Rendered from the event's stored wall-clock fields, so a
+// pin reads the same time as the calendar does no matter where the device is.
+const whenLabel = (e: TripEvent) =>
+  `${formatWallClockDay(e.start_at, "d MMM", { locale: enUS })}, ${wallClockTime(e.start_at)}`;
 
 // Marker colors per event type; matches the calendar legend (tailwind.config.ts).
 const PIN_COLORS: Record<TripEvent["type"], string> = {
@@ -122,7 +127,7 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
 
     for (const e of mapped) {
       if (legs.includes(e)) continue;
-      const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
+      const when = whenLabel(e);
       pins.push({
         at: [e.location_lat!, e.location_lng!],
         type: e.type,
@@ -162,7 +167,7 @@ export default function MapPanel({ events }: { events: TripEvent[] }) {
     for (const e of legs) {
       const from: [number, number] = [e.location_lat!, e.location_lng!];
       const to: [number, number] = [e.end_location_lat!, e.end_location_lng!];
-      const when = format(new Date(e.start_at), "d MMM, HH:mm", { locale: enUS });
+      const when = whenLabel(e);
       const popup =
         `<strong>${esc(e.title)}</strong><br/>` +
         `<span style="opacity:.7">${esc(EVENT_COLORS.travel.label)} · ${esc(when)}</span><br/>` +

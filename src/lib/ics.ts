@@ -1,8 +1,10 @@
 import { isAllDayEvent, type TripEvent } from "./types";
+import { addWallClockDays, wallClockDay, wallClockStamp } from "./datetime";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-// UTC datetime in the form 20260511T130000Z
+// UTC datetime in the form 20260511T130000Z. Only for the feed's own
+// bookkeeping properties (DTSTAMP, LAST-MODIFIED), which really are instants.
 function fmtUTC(iso: string): string {
   const d = new Date(iso);
   return (
@@ -17,16 +19,24 @@ function fmtUTC(iso: string): string {
   );
 }
 
-// Date without time in the form 20260511 (all-day events are saved at UTC midnight)
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return d.getUTCFullYear().toString() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate());
+// RFC 5545 §3.3.5 form 1: a DATE-TIME with neither a trailing "Z" nor a TZID
+// is a *floating* time — calendar clients show it at that clock reading in
+// whatever zone the viewer happens to be in, and never re-run it through a
+// conversion. That is exactly PlanPal's rule for event times, so the feed
+// exports them as floating rather than pinning them to a UTC instant (which
+// is what made a subscribed calendar shift the whole trip after landing).
+function fmtFloating(value: string): string {
+  // "YYYY-MM-DDTHH:mm:ss" -> "YYYYMMDDTHHmmss"
+  return wallClockStamp(value).replace(/[-:]/g, "");
 }
 
-function addDaysDate(iso: string, days: number): string {
-  const d = new Date(iso);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.getUTCFullYear().toString() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate());
+// Date without time in the form 20260511
+function fmtDate(value: string): string {
+  return wallClockDay(value).replace(/-/g, "");
+}
+
+function addDaysDate(value: string, days: number): string {
+  return addWallClockDays(wallClockDay(value), days).replace(/-/g, "");
 }
 
 // RFC 5545: escape special characters in text values
@@ -101,8 +111,8 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
     lines.push("UID:trip-span-" + trip.id + "@" + host);
     lines.push("DTSTAMP:" + now);
     lines.push("SEQUENCE:0");
-    lines.push("DTSTART;VALUE=DATE:" + fmtDate(`${trip.start_date}T00:00:00Z`));
-    lines.push("DTEND;VALUE=DATE:" + addDaysDate(`${trip.end_date}T00:00:00Z`, 1));
+    lines.push("DTSTART;VALUE=DATE:" + fmtDate(trip.start_date));
+    lines.push("DTEND;VALUE=DATE:" + addDaysDate(trip.end_date, 1));
     lines.push("TRANSP:TRANSPARENT");
     lines.push("SUMMARY:" + esc("🌍 " + trip.name));
     lines.push("END:VEVENT");
@@ -124,8 +134,8 @@ export function buildICS(trip: IcsTrip, events: TripEvent[], host: string): stri
       lines.push("DTSTART;VALUE=DATE:" + fmtDate(e.start_at));
       lines.push("DTEND;VALUE=DATE:" + (e.end_at ? addDaysDate(e.end_at, 1) : addDaysDate(e.start_at, 1)));
     } else {
-      lines.push("DTSTART:" + fmtUTC(e.start_at));
-      if (e.end_at) lines.push("DTEND:" + fmtUTC(e.end_at));
+      lines.push("DTSTART:" + fmtFloating(e.start_at));
+      if (e.end_at) lines.push("DTEND:" + fmtFloating(e.end_at));
     }
 
     lines.push("SUMMARY:" + esc(prefix + e.title));

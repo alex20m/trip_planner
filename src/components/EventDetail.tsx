@@ -1,8 +1,8 @@
 "use client";
-import { format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { EventType, TripEvent } from "@/lib/types";
-import { EVENT_COLORS, isAllDayEvent, parseDateOnly } from "@/lib/types";
+import { EVENT_COLORS, isAllDayEvent } from "@/lib/types";
+import { formatWallClockDay, wallClockDay, wallClockTime } from "@/lib/datetime";
 import { BedIcon, CompassIcon, PencilIcon, PlaneIcon } from "@/components/Icons";
 
 const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
@@ -11,23 +11,23 @@ const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
   accommodation: BedIcon
 };
 
-// All-day events are stored at UTC midnight, so read the calendar date
-// straight off the ISO string rather than converting through the local zone.
+// Times are wall-clock values: rendered straight from the stored calendar
+// fields, never routed through the device's timezone, so the label reads the
+// same abroad as it did at home.
+const day = (v: string, pattern: string) => formatWallClockDay(v, pattern, { locale: enUS });
+
 function whenLabel(event: TripEvent): string {
   if (isAllDayEvent(event)) {
-    const start = parseDateOnly(event.start_at.slice(0, 10));
-    if (!event.end_at) return format(start, "EEE d MMM yyyy", { locale: enUS });
-    const end = parseDateOnly(event.end_at.slice(0, 10));
-    if (+end === +start) return format(start, "EEE d MMM yyyy", { locale: enUS });
-    return `${format(start, "EEE d MMM", { locale: enUS })} → ${format(end, "EEE d MMM yyyy", { locale: enUS })}`;
+    if (!event.end_at || wallClockDay(event.end_at) === wallClockDay(event.start_at)) {
+      return day(event.start_at, "EEE d MMM yyyy");
+    }
+    return `${day(event.start_at, "EEE d MMM")} → ${day(event.end_at, "EEE d MMM yyyy")}`;
   }
-  const start = new Date(event.start_at);
-  const startLabel = format(start, "EEE d MMM yyyy, HH:mm", { locale: enUS });
+  const startLabel = `${day(event.start_at, "EEE d MMM yyyy")}, ${wallClockTime(event.start_at)}`;
   if (!event.end_at) return startLabel;
-  const end = new Date(event.end_at);
-  return isSameDay(start, end)
-    ? `${startLabel} – ${format(end, "HH:mm", { locale: enUS })}`
-    : `${startLabel} – ${format(end, "EEE d MMM yyyy, HH:mm", { locale: enUS })}`;
+  return wallClockDay(event.end_at) === wallClockDay(event.start_at)
+    ? `${startLabel} – ${wallClockTime(event.end_at)}`
+    : `${startLabel} – ${day(event.end_at, "EEE d MMM yyyy")}, ${wallClockTime(event.end_at)}`;
 }
 
 export default function EventDetail({

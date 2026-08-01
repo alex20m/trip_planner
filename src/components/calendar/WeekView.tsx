@@ -2,7 +2,16 @@
 import { addDays, format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { isAllDayEvent, type EventType, type TripEvent } from "@/lib/types";
-import { allDayLastDay, allDayStart, assignAllDayLanes, isAllDayShownOnDay, locationLabel } from "@/lib/calendarLayout";
+import { assignAllDayLanes, isAllDayInRange, isAllDayShownOnDay, locationLabel } from "@/lib/calendarLayout";
+import {
+  compareWallClock,
+  isOnWallClockDay,
+  toDayKey,
+  wallClockDay,
+  wallClockDiffMinutes,
+  wallClockMinutes,
+  wallClockTime
+} from "@/lib/datetime";
 import { BedIcon, CompassIcon, NoteIcon, PlaneIcon, PlusIcon } from "@/components/Icons";
 
 const HOUR_PX = 44;
@@ -45,15 +54,18 @@ export default function WeekView({
   );
   const gridStart = days[0] ?? weekStart;
   const gridStyle = { gridTemplateColumns: `52px repeat(${days.length}, 1fr)` };
-  const weekEnd = addDays(weekStart, 7);
+  const weekLastDay = addDays(weekStart, 6);
 
-  const timed = events.filter(
-    (e) => !isAllDayEvent(e) && new Date(e.start_at) < weekEnd && new Date(e.start_at) >= weekStart
-  );
-  const allDayEvents = events.filter((e) => {
-    if (!isAllDayEvent(e)) return false;
-    return allDayStart(e) < weekEnd && allDayLastDay(e) >= weekStart;
+  // Events are placed by their wall-clock day, never by the instant a device
+  // in some timezone would resolve them to.
+  const weekStartKey = toDayKey(weekStart);
+  const weekEndKey = toDayKey(weekLastDay);
+  const timed = events.filter((e) => {
+    if (isAllDayEvent(e)) return false;
+    const key = wallClockDay(e.start_at);
+    return !!key && key >= weekStartKey && key <= weekEndKey;
   });
+  const allDayEvents = events.filter((e) => isAllDayEvent(e) && isAllDayInRange(e, weekStart, weekLastDay));
   const allDayChips = assignAllDayLanes(allDayEvents, gridStart, days.length);
 
   return (
@@ -67,8 +79,8 @@ export default function WeekView({
           const dayStays = dayAllDay.filter((e) => e.type === "accommodation");
           const dayLeading = dayAllDay.filter((e) => e.type !== "accommodation");
           const dayTimed = timed
-            .filter((e) => isSameDay(new Date(e.start_at), day))
-            .sort((a, b) => +new Date(a.start_at) - +new Date(b.start_at));
+            .filter((e) => isOnWallClockDay(e.start_at, day))
+            .sort((a, b) => compareWallClock(a.start_at, b.start_at));
           const isToday = isSameDay(day, new Date());
 
           const headerLabel = (
@@ -108,8 +120,6 @@ export default function WeekView({
                   <AgendaAllDayCard key={e.id} event={e} onSelect={onSelect} />
                 ))}
                 {dayTimed.map((e) => {
-                  const s = new Date(e.start_at);
-                  const en = e.end_at ? new Date(e.end_at) : null;
                   const loc = locationLabel(e);
                   return (
                     <button
@@ -120,8 +130,8 @@ export default function WeekView({
                       <span className="block truncate text-sm font-semibold leading-snug">{e.title}</span>
                       <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs font-medium opacity-75">
                         <span className="shrink-0 tabular-nums">
-                          {format(s, "HH:mm")}
-                          {en ? `–${format(en, "HH:mm")}` : ""}
+                          {wallClockTime(e.start_at)}
+                          {e.end_at ? `–${wallClockTime(e.end_at)}` : ""}
                         </span>
                         {loc && <span className="shrink-0">·</span>}
                         <LocationLabel event={e} />
@@ -250,13 +260,11 @@ export default function WeekView({
                 <div key={i} style={{ top: i * HOUR_PX }} className="absolute w-full border-t border-ink/5" />
               ))}
               {timed
-                .filter((e) => isSameDay(new Date(e.start_at), day))
+                .filter((e) => isOnWallClockDay(e.start_at, day))
                 .map((e) => {
-                  const s = new Date(e.start_at);
-                  const top = ((s.getHours() + s.getMinutes() / 60 - START_HOUR) * HOUR_PX);
-                  const en = e.end_at ? new Date(e.end_at) : null;
-                  const height = en
-                    ? Math.max(22, ((+en - +s) / 3600000) * HOUR_PX)
+                  const top = (wallClockMinutes(e.start_at) / 60 - START_HOUR) * HOUR_PX;
+                  const height = e.end_at
+                    ? Math.max(22, (wallClockDiffMinutes(e.start_at, e.end_at) / 60) * HOUR_PX)
                     : 22;
                   return (
                     <button
@@ -268,8 +276,8 @@ export default function WeekView({
                       <span className="block w-full truncate font-semibold">{e.title}</span>
                       <span className="flex w-full min-w-0 items-center gap-1 text-[10px] font-medium opacity-70">
                         <span className="shrink-0 tabular-nums">
-                          {format(s, "HH:mm")}
-                          {en ? `–${format(en, "HH:mm")}` : ""}
+                          {wallClockTime(e.start_at)}
+                          {e.end_at ? `–${wallClockTime(e.end_at)}` : ""}
                         </span>
                         {locationLabel(e) && <span className="shrink-0">·</span>}
                         <LocationLabel event={e} />
