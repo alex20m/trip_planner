@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import { buildICS } from "@/lib/ics";
 import type { TripEvent } from "@/lib/types";
+import { TRAVEL_ZONES, inTimeZone, restoreTimeZone } from "../helpers/timezone";
 
-function event(overrides: Partial<TripEvent> = {}): TripEvent {
+function event(overrides: Partial<TripEvent> & { updated_at?: string } = {}): TripEvent {
   return {
     id: "11111111-1111-1111-1111-111111111111",
     trip_id: "trip-1",
@@ -27,10 +28,12 @@ describe("buildICS", () => {
     expect(ics).toContain("X-WR-CALNAME:Rome 2026");
   });
 
-  it("renders timed events with UTC DTSTART/DTEND", () => {
+  // Floating (no trailing Z, no TZID) so a subscribed calendar shows the time
+  // as entered instead of re-converting it into the viewer's current zone.
+  it("renders timed events with floating DTSTART/DTEND", () => {
     const ics = buildICS({ id: "trip-1", name: "Trip" },[event()], "example.com");
-    expect(ics).toContain("DTSTART:20260801T100000Z");
-    expect(ics).toContain("DTEND:20260801T120000Z");
+    expect(ics).toContain("DTSTART:20260801T100000\r\n");
+    expect(ics).toContain("DTEND:20260801T120000\r\n");
     expect(ics).toContain("UID:11111111-1111-1111-1111-111111111111@example.com");
   });
 
@@ -168,5 +171,77 @@ describe("buildICS", () => {
     );
     expect(ics).toContain("SEQUENCE:1785542400");
     expect(ics).toContain("LAST-MODIFIED:20260801T000000Z");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A subscribed calendar must not re-time the trip when the phone changes zone.
+// ---------------------------------------------------------------------------
+describe("the feed is timezone-independent", () => {
+  afterAll(restoreTimeZone);
+
+  const trip = { id: "trip-1", name: "Rome 2026", start_date: "2026-08-03", end_date: "2026-08-09" };
+  const events = [
+    event({ id: "a", title: "Sunrise walk", start_at: "2026-08-05T00:15:00Z", end_at: "2026-08-05T01:45:00Z" }),
+    event({ id: "b", title: "Last call", start_at: "2026-08-05T23:45:00Z", end_at: "2026-08-06T00:30:00Z" }),
+    event({
+      id: "c",
+      title: "Hotel Roma",
+      type: "accommodation",
+      start_at: "2026-08-03T00:00:00Z",
+      end_at: "2026-08-08T00:00:00Z"
+    })
+  ];
+
+  // DTSTAMP is a real instant ("when this feed was generated") and legitimately
+  // ticks between calls, so it is normalised away before comparing feeds.
+  const stable = (ics: string) => ics.replace(/DTSTAMP:\d{8}T\d{6}Z/g, "DTSTAMP:<now>");
+
+  it("emits an identical feed from every timezone", () => {
+    const baseline = inTimeZone("UTC", () => stable(buildICS(trip, events, "planpal.test")));
+    for (const tz of TRAVEL_ZONES) {
+      expect(inTimeZone(tz, () => stable(buildICS(trip, events, "planpal.test"))), `feed differs in ${tz}`).toBe(
+        baseline
+      );
+    }
+  });
+
+  it("writes timed events as floating values with no UTC marker", () => {
+    for (const tz of TRAVEL_ZONES) {
+      const ics = inTimeZone(tz, () => buildICS(trip, events, "planpal.test"));
+      expect(ics, `in ${tz}`).toContain("DTSTART:20260805T001500\r\n");
+      expect(ics, `in ${tz}`).toContain("DTEND:20260805T014500\r\n");
+      expect(ics, `in ${tz}`).toContain("DTSTART:20260805T234500\r\n");
+      expect(ics, `in ${tz}`).toContain("DTEND:20260806T003000\r\n");
+      expect(ics, `in ${tz}`).not.toMatch(/^DTSTART:\d{8}T\d{6}Z/m);
+      expect(ics, `in ${tz}`).not.toMatch(/^DTEND:\d{8}T\d{6}Z/m);
+    }
+  });
+
+  it("keeps DTSTAMP and LAST-MODIFIED in UTC — those really are instants", () => {
+    const ics = inTimeZone("Pacific/Kiritimati", () =>
+      buildICS(trip, [event({ updated_at: "2026-07-01T08:30:00Z" })], "planpal.test")
+    );
+    expect(ics).toMatch(/DTSTAMP:\d{8}T\d{6}Z/);
+    expect(ics).toContain("LAST-MODIFIED:20260701T083000Z");
+  });
+
+  it("keeps all-day dates on their own days from every timezone", () => {
+    for (const tz of TRAVEL_ZONES) {
+      const ics = inTimeZone(tz, () => buildICS(trip, events, "planpal.test"));
+      expect(ics, `stay check-in in ${tz}`).toContain("DTSTART;VALUE=DATE:20260803\r\n");
+      expect(ics, `stay check-out+1 in ${tz}`).toContain("DTEND;VALUE=DATE:20260809\r\n");
+      expect(ics, `trip span in ${tz}`).toContain("DTSTART;VALUE=DATE:20260803\r\n");
+      expect(ics, `trip span end in ${tz}`).toContain("DTEND;VALUE=DATE:20260810\r\n");
+    }
+  });
+
+  it("reads a legacy row stored with a +00:00 offset as the same clock reading", () => {
+    for (const tz of TRAVEL_ZONES) {
+      const ics = inTimeZone(tz, () =>
+        buildICS(trip, [event({ start_at: "2026-08-05T10:00:00+00:00", end_at: null })], "planpal.test")
+      );
+      expect(ics, `in ${tz}`).toContain("DTSTART:20260805T100000\r\n");
+    }
   });
 });

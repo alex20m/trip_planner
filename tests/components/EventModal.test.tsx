@@ -465,7 +465,7 @@ describe("EventModal", () => {
 
     await waitFor(() => expect(insertSingle).toHaveBeenCalled());
     expect(insert).toHaveBeenCalledWith(
-      expect.objectContaining({ all_day: true, start_at: "2026-07-10T00:00:00.000Z" })
+      expect.objectContaining({ all_day: true, start_at: "2026-07-10T00:00:00Z" })
     );
   });
 
