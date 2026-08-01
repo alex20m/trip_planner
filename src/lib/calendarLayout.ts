@@ -1,26 +1,46 @@
-import { addDays, differenceInCalendarDays } from "date-fns";
 import { parseDateOnly, type TripEvent } from "./types";
+import { addWallClockDays, daysBetweenDayKeys, toDayKey, wallClockDay } from "./datetime";
 
-// All-day events' start_at/end_at are stored as UTC-midnight date-only values.
-// Parsing them with `new Date(iso)` keeps that UTC instant, which in any
-// timezone ahead of UTC lands after local midnight — so an event's first
-// day fails `allDayStart(e) <= day` and silently drops off. Route through
-// parseDateOnly (local midnight, like the calendar's `day` values) instead.
-export const allDayStart = (e: TripEvent) => parseDateOnly(e.start_at.slice(0, 10));
-export const allDayEnd = (e: TripEvent) => (e.end_at ? parseDateOnly(e.end_at.slice(0, 10)) : allDayStart(e));
+// All-day events cover whole calendar days, so all the logic below works on
+// "YYYY-MM-DD" day keys rather than on `Date` objects.
+//
+// Reading a stored value with `new Date(iso)` would resolve it through the
+// device's timezone: in any zone ahead of UTC it lands after local midnight,
+// so an event's first day failed `allDayStart(e) <= day` and the chip silently
+// dropped off the calendar. Comparing `Date`s has a subtler version of the
+// same problem even once the value is right — a `Date` is an instant, and
+// which calendar day it names depends on the zone reading it (and on whether
+// that zone's DST happens to change at midnight, as Santiago's does).
+//
+// Day keys have neither problem: they are the calendar day, and string order
+// is date order.
+export const allDayStartKey = (e: TripEvent) => wallClockDay(e.start_at);
+export const allDayEndKey = (e: TripEvent) => (e.end_at ? wallClockDay(e.end_at) : allDayStartKey(e));
 
 // The last calendar day an all-day event occupies. A stay's end date is the
 // check-out day — no night is spent there — so a stay 21.7–24.7 occupies
 // 21, 22 and 23.7 only. Other all-day events include their end day.
-export const allDayLastDay = (e: TripEvent) => {
-  const end = allDayEnd(e);
+export const allDayLastDayKey = (e: TripEvent) => {
+  const end = allDayEndKey(e);
   if (e.type !== "accommodation") return end;
-  const lastNight = addDays(end, -1);
-  const start = allDayStart(e);
+  const lastNight = addWallClockDays(end, -1);
+  const start = allDayStartKey(e);
   return lastNight < start ? start : lastNight;
 };
 
-export const isAllDayShownOnDay = (e: TripEvent, day: Date) => allDayStart(e) <= day && allDayLastDay(e) >= day;
+// `Date` flavours of the above, for callers that need to feed date-fns.
+export const allDayStart = (e: TripEvent) => parseDateOnly(allDayStartKey(e));
+export const allDayEnd = (e: TripEvent) => parseDateOnly(allDayEndKey(e));
+export const allDayLastDay = (e: TripEvent) => parseDateOnly(allDayLastDayKey(e));
+
+export const isAllDayShownOnDay = (e: TripEvent, day: Date) => {
+  const key = toDayKey(day);
+  return allDayStartKey(e) <= key && allDayLastDayKey(e) >= key;
+};
+
+/** True when an all-day event touches any day in `[fromDay, toDay]` (inclusive). */
+export const isAllDayInRange = (e: TripEvent, fromDay: Date, toDay: Date) =>
+  allDayStartKey(e) <= toDayKey(toDay) && allDayLastDayKey(e) >= toDayKey(fromDay);
 
 export interface AllDayChip {
   event: TripEvent;
@@ -41,16 +61,17 @@ export interface AllDayChip {
 // Stays are packed after other all-day events so that, on any day they share
 // with one, the stay sits below it (a stay is the day's last event).
 export function assignAllDayLanes(events: TripEvent[], gridStart: Date, dayCount: number): AllDayChip[] {
+  const gridKey = toDayKey(gridStart);
   const ordered = [...events].sort(
     (a, b) =>
       Number(a.type === "accommodation") - Number(b.type === "accommodation") ||
-      +allDayStart(a) - +allDayStart(b) ||
-      +allDayLastDay(b) - +allDayLastDay(a)
+      (allDayStartKey(a) < allDayStartKey(b) ? -1 : allDayStartKey(a) > allDayStartKey(b) ? 1 : 0) ||
+      (allDayLastDayKey(b) < allDayLastDayKey(a) ? -1 : allDayLastDayKey(b) > allDayLastDayKey(a) ? 1 : 0)
   );
   const lanes: { startCol: number; endCol: number }[][] = [];
   return ordered.map((event) => {
-    const startCol = Math.max(0, differenceInCalendarDays(allDayStart(event), gridStart));
-    const endCol = Math.min(dayCount - 1, differenceInCalendarDays(allDayLastDay(event), gridStart));
+    const startCol = Math.max(0, daysBetweenDayKeys(gridKey, allDayStartKey(event)));
+    const endCol = Math.min(dayCount - 1, daysBetweenDayKeys(gridKey, allDayLastDayKey(event)));
     let lane = lanes.findIndex((l) => l.every((c) => c.endCol < startCol || c.startCol > endCol));
     if (lane === -1) lane = lanes.push([]) - 1;
     lanes[lane].push({ startCol, endCol });

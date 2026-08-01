@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import L from "leaflet";
 import MapPanel from "@/components/map/MapPanel";
 import type { TripEvent } from "@/lib/types";
+import { TRAVEL_ZONES, inTimeZone, restoreTimeZone } from "../helpers/timezone";
 
 // Leaflet needs real layout measurements, so it is stubbed out in jsdom; the
 // tests assert which events get markers, not how tiles render.
@@ -247,5 +248,85 @@ describe("MapPanel", () => {
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.getByRole("button", { name: /view map in full screen/i })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A map pin's popup shows the event's time, so it is bound by the same rule as
+// the calendar: it must read the same everywhere.
+// ---------------------------------------------------------------------------
+describe("map popups are timezone-independent", () => {
+  afterAll(restoreTimeZone);
+
+  beforeEach(() => {
+    marker.mockClear();
+    polyline.mockClear();
+  });
+
+  const popupsFor = (events: TripEvent[], tz: string) =>
+    inTimeZone(tz, () => {
+      marker.mockClear();
+      polyline.mockClear();
+      render(<MapPanel events={events} />);
+      const texts = [...marker.mock.results, ...polyline.mock.results]
+        .flatMap((r) => (r.value as { bindPopup: ReturnType<typeof vi.fn> }).bindPopup.mock.calls)
+        .map((call) => String(call[0]));
+      cleanup();
+      return texts;
+    });
+
+  it("stamps a pin with the time the event was given", () => {
+    const events = [
+      makeEvent({
+        id: "e1",
+        title: "Sunrise walk",
+        start_at: "2026-08-05T00:15:00Z",
+        location: "Villa Borghese",
+        location_lat: 41.91,
+        location_lng: 12.49
+      })
+    ];
+    for (const tz of TRAVEL_ZONES) {
+      const popups = popupsFor(events, tz);
+      expect(popups.join("\n"), `in ${tz}`).toContain("5 Aug, 00:15");
+    }
+  });
+
+  it("stamps a late-evening pin with its own date, not the next day's", () => {
+    const events = [
+      makeEvent({
+        id: "e1",
+        title: "Last call",
+        start_at: "2026-08-05T23:45:00Z",
+        location: "Trastevere",
+        location_lat: 41.88,
+        location_lng: 12.47
+      })
+    ];
+    for (const tz of TRAVEL_ZONES) {
+      expect(popupsFor(events, tz).join("\n"), `in ${tz}`).toContain("5 Aug, 23:45");
+    }
+  });
+
+  it("stamps a travel leg's popup identically in every zone", () => {
+    const events = [
+      makeEvent({
+        id: "e1",
+        type: "travel",
+        title: "Night train",
+        start_at: "2026-08-06T23:30:00Z",
+        location: "Roma Termini",
+        location_lat: 41.9,
+        location_lng: 12.5,
+        end_location: "Wien Hbf",
+        end_location_lat: 48.19,
+        end_location_lng: 16.38
+      })
+    ];
+    const baseline = popupsFor(events, "UTC");
+    for (const tz of TRAVEL_ZONES) {
+      expect(popupsFor(events, tz), `leg popup differs in ${tz}`).toEqual(baseline);
+    }
+    expect(baseline.join("\n")).toContain("6 Aug, 23:30");
   });
 });

@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, afterAll } from "vitest";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import WeekView from "@/components/calendar/WeekView";
 import type { TripEvent } from "@/lib/types";
+import { TRAVEL_ZONES, inTimeZone, restoreTimeZone } from "../helpers/timezone";
 
 // Monday 2026-08-03 .. Sunday 2026-08-09
 const weekStart = new Date("2026-08-03T00:00:00");
@@ -437,3 +438,127 @@ function agendaDaysShowing(text: string): string[] {
     .filter((card) => card.textContent?.includes(text))
     .map((card) => card.querySelector(".text-sm.font-semibold")?.textContent ?? "");
 }
+
+// ---------------------------------------------------------------------------
+// The calendar must put every event on the same day, at the same height, with
+// the same label, no matter where the device is.
+// ---------------------------------------------------------------------------
+describe("WeekView is timezone-independent", () => {
+  afterAll(restoreTimeZone);
+
+  // Rebuilt per zone: a `Date` is an instant, and the app likewise derives
+  // these fresh from the trip's dates in whatever zone it is currently in.
+  const props = () => ({
+    weekStart: new Date(2026, 7, 3),
+    rangeStart: new Date(2026, 7, 3),
+    rangeEnd: new Date(2026, 7, 9)
+  });
+
+  const events = [
+    makeEvent({ id: "a", title: "Sunrise walk", start_at: "2026-08-05T00:15:00Z", end_at: "2026-08-05T01:45:00Z" }),
+    makeEvent({ id: "b", title: "Dinner", start_at: "2026-08-05T19:00:00Z", end_at: "2026-08-05T21:30:00Z" }),
+    makeEvent({ id: "c", title: "Last call", start_at: "2026-08-05T23:45:00Z", end_at: "2026-08-06T00:30:00Z" }),
+    makeEvent({ id: "d", title: "Monday brunch", start_at: "2026-08-03T00:30:00Z" }),
+    makeEvent({ id: "e", title: "Sunday send-off", start_at: "2026-08-09T23:30:00Z" })
+  ];
+
+  it("labels every event with the clock reading it was saved with", () => {
+    for (const tz of TRAVEL_ZONES) {
+      inTimeZone(tz, () => {
+        render(<WeekView {...props()} events={events} />);
+        expect(screen.getAllByText("00:15–01:45").length, `in ${tz}`).toBeGreaterThan(0);
+        expect(screen.getAllByText("19:00–21:30").length, `in ${tz}`).toBeGreaterThan(0);
+        expect(screen.getAllByText("23:45–00:30").length, `in ${tz}`).toBeGreaterThan(0);
+        cleanup();
+      });
+    }
+  });
+
+  it("keeps the first and last day of the week inside the week", () => {
+    // A 00:30 Monday and a 23:30 Sunday are the two events a zone shift used
+    // to push out of the visible week entirely.
+    for (const tz of TRAVEL_ZONES) {
+      inTimeZone(tz, () => {
+        render(<WeekView {...props()} events={events} />);
+        expect(screen.getAllByText("Monday brunch").length, `Monday in ${tz}`).toBeGreaterThan(0);
+        expect(screen.getAllByText("Sunday send-off").length, `Sunday in ${tz}`).toBeGreaterThan(0);
+        cleanup();
+      });
+    }
+  });
+
+  it("places each event under the same day heading in every zone", () => {
+    const grouping = (tz: string) =>
+      inTimeZone(tz, () => {
+        const { container } = render(<WeekView {...props()} events={events} />);
+        const cards = Array.from(container.querySelectorAll(".sm\\:hidden > .card")).map((card) =>
+          (card.textContent ?? "").replace(/\s+/g, " ").trim()
+        );
+        cleanup();
+        return cards;
+      });
+    const baseline = grouping("UTC");
+    for (const tz of TRAVEL_ZONES) {
+      expect(grouping(tz), `day grouping differs in ${tz}`).toEqual(baseline);
+    }
+    expect(baseline[0]).toContain("Monday brunch");
+    expect(baseline[2]).toContain("Sunrise walk");
+    expect(baseline[6]).toContain("Sunday send-off");
+  });
+
+  it("positions and sizes the time-grid blocks identically in every zone", () => {
+    const geometry = (tz: string) =>
+      inTimeZone(tz, () => {
+        const { container } = render(<WeekView {...props()} events={events} />);
+        const blocks = Array.from(container.querySelectorAll<HTMLElement>("button.absolute")).map((b) => [
+          b.textContent?.slice(0, 20),
+          b.style.top,
+          b.style.height
+        ]);
+        cleanup();
+        return blocks;
+      });
+    const baseline = geometry("UTC");
+    for (const tz of TRAVEL_ZONES) {
+      expect(geometry(tz), `geometry differs in ${tz}`).toEqual(baseline);
+    }
+    // 19:00 is 13 hours past the grid's 06:00 start: 13 * 44px.
+    expect(baseline.find((b) => b[0]?.includes("Dinner"))).toEqual(["Dinner19:00–21:30", "572px", "110px"]);
+  });
+
+  it("does not squash an event that runs over a DST transition", () => {
+    const overnight = makeEvent({
+      id: "dst",
+      title: "Spring forward",
+      start_at: "2026-03-29T01:00:00Z",
+      end_at: "2026-03-29T05:00:00Z"
+    });
+    const dstProps = () => ({
+      weekStart: new Date(2026, 2, 23),
+      rangeStart: new Date(2026, 2, 23),
+      rangeEnd: new Date(2026, 2, 29)
+    });
+    const heights = TRAVEL_ZONES.map((tz) =>
+      inTimeZone(tz, () => {
+        const { container } = render(<WeekView {...dstProps()} events={[overnight]} />);
+        const block = container.querySelector<HTMLElement>("button.absolute");
+        const height = block?.style.height;
+        cleanup();
+        return height;
+      })
+    );
+    // Four hours on the clock, whatever the zone did that night: 4 * 44px.
+    expect(new Set(heights)).toEqual(new Set(["176px"]));
+  });
+
+  it("reads legacy rows stored with a +00:00 offset at the same times", () => {
+    const legacy = [makeEvent({ id: "l", title: "Legacy lunch", start_at: "2026-08-05T12:00:00+00:00" })];
+    for (const tz of TRAVEL_ZONES) {
+      inTimeZone(tz, () => {
+        render(<WeekView {...props()} events={legacy} />);
+        expect(screen.getAllByText("12:00").length, `in ${tz}`).toBeGreaterThan(0);
+        cleanup();
+      });
+    }
+  });
+});

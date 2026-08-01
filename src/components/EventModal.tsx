@@ -1,10 +1,18 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { addDays, addHours, format } from "date-fns";
+import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import type { EventType, TripEvent } from "@/lib/types";
 import { EVENT_COLORS, parseDateOnly } from "@/lib/types";
+import {
+  addWallClockDays,
+  addWallClockMinutes,
+  toDateTimeInputValue,
+  toStoredDateOnly,
+  toStoredWallClock,
+  wallClockDay
+} from "@/lib/datetime";
 import Spinner from "@/components/Spinner";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import { reverseGeocode, searchPlaces } from "@/lib/geocode";
@@ -22,14 +30,11 @@ const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
   accommodation: BedIcon
 };
 
-const toLocal = (iso: string | null) =>
-  iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
-
 // Opening an empty end field prefills it from the start, so the picker starts
 // from a sensible value instead of "now": an hour later for timed events, the
 // next day for date-only ones (stay check-out, all-day end date).
-const hourAfter = (local: string) => format(addHours(new Date(local), 1), "yyyy-MM-dd'T'HH:mm");
-const dayAfter = (date: string) => format(addDays(parseDateOnly(date), 1), "yyyy-MM-dd");
+const hourAfter = (local: string) => addWallClockMinutes(local, 60);
+const dayAfter = (date: string) => addWallClockDays(date, 1);
 
 // A native date/time picker opens at the input's current value; an empty field
 // opens at "now". Setting the value in onFocus is too late for a mouse click —
@@ -92,10 +97,14 @@ export default function EventModal({
   const [title, setTitle] = useState(event?.title ?? "");
   const [type, setType] = useState<EventType>(event?.type ?? "activity");
   const [allDay, setAllDay] = useState(event?.all_day ?? false);
-  const [start, setStart] = useState(event ? toLocal(event.start_at) : (defaultStart ?? ""));
-  const [end, setEnd] = useState(toLocal(event?.end_at ?? null));
-  const [startDate, setStartDate] = useState(event?.start_at?.slice(0, 10) ?? defaultStart?.slice(0, 10) ?? "");
-  const [endDate, setEndDate] = useState(event?.end_at?.slice(0, 10) ?? "");
+  // Times are wall-clock values (see lib/datetime): what was typed is what is
+  // stored and what comes back, with no conversion through the device's zone.
+  const [start, setStart] = useState(event ? toDateTimeInputValue(event.start_at) : (defaultStart ?? ""));
+  const [end, setEnd] = useState(toDateTimeInputValue(event?.end_at ?? null));
+  const [startDate, setStartDate] = useState(
+    (event ? wallClockDay(event.start_at) : wallClockDay(defaultStart)) || ""
+  );
+  const [endDate, setEndDate] = useState(wallClockDay(event?.end_at ?? null));
   const [location, setLocation] = useState(event?.location ?? "");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     event && event.location_lat != null && event.location_lng != null
@@ -167,9 +176,11 @@ export default function EventModal({
 
   async function save() {
     setError(null);
-    // All-day events (including accommodation) are saved at UTC midnight so the calendar date is preserved exactly in the .ics export.
-    const start_at = isAllDay ? (startDate ? `${startDate}T00:00:00Z` : "") : start;
-    const end_at = isAllDay ? (endDate ? `${endDate}T00:00:00Z` : "") : end || null;
+    // Stored exactly as typed — no conversion through the device's timezone,
+    // so the time reads the same at home and abroad. All-day events keep
+    // midnight on their date, which is what the .ics export exports.
+    const start_at = isAllDay ? toStoredDateOnly(startDate) : toStoredWallClock(start);
+    const end_at = (isAllDay ? toStoredDateOnly(endDate) : toStoredWallClock(end)) || null;
     if (!title.trim() || !start_at || (isStay && !end_at)) {
       setError(isStay ? "Title, check-in date, and check-out date are required." : "Title and start time are required.");
       return;
@@ -181,8 +192,8 @@ export default function EventModal({
     // Keep every date the event touches inside the trip's own range — ISO
     // "yyyy-MM-dd" strings compare correctly, so slice the day off each field.
     if (tripStart && tripEnd) {
-      const startDay = isAllDay ? startDate : start.slice(0, 10);
-      const endDay = isAllDay ? endDate : end ? end.slice(0, 10) : "";
+      const startDay = wallClockDay(start_at);
+      const endDay = wallClockDay(end_at);
       const outOfRange = (d: string) => !!d && (d < tripStart || d > tripEnd);
       if (outOfRange(startDay) || outOfRange(endDay)) {
         setError(
@@ -212,8 +223,8 @@ export default function EventModal({
       title: title.trim(),
       type,
       all_day: isAllDay,
-      start_at: new Date(start_at).toISOString(),
-      end_at: end_at ? new Date(end_at).toISOString() : null,
+      start_at,
+      end_at,
       location: location.trim() || null,
       location_lat: location.trim() ? (startPoint?.lat ?? null) : null,
       location_lng: location.trim() ? (startPoint?.lng ?? null) : null,
@@ -286,8 +297,8 @@ export default function EventModal({
                   const checked = e.target.checked;
                   setAllDay(checked);
                   if (checked) {
-                    if (!startDate && start) setStartDate(start.slice(0, 10));
-                    if (!endDate && end) setEndDate(end.slice(0, 10));
+                    if (!startDate && start) setStartDate(wallClockDay(start));
+                    if (!endDate && end) setEndDate(wallClockDay(end));
                   } else {
                     if (!start && startDate) setStart(`${startDate}T00:00`);
                     if (!end && endDate) setEnd(`${endDate}T00:00`);

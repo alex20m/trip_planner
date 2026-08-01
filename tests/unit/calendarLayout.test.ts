@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import {
   allDayLastDay,
   allDayStart,
@@ -7,6 +7,7 @@ import {
   locationLabel
 } from "@/lib/calendarLayout";
 import type { TripEvent } from "@/lib/types";
+import { TRAVEL_ZONES, inTimeZone, restoreTimeZone } from "../helpers/timezone";
 
 function makeEvent(overrides: Partial<TripEvent>): TripEvent {
   return {
@@ -110,5 +111,93 @@ describe("locationLabel (issue #69)", () => {
   it("falls back to the plain location for non-travel events and legacy travel rows", () => {
     expect(locationLabel(makeEvent({ location: "Helsinki" }))).toBe("Helsinki");
     expect(locationLabel(makeEvent({ type: "travel", location: "Helsinki" }))).toBe("Helsinki");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// All-day chips span calendar days, so no zone may add, drop or move a day.
+// ---------------------------------------------------------------------------
+describe("all-day layout is timezone-independent", () => {
+  afterAll(restoreTimeZone);
+
+  const festival = makeEvent({ start_at: "2026-07-21T00:00:00Z", end_at: "2026-07-23T00:00:00Z" });
+  const stay = makeEvent({
+    type: "accommodation",
+    start_at: "2026-07-21T00:00:00Z",
+    end_at: "2026-07-24T00:00:00Z"
+  });
+
+  it("shows an all-day event on exactly its own days, in every zone", () => {
+    for (const tz of TRAVEL_ZONES) {
+      inTimeZone(tz, () => {
+        expect(isAllDayShownOnDay(festival, day("2026-07-20")), `20th in ${tz}`).toBe(false);
+        expect(isAllDayShownOnDay(festival, day("2026-07-21")), `21st in ${tz}`).toBe(true);
+        expect(isAllDayShownOnDay(festival, day("2026-07-22")), `22nd in ${tz}`).toBe(true);
+        expect(isAllDayShownOnDay(festival, day("2026-07-23")), `23rd in ${tz}`).toBe(true);
+        expect(isAllDayShownOnDay(festival, day("2026-07-24")), `24th in ${tz}`).toBe(false);
+      });
+    }
+  });
+
+  it("keeps a stay off its check-out day in every zone", () => {
+    for (const tz of TRAVEL_ZONES) {
+      inTimeZone(tz, () => {
+        expect(isAllDayShownOnDay(stay, day("2026-07-23")), `23rd in ${tz}`).toBe(true);
+        expect(isAllDayShownOnDay(stay, day("2026-07-24")), `24th in ${tz}`).toBe(false);
+      });
+    }
+  });
+
+  it("assigns the same columns and lanes in every zone", () => {
+    const layout = (tz: string) =>
+      inTimeZone(tz, () =>
+        assignAllDayLanes([festival, stay], day("2026-07-20"), 7).map(({ event, startCol, endCol, lane }) => ({
+          id: event.id,
+          startCol,
+          endCol,
+          lane
+        }))
+      );
+    const baseline = layout("UTC");
+    for (const tz of TRAVEL_ZONES) {
+      expect(layout(tz), `layout differs in ${tz}`).toEqual(baseline);
+    }
+    expect(baseline).toEqual([
+      // Festival 21→23 and the stay's nights 21→23 both start on column 1
+      // (grid starts the 20th) and end on column 3, stacked in two lanes.
+      { id: "e1", startCol: 1, endCol: 3, lane: 0 },
+      { id: "e1", startCol: 1, endCol: 3, lane: 1 }
+    ]);
+  });
+
+  it("spans the same days across a DST transition weekend", () => {
+    // 29 Mar 2026 is the European spring-forward; 6 Sep 2026 is Santiago's,
+    // which happens at midnight — exactly where a date-only value sits.
+    const across = makeEvent({ start_at: "2026-03-28T00:00:00Z", end_at: "2026-03-30T00:00:00Z" });
+    for (const tz of TRAVEL_ZONES) {
+      inTimeZone(tz, () => {
+        expect(isAllDayShownOnDay(across, day("2026-03-28")), `28th in ${tz}`).toBe(true);
+        expect(isAllDayShownOnDay(across, day("2026-03-29")), `29th in ${tz}`).toBe(true);
+        expect(isAllDayShownOnDay(across, day("2026-03-30")), `30th in ${tz}`).toBe(true);
+        expect(isAllDayShownOnDay(across, day("2026-03-31")), `31st in ${tz}`).toBe(false);
+      });
+    }
+    const santiago = makeEvent({ start_at: "2026-09-05T00:00:00Z", end_at: "2026-09-07T00:00:00Z" });
+    for (const tz of TRAVEL_ZONES) {
+      inTimeZone(tz, () => {
+        expect(isAllDayShownOnDay(santiago, day("2026-09-06")), `6 Sep in ${tz}`).toBe(true);
+        expect(isAllDayShownOnDay(santiago, day("2026-09-08")), `8 Sep in ${tz}`).toBe(false);
+      });
+    }
+  });
+
+  it("reads a legacy row stored with a +00:00 offset on the same days", () => {
+    const legacy = makeEvent({ start_at: "2026-07-21T00:00:00+00:00", end_at: "2026-07-23T00:00:00+00:00" });
+    for (const tz of TRAVEL_ZONES) {
+      inTimeZone(tz, () => {
+        expect(isAllDayShownOnDay(legacy, day("2026-07-21")), `in ${tz}`).toBe(true);
+        expect(isAllDayShownOnDay(legacy, day("2026-07-23")), `in ${tz}`).toBe(true);
+      });
+    }
   });
 });
