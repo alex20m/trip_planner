@@ -7,6 +7,7 @@ import { addDays, format, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { NoteSection, Trip, TripEvent, TripRole } from "@/lib/types";
 import { canEdit, parseDateOnly, EVENT_COLORS } from "@/lib/types";
+import { initialWeekStart, WEEK_OPTIONS } from "@/lib/calendarLayout";
 import { useOnline } from "@/hooks/useOnline";
 import { createClient } from "@/lib/supabase/client";
 import { getLastSynced, idbGet, idbSet, setLastSynced, tripSnapshotKey, type TripSnapshot } from "@/lib/offlineStore";
@@ -49,10 +50,12 @@ export default function TripView({
   const [menuOpen, setMenuOpen] = useState(false);
   const tripStart = useMemo(() => parseDateOnly(trip.start_date), [trip.start_date]);
   const tripEnd = useMemo(() => parseDateOnly(trip.end_date), [trip.end_date]);
-  const firstWeek = useMemo(() => startOfWeek(tripStart, { weekStartsOn: 1 }), [tripStart]);
-  const lastWeek = useMemo(() => startOfWeek(tripEnd, { weekStartsOn: 1 }), [tripEnd]);
+  const firstWeek = useMemo(() => startOfWeek(tripStart, WEEK_OPTIONS), [tripStart]);
+  const lastWeek = useMemo(() => startOfWeek(tripEnd, WEEK_OPTIONS), [tripEnd]);
+  // A trip that is already under way opens on the current week, not on the
+  // week it started in — see `initialWeekStart`.
   const [weekStart, setWeekStart] = useState(() =>
-    startOfWeek(parseDateOnly(initialTrip.start_date), { weekStartsOn: 1 })
+    initialWeekStart(initialTrip.start_date, initialTrip.end_date)
   );
   const [editing, setEditing] = useState<TripEvent | "new" | null>(null);
   // Prefilled start ("yyyy-MM-ddTHH:mm") for a new event opened by pressing a

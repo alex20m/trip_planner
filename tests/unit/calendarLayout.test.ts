@@ -3,6 +3,7 @@ import {
   allDayLastDay,
   allDayStart,
   assignAllDayLanes,
+  initialWeekStart,
   isAllDayShownOnDay,
   locationLabel
 } from "@/lib/calendarLayout";
@@ -111,6 +112,43 @@ describe("locationLabel (issue #69)", () => {
   it("falls back to the plain location for non-travel events and legacy travel rows", () => {
     expect(locationLabel(makeEvent({ location: "Helsinki" }))).toBe("Helsinki");
     expect(locationLabel(makeEvent({ type: "travel", location: "Helsinki" }))).toBe("Helsinki");
+  });
+});
+
+describe("initialWeekStart", () => {
+  // A trip running Wed 22 Jul – Wed 5 Aug 2026, i.e. spanning three weeks.
+  const start = "2026-07-22";
+  const end = "2026-08-05";
+  const at = (s: string) => new Date(`${s}T09:30:00`);
+
+  it("opens on the trip's first week before the trip starts", () => {
+    expect(initialWeekStart(start, end, at("2026-07-01"))).toEqual(day("2026-07-20"));
+    // The day before departure still counts as "not started".
+    expect(initialWeekStart(start, end, at("2026-07-21"))).toEqual(day("2026-07-20"));
+  });
+
+  it("opens on the current week once the trip is under way", () => {
+    expect(initialWeekStart(start, end, at("2026-07-22"))).toEqual(day("2026-07-20"));
+    expect(initialWeekStart(start, end, at("2026-07-29"))).toEqual(day("2026-07-27"));
+    // Sunday belongs to the week that began on the preceding Monday.
+    expect(initialWeekStart(start, end, at("2026-08-02"))).toEqual(day("2026-07-27"));
+    // The last day of the trip is still a day of the trip.
+    expect(initialWeekStart(start, end, at("2026-08-05"))).toEqual(day("2026-08-03"));
+  });
+
+  it("goes back to the first week once the trip is over", () => {
+    expect(initialWeekStart(start, end, at("2026-08-06"))).toEqual(day("2026-07-20"));
+    expect(initialWeekStart(start, end, at("2027-01-01"))).toEqual(day("2026-07-20"));
+  });
+
+  it("picks the same week in every timezone the traveller may be in", () => {
+    for (const tz of TRAVEL_ZONES) {
+      inTimeZone(tz, () => {
+        // Local noon: whatever the zone, this is 29 July for the device.
+        const noon = new Date(2026, 6, 29, 12, 0, 0);
+        expect(initialWeekStart(start, end, noon), `in ${tz}`).toEqual(day("2026-07-27"));
+      });
+    }
   });
 });
 

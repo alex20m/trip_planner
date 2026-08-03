@@ -28,13 +28,15 @@ async function openAs(browser: Browser, timezoneId: string, url: string): Promis
   return page;
 }
 
-// The planner opens on the week containing the trip's start date, so events
-// have to sit in that week to be on screen without paging.
+// A trip that has not started yet opens on the week containing its start date,
+// so events have to sit in that week to be on screen without paging. The dates
+// are kept far in the future for exactly that reason: a trip covering the day
+// the suite runs on would open on *that* week instead.
 async function createTrip(page: Page, name: string): Promise<string> {
   await page.getByRole("button", { name: "New trip" }).click();
   await page.getByPlaceholder(/trip name/i).fill(name);
-  await page.getByLabel("Start").fill("2026-08-01");
-  await page.getByLabel("End").fill("2026-08-07");
+  await page.getByLabel("Start").fill("2037-08-01");
+  await page.getByLabel("End").fill("2037-08-07");
   await page.getByRole("button", { name: "Create trip" }).click();
   await expect(page).toHaveURL(/\/trips\/[0-9a-f-]+/);
   return page.url();
@@ -58,8 +60,8 @@ test("an event keeps the time it was entered with, wherever the app is opened", 
 
   // An evening event and a near-midnight one: the second is what a zone ahead
   // of UTC used to push onto the following day.
-  await addEvent(home, "Dinner in Rome", "2026-08-01T19:00", "2026-08-01T21:30");
-  await addEvent(home, "Last call", "2026-08-01T23:45");
+  await addEvent(home, "Dinner in Rome", "2037-08-01T19:00", "2037-08-01T21:30");
+  await addEvent(home, "Last call", "2037-08-01T23:45");
 
   await expect(visibleText(home, "19:00–21:30")).toBeVisible();
   await expect(home.getByRole("button", { name: /Last call/ }).first()).toBeVisible();
@@ -75,13 +77,13 @@ test("an event keeps the time it was entered with, wherever the app is opened", 
     // …and the same date and time in each event's own detail view.
     await abroad.getByRole("button", { name: /Dinner in Rome/ }).first().click();
     await expect(
-      abroad.getByText("Sat 1 Aug 2026, 19:00 – 21:30"),
+      abroad.getByText("Sat 1 Aug 2037, 19:00 – 21:30"),
       `dinner detail in ${timezoneId}`
     ).toBeVisible();
     await abroad.getByRole("button", { name: "Close" }).click();
 
     await abroad.getByRole("button", { name: /Last call/ }).first().click();
-    await expect(abroad.getByText("Sat 1 Aug 2026, 23:45"), `last-call detail in ${timezoneId}`).toBeVisible();
+    await expect(abroad.getByText("Sat 1 Aug 2037, 23:45"), `last-call detail in ${timezoneId}`).toBeVisible();
 
     await abroad.context().close();
   }
@@ -92,32 +94,32 @@ test("reopening and re-saving an event abroad does not shift its time", async ({
 
   const home = await openAs(browser, "Europe/Helsinki", "/");
   const tripUrl = await createTrip(home, `Resave Trip ${Date.now()}`);
-  await addEvent(home, "Museum visit", "2026-08-01T09:30");
+  await addEvent(home, "Museum visit", "2037-08-01T09:30");
   await home.context().close();
 
   // Land, edit the title, save. The time must survive the round trip.
   const abroad = await openAs(browser, "Pacific/Kiritimati", tripUrl);
   await abroad.getByRole("button", { name: /Museum visit/ }).first().click();
   await abroad.getByRole("button", { name: "Edit" }).click();
-  await expect(abroad.getByPlaceholder("Start")).toHaveValue("2026-08-01T09:30");
+  await expect(abroad.getByPlaceholder("Start")).toHaveValue("2037-08-01T09:30");
   await abroad.getByPlaceholder("Title").fill("Museum visit (booked)");
   await abroad.getByRole("button", { name: "Save" }).click();
   await expect(abroad.getByRole("heading", { name: "Edit event" })).not.toBeVisible();
   await abroad.getByRole("button", { name: /Museum visit \(booked\)/ }).first().click();
-  await expect(abroad.getByText("Sat 1 Aug 2026, 09:30")).toBeVisible();
+  await expect(abroad.getByText("Sat 1 Aug 2037, 09:30")).toBeVisible();
   await abroad.context().close();
 
   // And it still reads the same back home.
   const backHome = await openAs(browser, "Europe/Helsinki", tripUrl);
   await backHome.getByRole("button", { name: /Museum visit \(booked\)/ }).first().click();
-  await expect(backHome.getByText("Sat 1 Aug 2026, 09:30")).toBeVisible();
+  await expect(backHome.getByText("Sat 1 Aug 2037, 09:30")).toBeVisible();
   await backHome.context().close();
 });
 
 test("the calendar feed exports floating times that no client can re-convert", async ({ browser }) => {
   const home = await openAs(browser, "Europe/Helsinki", "/");
   await createTrip(home, `Feed Trip ${Date.now()}`);
-  await addEvent(home, "Dinner in Rome", "2026-08-01T19:00", "2026-08-01T21:30");
+  await addEvent(home, "Dinner in Rome", "2037-08-01T19:00", "2037-08-01T21:30");
 
   await home.getByRole("button", { name: "More trip options" }).click();
   await home.getByRole("menuitem", { name: "Sync calendar" }).click();
@@ -126,8 +128,8 @@ test("the calendar feed exports floating times that no client can re-convert", a
   const body = await (await home.request.get(calendarUrl)).text();
   // No trailing Z and no TZID: RFC 5545 floating time, shown as-is by every
   // calendar client regardless of the zone it is being viewed in.
-  expect(body).toContain("DTSTART:20260801T190000\r\n");
-  expect(body).toContain("DTEND:20260801T213000\r\n");
+  expect(body).toContain("DTSTART:20370801T190000\r\n");
+  expect(body).toContain("DTEND:20370801T213000\r\n");
   expect(body).not.toMatch(/^DTSTART:\d{8}T\d{6}Z/m);
   expect(body).not.toMatch(/^DTEND:\d{8}T\d{6}Z/m);
 
