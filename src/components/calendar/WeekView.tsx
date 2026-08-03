@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { addDays, format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { isAllDayEvent, type EventType, type TripEvent } from "@/lib/types";
@@ -68,6 +69,30 @@ export default function WeekView({
   const allDayEvents = events.filter((e) => isAllDayEvent(e) && isAllDayInRange(e, weekStart, weekLastDay));
   const allDayChips = assignAllDayLanes(allDayEvents, gridStart, days.length);
 
+  // Opening on the right week is only half of it. On a phone the week is a
+  // stack of day cards, so today can sit well below the fold; and in the narrow
+  // band where the time grid scrolls sideways, today's column can sit off to
+  // the right. Both are brought into view once, when the calendar first
+  // appears — an empty dependency list, so paging to another week leaves the
+  // page exactly where the reader put it.
+  //
+  // Only one of the two layouts is on screen at a time; the other is inside a
+  // `display: none` subtree, where it has no box, so `scrollIntoView` does
+  // nothing and the grid measures zero. Neither can move the wrong layout.
+  const todayCardRef = useRef<HTMLDivElement>(null);
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  const todayColumnRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Instant, not smooth: this is where the page starts, not a move away from
+    // somewhere the reader was already looking.
+    todayCardRef.current?.scrollIntoView?.({ block: "start" });
+
+    const grid = gridScrollRef.current;
+    const column = todayColumnRef.current;
+    if (!grid || !column || grid.scrollWidth <= grid.clientWidth) return;
+    grid.scrollLeft += column.getBoundingClientRect().left - grid.getBoundingClientRect().left;
+  }, []);
+
   return (
     <>
       {/* Agenda view: stacked days, no horizontal scrolling — used on small screens */}
@@ -95,7 +120,7 @@ export default function WeekView({
           );
 
           return (
-            <div key={+day} className="card overflow-hidden">
+            <div key={+day} ref={isToday ? todayCardRef : undefined} className="card overflow-hidden">
               {/* With edit rights the whole header is a press target — it works
                   the same whether the day already has events or is empty. */}
               {onAddEvent ? (
@@ -153,7 +178,7 @@ export default function WeekView({
       </div>
 
       {/* Time-grid view: full week at a glance — used from tablet width up */}
-      <div className="card hidden overflow-x-auto sm:block">
+      <div ref={gridScrollRef} className="card hidden overflow-x-auto sm:block">
         <div className="min-w-[720px]">
           {/* Day headers */}
         <div className="grid border-b border-ink/10" style={gridStyle}>
@@ -239,6 +264,10 @@ export default function WeekView({
           {days.map((day) => (
             <div
               key={+day}
+              // The grid's day column, not its header: the header is a button
+              // when the trip is editable and a div when it isn't, while this
+              // one is always a div and sits in the same grid column.
+              ref={isSameDay(day, new Date()) ? todayColumnRef : undefined}
               className={`relative border-l border-ink/5${onAddEvent ? " cursor-pointer" : ""}`}
               style={{ height: (END_HOUR - START_HOUR) * HOUR_PX }}
               title={onAddEvent ? `Add event on ${format(day, "d MMM", { locale: enUS })}` : undefined}

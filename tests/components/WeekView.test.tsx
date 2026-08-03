@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, afterAll } from "vitest";
+import { describe, it, expect, vi, afterAll, beforeEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { addDays, format, startOfWeek } from "date-fns";
+import { enUS } from "date-fns/locale";
 import WeekView from "@/components/calendar/WeekView";
 import type { TripEvent } from "@/lib/types";
 import { TRAVEL_ZONES, inTimeZone, restoreTimeZone } from "../helpers/timezone";
@@ -560,5 +562,95 @@ describe("WeekView is timezone-independent", () => {
         cleanup();
       });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Landing on today's week is only useful if today is actually on screen: on a
+// phone the week is a stack of day cards, and today can start well below the
+// fold. Dates here are relative to the day the suite runs on.
+// ---------------------------------------------------------------------------
+describe("WeekView — bringing today into view", () => {
+  const scrollIntoView = vi.fn();
+
+  beforeEach(() => {
+    scrollIntoView.mockClear();
+    // jsdom has no layout, so it does not implement scrollIntoView at all.
+    Element.prototype.scrollIntoView = scrollIntoView;
+  });
+
+  const mondayOf = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
+  const thisWeek = () => mondayOf(new Date());
+
+  it("scrolls today's day card into view when the week on screen contains today", () => {
+    render(
+      <WeekView
+        weekStart={thisWeek()}
+        events={[]}
+        rangeStart={addDays(thisWeek(), -30)}
+        rangeEnd={addDays(thisWeek(), 30)}
+      />
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    // Called on today's card, not on some other day's.
+    const card = scrollIntoView.mock.instances[0] as HTMLElement;
+    expect(card).toHaveTextContent(format(new Date(), "d MMM", { locale: enUS }));
+  });
+
+  it("leaves the page where it is when today is not in the week on screen", () => {
+    const nextWeek = addDays(thisWeek(), 7);
+    render(
+      <WeekView weekStart={nextWeek} events={[]} rangeStart={nextWeek} rangeEnd={addDays(nextWeek, 6)} />
+    );
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("leaves the page where it is when today's week is outside the trip's range", () => {
+    // The week contains today, but the trip only covers days after it, so no
+    // card for today is rendered.
+    render(
+      <WeekView
+        weekStart={thisWeek()}
+        events={[]}
+        rangeStart={addDays(new Date(), 1)}
+        rangeEnd={addDays(new Date(), 20)}
+      />
+    );
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("does not scroll again when the reader pages to another week", () => {
+    const { rerender } = render(
+      <WeekView
+        weekStart={thisWeek()}
+        events={[]}
+        rangeStart={addDays(thisWeek(), -30)}
+        rangeEnd={addDays(thisWeek(), 30)}
+      />
+    );
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    // Paging forward and back again must not yank the page around.
+    rerender(
+      <WeekView
+        weekStart={addDays(thisWeek(), 7)}
+        events={[]}
+        rangeStart={addDays(thisWeek(), -30)}
+        rangeEnd={addDays(thisWeek(), 30)}
+      />
+    );
+    rerender(
+      <WeekView
+        weekStart={thisWeek()}
+        events={[]}
+        rangeStart={addDays(thisWeek(), -30)}
+        rangeEnd={addDays(thisWeek(), 30)}
+      />
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
   });
 });
