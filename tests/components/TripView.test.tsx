@@ -434,4 +434,36 @@ describe("TripView — the week the calendar opens on", () => {
 
     expect(screen.getByText(weekLabelFor(addDays(new Date(), -30)))).toBeInTheDocument();
   });
+
+  // Regression: going into a trip, back out to the list and in again is how a
+  // trip is normally opened, and every one of those visits has to land on the
+  // current week — not just the first one.
+  it("opens on the current week again every time the trip is reopened", () => {
+    const underway = tripOver(-10, 10);
+
+    for (const visit of [1, 2, 3]) {
+      const { unmount } = render(
+        <TripView trip={underway} role="owner" initialEvents={[]} initialSections={[]} />
+      );
+
+      expect(screen.getByText(weekLabelFor(new Date())), `visit ${visit}`).toBeInTheDocument();
+      // …and on the day itself, not just the week it belongs to.
+      expect(
+        screen.getAllByLabelText(`Add event on ${format(new Date(), "d MMM", { locale: enUS })}`).length,
+        `visit ${visit}`
+      ).toBeGreaterThan(0);
+      unmount();
+    }
+  });
+
+  // Paging away and back is the one case where the reader's own position wins:
+  // the calendar must not drag them back to today behind their back.
+  it("leaves the reader on the week they paged to", async () => {
+    render(<TripView trip={tripOver(-10, 10)} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Next week" }));
+
+    expect(screen.getByText(weekLabelFor(addDays(new Date(), 7)))).toBeInTheDocument();
+    expect(screen.queryByText(weekLabelFor(new Date()))).not.toBeInTheDocument();
+  });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterAll, beforeEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import React from "react";
+import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 import { addDays, format, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
 import WeekView from "@/components/calendar/WeekView";
@@ -582,7 +583,11 @@ describe("WeekView — bringing today into view", () => {
   const mondayOf = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
   const thisWeek = () => mondayOf(new Date());
 
-  it("scrolls today's day card into view when the week on screen contains today", () => {
+  // The position is re-asserted on the frame after mount, so let that run
+  // before counting anything.
+  const flushFrame = () => act(async () => void (await new Promise((r) => setTimeout(r, 32))));
+
+  it("scrolls today's day card into view when the week on screen contains today", async () => {
     render(
       <WeekView
         weekStart={thisWeek()}
@@ -591,11 +596,14 @@ describe("WeekView — bringing today into view", () => {
         rangeEnd={addDays(thisWeek(), 30)}
       />
     );
+    await flushFrame();
 
-    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrollIntoView).toHaveBeenCalled();
     // Called on today's card, not on some other day's.
-    const card = scrollIntoView.mock.instances[0] as HTMLElement;
-    expect(card).toHaveTextContent(format(new Date(), "d MMM", { locale: enUS }));
+    const today = format(new Date(), "d MMM", { locale: enUS });
+    for (const card of scrollIntoView.mock.instances as HTMLElement[]) {
+      expect(card).toHaveTextContent(today);
+    }
   });
 
   it("leaves the page where it is when today is not in the week on screen", () => {
@@ -622,7 +630,7 @@ describe("WeekView — bringing today into view", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
-  it("does not scroll again when the reader pages to another week", () => {
+  it("does not scroll again when the reader pages to another week", async () => {
     const { rerender } = render(
       <WeekView
         weekStart={thisWeek()}
@@ -631,7 +639,9 @@ describe("WeekView — bringing today into view", () => {
         rangeEnd={addDays(thisWeek(), 30)}
       />
     );
-    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    await flushFrame();
+    const afterOpening = scrollIntoView.mock.calls.length;
+    expect(afterOpening).toBeGreaterThan(0);
 
     // Paging forward and back again must not yank the page around.
     rerender(
@@ -650,8 +660,69 @@ describe("WeekView — bringing today into view", () => {
         rangeEnd={addDays(thisWeek(), 30)}
       />
     );
+    await flushFrame();
 
-    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrollIntoView.mock.calls.length).toBe(afterOpening);
+  });
+
+  // Regression: opening a trip from the trip list is a client-side navigation,
+  // and the App Router sends every navigation back to the top of the page from
+  // a `componentDidMount` on an ancestor — which React runs after every layout
+  // effect beneath it. Positioning only in a layout effect therefore worked on
+  // a reload and was silently undone every time a trip was opened from the
+  // list, which is the usual way in.
+  it("still lands on today when an ancestor scrolls to the top as the page commits", async () => {
+    const order: string[] = [];
+    scrollIntoView.mockImplementation(() => order.push("today"));
+
+    class ScrollsToTopOnMount extends React.Component<{ children: React.ReactNode }> {
+      componentDidMount() {
+        order.push("top");
+      }
+      render() {
+        return this.props.children;
+      }
+    }
+
+    render(
+      <ScrollsToTopOnMount>
+        <WeekView
+          weekStart={thisWeek()}
+          events={[]}
+          rangeStart={addDays(thisWeek(), -30)}
+          rangeEnd={addDays(thisWeek(), 30)}
+        />
+      </ScrollsToTopOnMount>
+    );
+
+    // The trap this guards: the calendar's own layout effect has already run
+    // by the time the ancestor mounts, so it cannot be the last word.
+    expect(order).toEqual(["today", "top"]);
+
+    await flushFrame();
+
+    // Whatever the ancestor did to the scroll position, today is put back.
+    expect(order[order.length - 1]).toBe("today");
+  });
+
+  // Regression: going into a trip, back out to the list, and in again is a
+  // fresh mount every time, and every one of them has to land on today.
+  it("lands on today again each time the trip is reopened", async () => {
+    const props = {
+      weekStart: thisWeek(),
+      events: [],
+      rangeStart: addDays(thisWeek(), -30),
+      rangeEnd: addDays(thisWeek(), 30)
+    };
+
+    for (const visit of [1, 2, 3]) {
+      scrollIntoView.mockClear();
+      const { unmount } = render(<WeekView {...props} />);
+      await flushFrame();
+
+      expect(scrollIntoView, `visit ${visit}`).toHaveBeenCalled();
+      unmount();
+    }
   });
 });
 
