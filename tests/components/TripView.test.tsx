@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { format } from "date-fns";
+import { addDays, format, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import TripView from "@/components/TripView";
@@ -59,13 +59,16 @@ vi.mock("@/hooks/useOnline", () => ({
   useOnline: () => online
 }));
 
+// A trip that has not started yet, so the calendar reliably opens on the
+// trip's own first week. (A trip covering the day the suite happens to run on
+// opens on that week instead — see "the week the calendar opens on" below.)
 const trip: Trip = {
   id: "trip-1",
-  name: "Rome 2026",
+  name: "Rome 2030",
   owner_id: "user-1",
-  created_at: "2026-01-01",
-  start_date: "2026-08-01",
-  end_date: "2026-08-07"
+  created_at: "2030-01-01",
+  start_date: "2030-08-01",
+  end_date: "2030-08-07"
 };
 
 describe("TripView — offline snapshots", () => {
@@ -90,7 +93,7 @@ describe("TripView — offline snapshots", () => {
     await waitFor(() =>
       expect(idbSet).toHaveBeenCalledWith(
         "trip-trip-1",
-        expect.objectContaining({ trip: { id: "trip-1", name: "Rome 2026" }, savedAt: expect.any(Number) })
+        expect.objectContaining({ trip: { id: "trip-1", name: "Rome 2030" }, savedAt: expect.any(Number) })
       )
     );
   });
@@ -113,7 +116,7 @@ describe("TripView — offline snapshots", () => {
     online = false;
     Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => false });
     idbGet.mockResolvedValue({
-      trip: { id: "trip-1", name: "Rome 2026" },
+      trip: { id: "trip-1", name: "Rome 2030" },
       role: "owner",
       events: [],
       sections: [
@@ -139,7 +142,7 @@ describe("TripView — offline snapshots", () => {
     online = false;
     Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => false });
     idbGet.mockResolvedValue({
-      trip: { id: "trip-1", name: "Rome 2026" },
+      trip: { id: "trip-1", name: "Rome 2030" },
       role: "owner",
       events: [],
       sections: [],
@@ -225,12 +228,12 @@ describe("TripView — deleting a trip", () => {
   it("opens the new-event composer prefilled with the pressed calendar day", async () => {
     render(<TripView trip={trip} role="owner" initialEvents={[]} initialSections={[]} />);
 
-    // First visible week of the 1–7 Aug trip shows Sat 1 and Sun 2 Aug.
+    // First visible week of the 1–7 Aug trip shows Thu 1 Aug through Sun 4 Aug.
     await userEvent.click(screen.getAllByLabelText("Add event on 1 Aug")[0]);
 
     expect(screen.getByText("New event")).toBeInTheDocument();
     // Day presses without a specific hour default to midday.
-    expect((screen.getByPlaceholderText("Start") as HTMLInputElement).value).toBe("2026-08-01T12:00");
+    expect((screen.getByPlaceholderText("Start") as HTMLInputElement).value).toBe("2030-08-01T12:00");
   });
 
   it("offers no day press targets to viewers or while offline", () => {
@@ -286,8 +289,8 @@ describe("TripView — refreshing for the latest changes", () => {
         trip_id: "trip-1",
         title: "Colosseum tour",
         type: "activity",
-        start_at: "2026-08-01T10:00:00Z",
-        end_at: "2026-08-01T11:00:00Z",
+        start_at: "2030-08-01T10:00:00Z",
+        end_at: "2030-08-01T11:00:00Z",
         location: null,
         location_lat: null,
         location_lng: null,
@@ -347,7 +350,7 @@ describe("TripView — saving an event", () => {
       title: "Colosseum",
       type: "activity",
       all_day: false,
-      start_at: "2026-08-02T09:00:00Z",
+      start_at: "2030-08-02T09:00:00Z",
       end_at: null,
       location: null,
       location_lat: null,
@@ -358,7 +361,7 @@ describe("TripView — saving an event", () => {
     // the freshly-saved one whose row the insert didn't echo back.
     refreshData.trip_events = [
       existing,
-      { ...existing, id: "evt-new", title: "Museum", start_at: "2026-08-02T10:00:00Z" }
+      { ...existing, id: "evt-new", title: "Museum", start_at: "2030-08-02T10:00:00Z" }
     ];
 
     render(<TripView trip={trip} role="edit" initialEvents={[existing]} initialSections={[]} />);
@@ -366,7 +369,7 @@ describe("TripView — saving an event", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Add event" }));
     await userEvent.type(screen.getByPlaceholderText("Title"), "Museum");
-    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2026-08-02T10:00" } });
+    fireEvent.change(screen.getByPlaceholderText("Start"), { target: { value: "2030-08-02T10:00" } });
     await userEvent.type(screen.getByPlaceholderText("Notes (optional)"), "Bring tickets");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -374,5 +377,61 @@ describe("TripView — saving an event", () => {
     // pre-existing one still there.
     expect((await screen.findAllByText("Museum")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Colosseum").length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Once you are on the trip, the useful week is the one you are living, not the
+// one the trip began in. Dates here are relative to the day the suite runs, so
+// "under way" really means under way whenever that is.
+// ---------------------------------------------------------------------------
+describe("TripView — the week the calendar opens on", () => {
+  beforeEach(() => {
+    online = true;
+    idbGet.mockResolvedValue(undefined);
+    idbSet.mockResolvedValue(undefined);
+  });
+
+  const dayKey = (offsetDays: number) => format(addDays(new Date(), offsetDays), "yyyy-MM-dd");
+  const weekLabelFor = (d: Date) => {
+    const monday = startOfWeek(d, { weekStartsOn: 1 });
+    return `${format(monday, "d MMM", { locale: enUS })} – ${format(addDays(monday, 6), "d MMM yyyy", { locale: enUS })}`;
+  };
+  const tripOver = (from: number, to: number): Trip => ({
+    ...trip,
+    start_date: dayKey(from),
+    end_date: dayKey(to)
+  });
+
+  it("opens on the current week when the trip has already started", () => {
+    render(<TripView trip={tripOver(-10, 10)} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    expect(screen.getByText(weekLabelFor(new Date()))).toBeInTheDocument();
+    // Today itself is on screen, so the traveller lands on their own day.
+    expect(screen.getAllByLabelText(`Add event on ${format(new Date(), "d MMM", { locale: enUS })}`).length)
+      .toBeGreaterThan(0);
+  });
+
+  // Spans of nine days, not seven: a trip whose range happens to read exactly
+  // like the week label would collide with the trip-dates chip in the header.
+  it("counts the trip's first and last day as under way", () => {
+    const { unmount } = render(<TripView trip={tripOver(0, 8)} role="read" initialEvents={[]} initialSections={[]} />);
+    expect(screen.getByText(weekLabelFor(new Date()))).toBeInTheDocument();
+    unmount();
+
+    render(<TripView trip={tripOver(-8, 0)} role="read" initialEvents={[]} initialSections={[]} />);
+    expect(screen.getByText(weekLabelFor(new Date()))).toBeInTheDocument();
+  });
+
+  it("opens on the trip's first week when the trip has not started yet", () => {
+    render(<TripView trip={tripOver(3, 17)} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    expect(screen.getByText(weekLabelFor(addDays(new Date(), 3)))).toBeInTheDocument();
+  });
+
+  it("opens on the trip's first week again once the trip is over", () => {
+    render(<TripView trip={tripOver(-30, -20)} role="owner" initialEvents={[]} initialSections={[]} />);
+
+    expect(screen.getByText(weekLabelFor(addDays(new Date(), -30)))).toBeInTheDocument();
   });
 });

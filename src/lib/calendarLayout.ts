@@ -1,5 +1,24 @@
+import { startOfWeek } from "date-fns";
 import { parseDateOnly, type TripEvent } from "./types";
 import { addWallClockDays, daysBetweenDayKeys, toDayKey, wallClockDay } from "./datetime";
+
+/** Weeks run Monday–Sunday everywhere in the planner. */
+export const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
+
+/**
+ * The week a trip opens on. Once the trip is under way, what matters is the
+ * week being lived, not the one the trip began in — so a trip whose range
+ * covers today lands on today's week. Before it starts (and after it has
+ * ended) the trip's own first week is still the useful place to arrive.
+ *
+ * Compared on "YYYY-MM-DD" day keys: the trip's dates are calendar days, and
+ * whether "today" is inside them is a calendar-day question, not an instant.
+ */
+export function initialWeekStart(startDate: string, endDate: string, today: Date = new Date()): Date {
+  const todayKey = toDayKey(today);
+  const started = todayKey >= wallClockDay(startDate) && todayKey <= wallClockDay(endDate);
+  return startOfWeek(started ? today : parseDateOnly(startDate), WEEK_OPTIONS);
+}
 
 // All-day events cover whole calendar days, so all the logic below works on
 // "YYYY-MM-DD" day keys rather than on `Date` objects.
