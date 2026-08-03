@@ -654,3 +654,78 @@ describe("WeekView — bringing today into view", () => {
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The layout effect can only run once React has hydrated, which on a full page
+// load is long after the calendar's HTML has been painted — so the same
+// positioning also ships as a script that runs while the markup is parsed.
+// It is a string, never type-checked, so these tests run it for real.
+// ---------------------------------------------------------------------------
+describe("WeekView — positioning before hydration", () => {
+  const dayKey = (d: Date) => format(d, "yyyy-MM-dd");
+  const weekProps = () => ({
+    weekStart: startOfWeek(new Date(), { weekStartsOn: 1 }),
+    events: [],
+    rangeStart: addDays(new Date(), -30),
+    rangeEnd: addDays(new Date(), 30)
+  });
+
+  // The script finds today by attribute; nothing else links the two.
+  it("labels every agenda card with its calendar day", () => {
+    const { container } = render(<WeekView {...weekProps()} />);
+
+    const labelled = Array.from(container.querySelectorAll("[data-agenda-day]"), (el) =>
+      el.getAttribute("data-agenda-day")
+    );
+    expect(labelled).toHaveLength(7);
+    expect(labelled).toContain(dayKey(new Date()));
+  });
+
+  it("scrolls today's card into view when run against the rendered markup", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const { container } = render(<WeekView {...weekProps()} />);
+
+    const today = container.querySelector<HTMLElement>(`[data-agenda-day="${dayKey(new Date())}"]`)!;
+    // jsdom does no layout, so every element reports itself as unrendered.
+    // The agenda is the visible layout on a phone, which is what this covers.
+    Object.defineProperty(today, "offsetParent", { configurable: true, value: document.body });
+    scrollIntoView.mockClear();
+
+    const script = container.querySelector("script")!;
+    new Function(script.innerHTML)();
+
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(scrollIntoView.mock.instances[0]).toBe(today);
+  });
+
+  it("does nothing when the agenda is the layout that is hidden", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const { container } = render(<WeekView {...weekProps()} />);
+    scrollIntoView.mockClear();
+
+    // No offsetParent stub: from the script's point of view the agenda cards
+    // are in a `display: none` subtree, exactly as they are on a wide screen.
+    new Function(container.querySelector("script")!.innerHTML)();
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the week on screen does not contain today", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const nextWeek = addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 7);
+    const { container } = render(
+      <WeekView weekStart={nextWeek} events={[]} rangeStart={nextWeek} rangeEnd={addDays(nextWeek, 6)} />
+    );
+    container.querySelectorAll("[data-agenda-day]").forEach((card) => {
+      Object.defineProperty(card, "offsetParent", { configurable: true, value: document.body });
+    });
+    scrollIntoView.mockClear();
+
+    new Function(container.querySelector("script")!.innerHTML)();
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+});

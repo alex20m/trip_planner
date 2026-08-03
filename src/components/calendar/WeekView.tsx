@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { addDays, format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { isAllDayEvent, type EventType, type TripEvent } from "@/lib/types";
@@ -30,6 +30,28 @@ const TYPE_ICONS: Record<EventType, typeof BedIcon> = {
   travel: PlaneIcon,
   accommodation: BedIcon
 };
+
+// Positioning the calendar on today has to happen *before* the browser paints,
+// or the reader sees the top of the week and then a jump. A layout effect runs
+// inside the commit, ahead of paint; `useEffect` ran after it, which is exactly
+// the flash this replaced. React warns when a layout effect is used while
+// server rendering — there is no layout to read there — so the server gets the
+// no-op `useEffect` instead, and neither runs on the server anyway.
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+// The same positioning, for the frames before React has hydrated. On a full
+// page load the calendar's HTML is painted long before its JavaScript runs, so
+// the layout effect above would still land as a visible jump; this runs while
+// the markup is being parsed and puts the page on today immediately. The
+// `requestAnimationFrame` pass covers a streamed response, where the markup is
+// still sitting in its hidden staging container when the script is parsed and
+// is moved into the page a moment later — the frame's callbacks run before it
+// is painted, so that path does not flash either.
+//
+// The day is read from the reader's own clock, so a server in another timezone
+// cannot send the page to the wrong day. Anything unexpected is swallowed:
+// hydration puts the calendar right a moment later regardless.
+const SCROLL_TO_TODAY_SCRIPT = `(function(){var f=function(){try{var d=new Date(),p=function(n){return n<10?"0"+n:""+n},e=document.querySelector('[data-agenda-day="'+d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+'"]');if(e&&e.offsetParent)e.scrollIntoView({block:"start"})}catch(_){}};try{f();requestAnimationFrame(f)}catch(_){}})()`;
 
 export default function WeekView({
   weekStart,
@@ -82,7 +104,7 @@ export default function WeekView({
   const todayCardRef = useRef<HTMLDivElement>(null);
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const todayColumnRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  useBeforePaint(() => {
     // Instant, not smooth: this is where the page starts, not a move away from
     // somewhere the reader was already looking.
     todayCardRef.current?.scrollIntoView?.({ block: "start" });
@@ -120,7 +142,15 @@ export default function WeekView({
           );
 
           return (
-            <div key={+day} ref={isToday ? todayCardRef : undefined} className="card overflow-hidden">
+            <div
+              key={+day}
+              ref={isToday ? todayCardRef : undefined}
+              // How the pre-hydration script finds today: it cannot read a
+              // React ref, and it works out which day is today from the
+              // reader's own clock rather than trusting the server's.
+              data-agenda-day={toDayKey(day)}
+              className="card overflow-hidden"
+            >
               {/* With edit rights the whole header is a press target — it works
                   the same whether the day already has events or is empty. */}
               {onAddEvent ? (
@@ -175,6 +205,11 @@ export default function WeekView({
             </div>
           );
         })}
+        {/* Placed after the day cards so the page is already as tall as it
+            will get when this runs — otherwise there would be nothing below
+            today to scroll it up past. Inert once React takes over: a script
+            written into the DOM by React never executes. */}
+        <script dangerouslySetInnerHTML={{ __html: SCROLL_TO_TODAY_SCRIPT }} />
       </div>
 
       {/* Time-grid view: full week at a glance — used from tablet width up */}
