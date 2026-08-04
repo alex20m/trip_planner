@@ -8,17 +8,32 @@ import type { NoteSection } from "@/lib/types";
 const updateEq = vi.fn();
 const insert = vi.fn();
 
+type Row = Record<string, unknown>;
+
+// What the next insert resolves to. Defaults to the row the server would hand
+// back; tests override it to hold a save open or to fail one.
+let rows = 0;
+const insertedRow = async (values: Row) => ({
+  data: { id: `new-${++rows}`, done: false, ...values },
+  error: null
+});
+let insertResult: (values: Row) => Promise<{ data: Row | null; error: unknown }> = insertedRow;
+
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     from: () => ({
       update: (values: unknown) => ({ eq: (...args: unknown[]) => updateEq(values, ...args) }),
-      insert: (values: unknown) => {
+      insert: (values: Row) => {
         insert(values);
-        return { select: () => ({ single: () => Promise.resolve({ data: null }) }) };
+        return { select: () => ({ single: () => insertResult(values) }) };
       }
     })
   })
 }));
+
+beforeEach(() => {
+  insertResult = insertedRow;
+});
 
 const sections: NoteSection[] = [
   {
@@ -209,6 +224,66 @@ describe("NotesPanel — adding a note", () => {
 
     await userEvent.click(addButton);
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ content: "Sunscreen" }));
+  });
+
+  // The field used to be disabled while the insert was in flight. A disabled
+  // field is blurred by the browser, so every keystroke and Enter pressed
+  // before the round trip finished went nowhere — someone typing a packing
+  // list at speed lost roughly every other note.
+  it("keeps taking notes while the previous one is still saving", async () => {
+    let release!: () => void;
+    const inFlight = new Promise<void>((resolve) => (release = resolve));
+    let held = false;
+    insertResult = async (values) => {
+      if (!held) {
+        held = true;
+        await inFlight;
+      }
+      return { data: { id: `new-${String(values.content)}`, done: false, ...values }, error: null };
+    };
+
+    render(<Harness />);
+    const field = screen.getByPlaceholderText("Type a note…");
+
+    await userEvent.type(field, "Sunscreen{Enter}");
+    expect(field).toBeEnabled();
+    expect(field).toHaveFocus();
+    // The field no longer dims while saving, so the progress shows separately.
+    expect(screen.getByRole("status", { name: "Saving note" })).toBeInTheDocument();
+
+    // Typed while the first note is still on its way to the server.
+    await userEvent.type(field, "Towel{Enter}");
+    release();
+
+    await waitFor(() => {
+      expect(insert).toHaveBeenCalledWith(expect.objectContaining({ content: "Sunscreen" }));
+      expect(insert).toHaveBeenCalledWith(expect.objectContaining({ content: "Towel" }));
+    });
+    // Both land in the list: the second save must not be computed from a
+    // snapshot taken before the first one was added.
+    await waitFor(() =>
+      expect(screen.getAllByRole("listitem").map((li) => li.textContent?.replace(/\s+$/, ""))).toEqual(
+        ["Passport", "Sunscreen", "Towel"]
+      )
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("keeps a note that could not be saved on screen, and retries it", async () => {
+    insertResult = async () => ({ data: null, error: { message: "offline" } });
+    render(<Harness />);
+
+    await userEvent.type(screen.getByPlaceholderText("Type a note…"), "Sunscreen{Enter}");
+
+    // The draft is cleared on submit, so a silent failure would lose the text.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sunscreen");
+    expect(screen.queryByText("Sunscreen")).not.toBeInTheDocument();
+
+    insertResult = insertedRow;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(screen.getByText("Sunscreen")).toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

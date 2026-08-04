@@ -24,6 +24,9 @@ export default function NotesPanel({
   const [sectionHint, setSectionHint] = useState(false);
   const [pendingNotes, setPendingNotes] = useState<Set<string>>(new Set());
   const [pendingSections, setPendingSections] = useState<Set<string>>(new Set());
+  // Sections with a note insert in flight — shown as a spinner only. Adding a
+  // note must never block the field it was typed in (see `addNote`).
+  const [savingSections, setSavingSections] = useState<Set<string>>(new Set());
   // Notes shown as ticked/unticked before the list has caught up: id -> new done.
   const [settling, setSettling] = useState<Map<string, boolean>>(new Map());
   const supabase = createClient();
@@ -32,6 +35,10 @@ export default function NotesPanel({
   // render closure captured, which by then can be several toggles out of date.
   const sectionsRef = useRef(sections);
   sectionsRef.current = sections;
+
+  // Per-section chain of in-flight note inserts, so several notes typed in
+  // quick succession are saved one after another instead of racing.
+  const addQueues = useRef(new Map<string, Promise<unknown>>());
 
   function clearSettling(id: string) {
     setSettling((prev) => {
@@ -53,6 +60,14 @@ export default function NotesPanel({
     setPendingSections((prev) => {
       const next = new Set(prev);
       pending ? next.add(id) : next.delete(id);
+      return next;
+    });
+  }
+
+  function markSectionSaving(id: string, saving: boolean) {
+    setSavingSections((prev) => {
+      const next = new Set(prev);
+      saving ? next.add(id) : next.delete(id);
       return next;
     });
   }
@@ -105,24 +120,80 @@ export default function NotesPanel({
     );
   }
 
-  async function addNote(sectionId: string, content: string) {
-    if (!content.trim() || pendingSections.has(sectionId)) return;
-    markSectionPending(sectionId, true);
-    const section = sections.find((s) => s.id === sectionId)!;
-    const { data } = await supabase
-      .from("notes")
-      .insert({ section_id: sectionId, content: content.trim(), sort_order: section.notes.length })
-      .select()
-      .single();
-    if (data) {
-      // A brand-new note is unchecked, so it belongs above anything already
-      // ticked off rather than at the very bottom where it was appended.
-      const appended = [...section.notes, data as Note];
-      const reordered = resequenceNotes(sortNotesByDone(appended, (data as Note).id));
-      setNotes(sectionId, reordered);
-      await saveOrder(appended, reordered);
+  // Adding a note deliberately leaves the field it was typed in alone: it stays
+  // enabled and focused, so the next note can be typed (and submitted) while
+  // this one is still saving. Disabling the field mid-save blurs it, and every
+  // keystroke and Enter that lands before the round trip finishes is then lost
+  // — a fast typist silently loses a large share of their notes that way.
+  //
+  // Resolves to whether the note reached the server, so the caller can put the
+  // text back in front of the user instead of dropping it on the floor.
+  async function addNote(sectionId: string, content: string): Promise<boolean> {
+    const trimmed = content.trim();
+    if (!trimmed) return false;
+    markSectionSaving(sectionId, true);
+
+    // Queue behind whatever is already saving for this section rather than
+    // refusing the note: each insert numbers its `sort_order` from the list the
+    // previous one produced, and dropping the submission would lose the note.
+    const queues = addQueues.current;
+    const saved = (queues.get(sectionId) ?? Promise.resolve()).then(() =>
+      insertNote(sectionId, trimmed)
+    );
+    queues.set(sectionId, saved);
+
+    const stored = await saved;
+    // Only the last note in the queue stops the spinner.
+    if (queues.get(sectionId) === saved) {
+      queues.delete(sectionId);
+      markSectionSaving(sectionId, false);
     }
-    markSectionPending(sectionId, false);
+    return stored;
+  }
+
+  // Never rejects: a save that fails comes back as `false` so the queue behind
+  // it keeps running and the caller can report it.
+  async function insertNote(sectionId: string, content: string): Promise<boolean> {
+    const section = sectionsRef.current.find((s) => s.id === sectionId);
+    if (!section) return false;
+
+    let note: Note;
+    try {
+      const { data, error } = await supabase
+        .from("notes")
+        .insert({ section_id: sectionId, content, sort_order: section.notes.length })
+        .select()
+        .single();
+      if (error || !data) return false;
+      note = data as Note;
+    } catch {
+      return false;
+    }
+
+    // The list is read inside the updater rather than from the snapshot above:
+    // a toggle — or a note queued behind this one — can have changed it while
+    // the row was being written, and appending to the stale copy would drop it.
+    let before: Note[] = [];
+    let after: Note[] = [];
+    setSections((prev) =>
+      prev.map((s) => {
+        if (s.id !== sectionId) return s;
+        // A brand-new note is unchecked, so it belongs above anything already
+        // ticked off rather than at the very bottom where it was appended.
+        before = [...s.notes, note];
+        after = resequenceNotes(sortNotesByDone(before, note.id));
+        return { ...s, notes: after };
+      })
+    );
+
+    // The note itself is stored; the ordering is cosmetic, so a failure here
+    // must not report it back as unsaved.
+    try {
+      await saveOrder(before, after);
+    } catch {
+      /* the section simply reloads in its previous arrangement */
+    }
+    return true;
   }
 
   // Optimistic: the box ticks instantly (no spinner), and rolls back if the
@@ -187,6 +258,7 @@ export default function NotesPanel({
             section={s}
             editable={editable}
             busy={pendingSections.has(s.id)}
+            saving={savingSections.has(s.id)}
             pendingNotes={pendingNotes}
             settling={settling}
             onAdd={(c) => addNote(s.id, c)}
@@ -255,6 +327,7 @@ function SectionCard({
   section,
   editable,
   busy,
+  saving,
   pendingNotes,
   settling,
   onAdd,
@@ -266,21 +339,40 @@ function SectionCard({
   section: NoteSection;
   editable: boolean;
   busy: boolean;
+  saving: boolean;
   pendingNotes: Set<string>;
   settling: Map<string, boolean>;
-  onAdd: (content: string) => void;
+  onAdd: (content: string) => Promise<boolean>;
   onToggle: (n: Note) => void;
   onDeleteNote: (n: Note) => void;
   onDeleteSection: () => void;
   onSaveBody: (body: string) => void;
 }) {
   const [draft, setDraft] = useState("");
+  // Notes that never reached the server, kept on screen so the typed text is
+  // not lost along with the cleared field.
+  const [unsaved, setUnsaved] = useState<{ key: number; content: string }[]>([]);
+  const nextKey = useRef(0);
   const rowRef = useSlideOnReorder<HTMLLIElement>();
   const freeform = section.kind === "freeform";
+
+  async function save(content: string) {
+    if (await onAdd(content)) return;
+    setUnsaved((prev) => [...prev, { key: nextKey.current++, content }]);
+  }
+
   function submitNote() {
-    if (!draft.trim() || busy) return;
-    onAdd(draft);
+    const content = draft.trim();
+    if (!content) return;
+    // Clear the field at once — but never disable it — so the next note can be
+    // typed straight away while this one is on its way to the server.
     setDraft("");
+    void save(content);
+  }
+
+  function retryNote(entry: { key: number; content: string }) {
+    setUnsaved((prev) => prev.filter((u) => u.key !== entry.key));
+    void save(entry.content);
   }
   return (
     <div className="card p-4">
@@ -349,27 +441,52 @@ function SectionCard({
         })}
       </ul>
       {editable && (
-        <div className="mt-2 flex gap-2">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submitNote()}
-            placeholder="Type a note…"
-            disabled={busy}
-            className="w-full flex-1 rounded-xl border border-transparent bg-ink/5 p-2 text-base sm:text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface disabled:opacity-50"
-          />
-          {draft.trim() && (
-            <button
-              onClick={submitNote}
-              disabled={busy}
-              aria-label="Add note"
-              className="btn-secondary shrink-0"
+        <>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              // Not `disabled` while a note saves: the browser blurs a disabled
+              // field, and everything typed until it comes back is swallowed.
+              onKeyDown={(e) => e.key === "Enter" && submitNote()}
+              placeholder="Type a note…"
+              className="w-full flex-1 rounded-xl border border-transparent bg-ink/5 p-2 text-base sm:text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface"
+            />
+            {draft.trim() ? (
+              <button onClick={submitNote} aria-label="Add note" className="btn-secondary shrink-0">
+                {saving ? <Spinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-4 w-4" />}
+                Add
+              </button>
+            ) : (
+              // The field is no longer dimmed while a note saves, so the
+              // progress has to show somewhere once the draft is cleared.
+              saving && (
+                <span role="status" aria-label="Saving note" className="flex shrink-0 items-center px-1">
+                  <Spinner className="h-3.5 w-3.5 text-ink/30" />
+                </span>
+              )
+            )}
+          </div>
+          {unsaved.map((u) => (
+            <div
+              key={u.key}
+              role="alert"
+              className="mt-1.5 flex items-center gap-2 text-xs text-red-600"
             >
-              {busy ? <Spinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-4 w-4" />}
-              Add
-            </button>
-          )}
-        </div>
+              <span className="min-w-0 flex-1 truncate">Not saved: “{u.content}”</span>
+              <button onClick={() => retryNote(u)} className="shrink-0 underline">
+                Retry
+              </button>
+              <button
+                onClick={() => setUnsaved((prev) => prev.filter((p) => p.key !== u.key))}
+                aria-label="Discard unsaved note"
+                className="shrink-0 text-ink/30 transition-colors hover:text-red-600"
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </>
       )}
       </>
       )}
