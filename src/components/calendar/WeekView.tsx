@@ -105,14 +105,30 @@ export default function WeekView({
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const todayColumnRef = useRef<HTMLDivElement>(null);
   useBeforePaint(() => {
-    // Instant, not smooth: this is where the page starts, not a move away from
-    // somewhere the reader was already looking.
-    todayCardRef.current?.scrollIntoView?.({ block: "start" });
+    const showToday = () => {
+      // Instant, not smooth: this is where the page starts, not a move away
+      // from somewhere the reader was already looking.
+      todayCardRef.current?.scrollIntoView?.({ block: "start" });
 
-    const grid = gridScrollRef.current;
-    const column = todayColumnRef.current;
-    if (!grid || !column || grid.scrollWidth <= grid.clientWidth) return;
-    grid.scrollLeft += column.getBoundingClientRect().left - grid.getBoundingClientRect().left;
+      const grid = gridScrollRef.current;
+      const column = todayColumnRef.current;
+      if (!grid || !column || grid.scrollWidth <= grid.clientWidth) return;
+      grid.scrollLeft += column.getBoundingClientRect().left - grid.getBoundingClientRect().left;
+    };
+
+    showToday();
+
+    // And again on the next frame, because this effect cannot have the last
+    // word on its own. Opening a trip from the trip list is a client-side
+    // navigation, and the App Router puts every navigation back at the top of
+    // the page from a `componentDidMount` on an ancestor of this component —
+    // which React runs *after* every layout effect below it. Landing on today
+    // used to survive that only by accident, from a `useEffect` that ran later
+    // still (and painted the jump this frame exists to avoid). A frame
+    // callback runs after the router has had its turn and before the browser
+    // paints, so the reader sees neither the top of the week nor a jump.
+    const frame = requestAnimationFrame(showToday);
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   return (
