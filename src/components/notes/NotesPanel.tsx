@@ -346,7 +346,7 @@ function SectionCard({
   onToggle: (n: Note) => void;
   onDeleteNote: (n: Note) => void;
   onDeleteSection: () => void;
-  onSaveBody: (body: string) => void;
+  onSaveBody: (body: string) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState("");
   // Notes that never reached the server, kept on screen so the typed text is
@@ -494,6 +494,9 @@ function SectionCard({
   );
 }
 
+// How long "Saved" stays up before the status line goes quiet again.
+const SAVED_HINT_MS = 2000;
+
 // Free-form text block for a "freeform" section. Keeps a local draft so typing
 // stays snappy, and saves after a short pause (and on blur) rather than on every
 // keystroke. Read-only viewers see the text without an editable field.
@@ -504,10 +507,13 @@ function FreeformBody({
 }: {
   value: string;
   editable: boolean;
-  onSave: (body: string) => void;
+  onSave: (body: string) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState(value);
   const savedRef = useRef(value);
+  // There is no Save button here — the text saves itself — so the status line
+  // below is the only thing telling the user their notes made it to the server.
+  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   // Reflect external changes (e.g. a fresh server load) when the field isn't
   // being actively edited away from the saved value.
@@ -519,11 +525,12 @@ function FreeformBody({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
-  function flush() {
-    if (draft !== savedRef.current) {
-      savedRef.current = draft;
-      onSave(draft);
-    }
+  async function flush() {
+    if (draft === savedRef.current) return;
+    savedRef.current = draft;
+    setStatus("saving");
+    await onSave(draft);
+    setStatus("saved");
   }
 
   useEffect(() => {
@@ -532,6 +539,14 @@ function FreeformBody({
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, editable]);
+
+  // "Saved" is a confirmation, not a permanent label — let it fade out so the
+  // next edit's "Saving…" is a visible change rather than a swap nobody notices.
+  useEffect(() => {
+    if (status !== "saved") return;
+    const t = setTimeout(() => setStatus("idle"), SAVED_HINT_MS);
+    return () => clearTimeout(t);
+  }, [status]);
 
   if (!editable) {
     return value.trim() ? (
@@ -542,13 +557,25 @@ function FreeformBody({
   }
 
   return (
-    <textarea
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={flush}
-      placeholder="Write your notes…"
-      rows={4}
-      className="w-full resize-y rounded-xl border border-transparent bg-ink/5 p-2 text-base sm:text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface"
-    />
+    <>
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={flush}
+        placeholder="Write your notes…"
+        rows={4}
+        className="w-full resize-y rounded-xl border border-transparent bg-ink/5 p-2 text-base sm:text-sm outline-none transition-colors focus:border-accent/40 focus:bg-surface"
+      />
+      {/* Fixed height so the card doesn't jump as the status comes and goes. */}
+      <p role="status" aria-live="polite" className="mt-1 flex h-4 items-center gap-1.5 text-xs text-ink/40">
+        {status === "saving" && (
+          <>
+            <Spinner className="h-3 w-3" />
+            Saving…
+          </>
+        )}
+        {status === "saved" && "Saved"}
+      </p>
+    </>
   );
 }

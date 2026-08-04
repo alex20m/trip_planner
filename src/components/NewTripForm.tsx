@@ -41,6 +41,12 @@ export default function NewTripForm() {
       return;
     }
     setBusy(true);
+    // Navigating away is not instant (the trip page loads on the server), so
+    // the button has to stay in its "Creating…" state until the new page takes
+    // over. Clearing `busy` the moment the insert resolves would flip it back
+    // to "Create trip" mid-navigation — looking like nothing happened, and
+    // letting a second click create a duplicate trip.
+    let navigating = false;
     try {
       const supabase = createClient();
       const {
@@ -57,6 +63,7 @@ export default function NewTripForm() {
         .single();
       if (error) setError(error.message);
       else if (data) {
+        navigating = true;
         // Bust the client Router Cache so the home page's server-rendered
         // trip list isn't served stale (for up to its ~30s staleTime) when
         // the user navigates back right after creating a trip.
@@ -64,7 +71,7 @@ export default function NewTripForm() {
         router.push(`/trips/${data.id}`);
       }
     } finally {
-      setBusy(false);
+      if (!navigating) setBusy(false);
     }
   }
 

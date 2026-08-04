@@ -68,6 +68,39 @@ describe("NewTripForm", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/trips/trip-123"));
   });
 
+  // Navigating to the new trip's page is not instant, so the button must stay
+  // in its "Creating…" state until that page takes over. Flipping back to
+  // "Create trip" mid-navigation looks like nothing happened — and a second
+  // click would insert the trip twice.
+  it("stays in the creating state while navigating to the new trip", async () => {
+    insertSingle.mockResolvedValue({ data: { id: "trip-123" }, error: null });
+    const push = vi.fn();
+    vi.mocked(useRouter).mockReturnValue({ push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), refresh: vi.fn() } as any);
+
+    render(<NewTripForm />);
+    await userEvent.click(screen.getByRole("button", { name: "New trip" }));
+    await userEvent.type(screen.getByPlaceholderText(/trip name/i), "Rome 2026");
+    await userEvent.click(screen.getByRole("button", { name: "Create trip" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/trips/trip-123"));
+    const creating = screen.getByRole("button", { name: /creating/i });
+    expect(creating).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Create trip" })).not.toBeInTheDocument();
+    expect(insertSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-enables the create button when the insert fails", async () => {
+    insertSingle.mockResolvedValue({ data: null, error: { message: "nope" } });
+
+    render(<NewTripForm />);
+    await userEvent.click(screen.getByRole("button", { name: "New trip" }));
+    await userEvent.type(screen.getByPlaceholderText(/trip name/i), "Rome 2026");
+    await userEvent.click(screen.getByRole("button", { name: "Create trip" }));
+
+    await waitFor(() => expect(screen.getByText("nope")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Create trip" })).toBeEnabled();
+  });
+
   it("rejects an end date before the start date", async () => {
     render(<NewTripForm />);
     await userEvent.click(screen.getByRole("button", { name: "New trip" }));
