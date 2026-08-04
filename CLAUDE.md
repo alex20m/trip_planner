@@ -12,6 +12,32 @@ Do not stop after planning. Start implementing immediately and only ask if block
 
 ---
 
+## Bug Fixes Always Get a Regression Test
+
+Whenever a task fixes a bug, a crash, or any incorrect behavior, the fix is
+not finished until it ships with a test that fails without the fix and passes
+with it:
+
+- **Write the test so it reproduces the reported bug**, not just the code path
+  around it. If the test still passes when you revert the fix, it is not a
+  regression test — rewrite it.
+- **Pick the level that actually catches it**: unit test for logic, integration
+  test for wiring/data flow, UI test for rendering and interaction bugs.
+- **Cover the edge case that caused it** — the specific input, state, timing, or
+  boundary that triggered the bug (empty list, timezone/DST boundary, first/last
+  day of a trip, missing field, race on load, etc.).
+- **Name it after the behavior**, e.g. `shows today's events when a trip opens
+  on the current week`, so a future failure explains itself.
+- **Do not delete or weaken an existing regression test** to make a change pass.
+  If it legitimately no longer applies because the functionality changed, say so
+  explicitly in the commit message and the MR description.
+
+This applies to every fix, however small — a one-line fix still gets a test.
+The only exception is a change with no observable behavior (pure formatting,
+comments, renames); in that case state in the MR why no test was added.
+
+---
+
 ## PR & Merge Policy (default: auto)
 
 This is a standing, advance authorization for the harness's normal
@@ -102,6 +128,8 @@ git worktree add ../<task-name> -b <branch-name> origin/main
 Before finishing work, verify tests and pipeline status:
 
 - Add unit/integration/UI tests for new functionality.
+- If the task fixed a bug, add a regression test for it — see "Bug Fixes
+  Always Get a Regression Test" above. Verify it fails without the fix.
 - Do not modify existing tests unless functionality changed.
 - Run tests locally to confirm they pass.
 
