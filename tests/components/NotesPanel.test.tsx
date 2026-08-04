@@ -283,4 +283,38 @@ describe("NotesPanel — free-form section", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.getByText("Old text")).toBeInTheDocument();
   });
+
+  // There is no Save button on a free-form section — the text saves itself —
+  // so the status line is the only confirmation the user's notes were stored.
+  it("reports saving and then saved while the body is written", async () => {
+    updateEq.mockReset();
+    let finishSave!: (v: unknown) => void;
+    updateEq.mockReturnValue(new Promise((resolve) => (finishSave = resolve)));
+
+    const { container } = render(<FreeformHarness />);
+    const textarea = screen.getByPlaceholderText("Write your notes…");
+
+    await userEvent.type(textarea, "!");
+    textarea.blur();
+
+    await waitFor(() => expect(screen.getByText("Saving…")).toBeInTheDocument());
+    expect(container.querySelector(".animate-spin")).toBeInTheDocument();
+
+    finishSave({ error: null });
+
+    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument());
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+  });
+
+  it("says nothing until the body actually changes", async () => {
+    updateEq.mockReset();
+    updateEq.mockResolvedValue({ error: null });
+
+    render(<FreeformHarness />);
+    screen.getByPlaceholderText("Write your notes…").blur();
+
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+    expect(updateEq).not.toHaveBeenCalled();
+  });
 });

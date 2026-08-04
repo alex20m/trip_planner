@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
-import { ChevronLeftIcon, LogOutIcon } from "@/components/Icons";
+import SignOutButton from "@/components/SignOutButton";
+import { ChevronLeftIcon } from "@/components/Icons";
 
 export default async function Settings() {
   const supabase = createClient();
@@ -27,15 +28,7 @@ export default async function Settings() {
         <h2 className="label mb-2">Account</h2>
         <div className="card flex items-center justify-between gap-3 p-4">
           <span className="text-sm">{user.email}</span>
-          <form action="/auth/callback?signout=1" method="post">
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 text-sm text-ink/55 transition-colors hover:text-ink"
-            >
-              <LogOutIcon className="h-4 w-4" />
-              Sign out
-            </button>
-          </form>
+          <SignOutButton />
         </div>
       </section>
     </main>
