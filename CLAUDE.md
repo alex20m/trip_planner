@@ -12,6 +12,77 @@ Do not stop after planning. Start implementing immediately and only ask if block
 
 ---
 
+## Tests Are the Review — Test-Driven by Default
+
+**Nobody reviews these PRs.** The test suite is the only thing standing between
+a change and production, so it has to carry the weight a human reviewer normally
+would. Treat every test as a claim about behavior that someone is relying on.
+
+### Write the test first
+
+For new features, work test-first wherever the behavior can be stated before the
+code exists:
+
+1. Write a test that describes the behavior the feature is supposed to have.
+2. Run it and **watch it fail** — for the right reason (a wrong value or a
+   missing behavior, not an import error or a typo).
+3. Write the implementation until it passes.
+4. Only then clean up.
+
+A test that has never been seen failing has not been shown to test anything.
+
+### A failing test is a good outcome
+
+A red test means the suite just caught something before a user did — that is the
+system working. Never treat a failure as an obstacle to be silenced:
+
+- **Never** loosen an assertion, delete a case, add a conditional skip, widen a
+  matcher (`toBeDefined`, `toBeTruthy`, bare `not.toThrow`), or mock away the
+  very thing under test just to get to green.
+- Diagnose first: is the *code* wrong, or has the *intended behavior* genuinely
+  changed? Fix the code by default. Only change a test when the behavior it
+  encodes is deliberately no longer true — and say so explicitly in the commit
+  message and the MR.
+- Never disable, `skip`, or `only` your way past a failure. If a test is
+  genuinely, temporarily unrunnable, that is a blocker to raise, not to hide.
+
+### Every test must be able to fail
+
+Each test must have a realistic mutation of the source that turns it red. Before
+committing one, ask: *what bug would this catch?* If there is no answer, the test
+is decoration — delete it or rewrite it into one that asserts real behavior.
+
+Tests that assert nothing useful are worse than no test, because they buy false
+confidence in a suite nobody is double-checking. Specifically avoid:
+
+- asserting a component "renders" without checking anything it rendered;
+- asserting on a mock's own return value, so the test only proves the mock works;
+- assertions so loose that any non-crashing implementation satisfies them;
+- duplicating the implementation's arithmetic in the expectation instead of
+  writing the expected value out literally.
+
+**Existing tests of this kind may be deleted or rewritten** — a test that cannot
+fail is not protecting anything, and removing it is not a loss of coverage. Say
+in the MR which ones you replaced and why.
+
+### Cover behavior, not lines
+
+- Test the contract — inputs, outputs, and observable side effects — not the
+  internals. A refactor that keeps behavior identical should keep tests green.
+- Include the unhappy paths: errors, empty and single-element collections,
+  permission denials, offline/failed requests, boundaries (first/last day,
+  DST/timezone edges, midnight, empty string, `null`).
+- Prefer asserting what the user perceives (visible text, roles, emitted
+  requests) over implementation details (class names, internal state, call
+  counts of incidental helpers).
+- Name the test after the behavior it guarantees, so a failure is
+  self-explanatory: `refuses to share edit access when the sharer only has view`.
+
+New features are not finished until their tests exist and pass, and the suite
+runs clean locally before pushing.
+
+---
+
 ## Bug Fixes Always Get a Regression Test
 
 Whenever a task fixes a bug, a crash, or any incorrect behavior, the fix is
@@ -127,11 +198,16 @@ git worktree add ../<task-name> -b <branch-name> origin/main
 
 Before finishing work, verify tests and pipeline status:
 
-- Add unit/integration/UI tests for new functionality.
+- Add unit/integration/UI tests for new functionality — written first where
+  possible, and each one seen failing before it passes. See "Tests Are the
+  Review" above for the quality bar.
 - If the task fixed a bug, add a regression test for it — see "Bug Fixes
   Always Get a Regression Test" above. Verify it fails without the fix.
-- Do not modify existing tests unless functionality changed.
-- Run tests locally to confirm they pass.
+- Do not modify existing tests unless functionality changed. The one exception
+  is a test that cannot fail under any realistic bug — rewrite or delete it,
+  and say so in the MR.
+- Run tests locally to confirm they pass. Never reach green by weakening a
+  test, skipping it, or mocking out the behavior under test.
 
 Rebase on top of `origin/main`:
 
