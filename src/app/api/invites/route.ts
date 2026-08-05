@@ -34,7 +34,11 @@ export async function POST(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL!;
   const url = `${base}/invite/${invite.token}`;
-  const tripName = escapeHtml((invite as any).trips?.name ?? "a trip");
+  // The subject line is plain text — escaping it would show a trip called
+  // "Alex's Trip" as "Alex&#39;s Trip" in the recipient's inbox. Only the HTML
+  // body needs the escaped forms.
+  const rawTripName = (invite as any).trips?.name ?? "a trip";
+  const tripName = escapeHtml(rawTripName);
   const inviterEmail = escapeHtml(user.email ?? "Someone");
   const roleLabel = role === "edit" ? "edit" : "view";
 
@@ -42,7 +46,7 @@ export async function POST(req: Request) {
   const { error: mailError } = await resend.emails.send({
     from: process.env.RESEND_FROM ?? "PlanPal <onboarding@resend.dev>",
     to: email,
-    subject: `You've been invited to ${tripName}`,
+    subject: `You've been invited to ${rawTripName}`,
     html: `
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAF8F4;">
         <tr>
