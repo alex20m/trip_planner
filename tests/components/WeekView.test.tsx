@@ -705,6 +705,25 @@ describe("WeekView — bringing today into view", () => {
     expect(order[order.length - 1]).toBe("today");
   });
 
+  // Not every mount is the reader arriving: switching to Notes or Map and back
+  // unmounts and remounts the calendar within a trip that is already open. The
+  // caller says which kind of mount this is, and on the second kind the
+  // calendar must leave the page exactly where it found it.
+  it("leaves the page where it is when the caller says this is not a fresh open", async () => {
+    render(
+      <WeekView
+        weekStart={thisWeek()}
+        events={[]}
+        rangeStart={addDays(thisWeek(), -30)}
+        rangeEnd={addDays(thisWeek(), 30)}
+        landOnToday={false}
+      />
+    );
+    await flushFrame();
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
   // Regression: going into a trip, back out to the list, and in again is a
   // fresh mount every time, and every one of them has to land on today.
   it("lands on today again each time the trip is reopened", async () => {
