@@ -89,6 +89,9 @@ in the MR which ones you replaced and why.
   incidental helpers).
 - **Name the test after the behavior it guarantees**, so a failure is
   self-explanatory: `refuses to share edit access when the sharer only has view`.
+- **Tests must not be flaky** — a test that passes or fails non-deterministically
+  on unchanged code is broken; fix the timing, ordering, or shared-state
+  dependency instead of re-running until it goes green.
 
 New features are not finished until their tests exist and pass, and the suite
 runs clean locally before pushing.
