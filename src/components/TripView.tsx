@@ -57,6 +57,11 @@ export default function TripView({
   const [weekStart, setWeekStart] = useState(() =>
     initialWeekStart(initialTrip.start_date, initialTrip.end_date)
   );
+  // Landing on today is part of opening a trip, so it happens once per visit.
+  // The tabs unmount the calendar, and without this every return from Notes or
+  // Map would mount it afresh and pull the reader back to today — away from
+  // whatever they had scrolled or paged to before they left the tab.
+  const landedOnToday = useRef(false);
   const [editing, setEditing] = useState<TripEvent | "new" | null>(null);
   // Prefilled start ("yyyy-MM-ddTHH:mm") for a new event opened by pressing a
   // day in the calendar; null when the plain Add button was used.
@@ -323,6 +328,10 @@ export default function TripView({
             events={events}
             rangeStart={tripStart}
             rangeEnd={tripEnd}
+            landOnToday={!landedOnToday.current}
+            onLandOnToday={() => {
+              landedOnToday.current = true;
+            }}
             onSelect={(e) => setViewing(e)}
             onAddEvent={
               editable

@@ -59,13 +59,23 @@ export default function WeekView({
   rangeStart,
   rangeEnd,
   onSelect,
-  onAddEvent
+  onAddEvent,
+  landOnToday = true,
+  onLandOnToday
 }: {
   weekStart: Date;
   events: TripEvent[];
   rangeStart: Date;
   rangeEnd: Date;
   onSelect?: (e: TripEvent) => void;
+  // Whether this mount is the reader arriving at the trip. Not every mount is:
+  // the trip's tabs unmount the calendar, so coming back from Notes or Map
+  // mounts it again inside a trip the reader is already reading, and moving
+  // them then would take them away from what they were looking at. Read once,
+  // when the calendar mounts. `onLandOnToday` fires when this mount is the one
+  // that positions the page, so the caller can tell the next ones apart.
+  landOnToday?: boolean;
+  onLandOnToday?: () => void;
   // Present only when the user may edit: pressing a day (its header, or an
   // empty slot in the time grid) starts a new event on that day. The grid
   // also passes the clicked hour so the composer opens at that time.
@@ -94,9 +104,10 @@ export default function WeekView({
   // Opening on the right week is only half of it. On a phone the week is a
   // stack of day cards, so today can sit well below the fold; and in the narrow
   // band where the time grid scrolls sideways, today's column can sit off to
-  // the right. Both are brought into view once, when the calendar first
-  // appears — an empty dependency list, so paging to another week leaves the
-  // page exactly where the reader put it.
+  // the right. Both are brought into view once, when the reader arrives at the
+  // trip — an empty dependency list, so paging to another week leaves the page
+  // exactly where the reader put it, and `landOnToday` so that remounting the
+  // calendar on the way back from another tab leaves it there too.
   //
   // Only one of the two layouts is on screen at a time; the other is inside a
   // `display: none` subtree, where it has no box, so `scrollIntoView` does
@@ -105,6 +116,9 @@ export default function WeekView({
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const todayColumnRef = useRef<HTMLDivElement>(null);
   useBeforePaint(() => {
+    if (!landOnToday) return;
+    onLandOnToday?.();
+
     const showToday = () => {
       // Instant, not smooth: this is where the page starts, not a move away
       // from somewhere the reader was already looking.
@@ -129,6 +143,9 @@ export default function WeekView({
     // paints, so the reader sees neither the top of the week nor a jump.
     const frame = requestAnimationFrame(showToday);
     return () => cancelAnimationFrame(frame);
+    // Deliberately mount-only: `landOnToday` describes this mount, and a later
+    // change to it must not re-run the positioning.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

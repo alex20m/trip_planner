@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { addDays, format, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -462,6 +462,78 @@ describe("TripView — the week the calendar opens on", () => {
     render(<TripView trip={tripOver(-10, 10)} role="owner" initialEvents={[]} initialSections={[]} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Next week" }));
+
+    expect(screen.getByText(weekLabelFor(addDays(new Date(), 7)))).toBeInTheDocument();
+    expect(screen.queryByText(weekLabelFor(new Date()))).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Landing on today belongs to opening the trip, not to the Calendar tab. The
+// tabs unmount and remount the calendar, so a look at the notes and back must
+// not drag the reader away from wherever they had got to.
+// ---------------------------------------------------------------------------
+describe("TripView — coming back to the calendar tab", () => {
+  const scrollIntoView = vi.fn();
+
+  beforeEach(() => {
+    online = true;
+    idbGet.mockResolvedValue(undefined);
+    idbSet.mockResolvedValue(undefined);
+    scrollIntoView.mockClear();
+    // jsdom has no layout, so it does not implement scrollIntoView at all.
+    Element.prototype.scrollIntoView = scrollIntoView;
+  });
+
+  // Today's position is re-asserted on the frame after mount, so let that run
+  // before counting anything.
+  const flushFrame = () => act(async () => void (await new Promise((r) => setTimeout(r, 32))));
+
+  const dayKey = (offsetDays: number) => format(addDays(new Date(), offsetDays), "yyyy-MM-dd");
+  const underway: Trip = { ...trip, start_date: dayKey(-10), end_date: dayKey(10) };
+  const weekLabelFor = (d: Date) => {
+    const monday = startOfWeek(d, { weekStartsOn: 1 });
+    return `${format(monday, "d MMM", { locale: enUS })} – ${format(addDays(monday, 6), "d MMM yyyy", { locale: enUS })}`;
+  };
+
+  const openTrip = async () => {
+    render(<TripView trip={underway} role="owner" initialEvents={[]} initialSections={[]} />);
+    await flushFrame();
+    // Opening the trip is the moment that does land on today.
+    expect(scrollIntoView).toHaveBeenCalled();
+    scrollIntoView.mockClear();
+  };
+
+  it("does not scroll back to today when the reader returns from the notes tab", async () => {
+    await openTrip();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Notes" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Calendar" }));
+    await flushFrame();
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("does not scroll back to today however many times the tabs are used", async () => {
+    await openTrip();
+
+    for (const round of [1, 2, 3]) {
+      await userEvent.click(screen.getByRole("tab", { name: "Notes" }));
+      await userEvent.click(screen.getByRole("tab", { name: "Calendar" }));
+      await flushFrame();
+
+      expect(scrollIntoView, `round ${round}`).not.toHaveBeenCalled();
+    }
+  });
+
+  // The other half of staying put: the week on screen is the reader's too, so
+  // returning to the tab must not reset it to the current week either.
+  it("keeps the week the reader paged to across a trip to the notes tab", async () => {
+    await openTrip();
+
+    await userEvent.click(screen.getByRole("button", { name: "Next week" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Notes" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Calendar" }));
 
     expect(screen.getByText(weekLabelFor(addDays(new Date(), 7)))).toBeInTheDocument();
     expect(screen.queryByText(weekLabelFor(new Date()))).not.toBeInTheDocument();
