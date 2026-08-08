@@ -131,6 +131,10 @@ otherwise for that specific task:
   asked.
 - **Merge automatically once CI/the pipeline goes green** on that MR. Getting CI
   green **is** sufficient authorization to merge — do not stop and ask first.
+- **Always squash merge.** Use the host's squash-merge option (e.g. "Squash and
+  merge" on GitHub) so each MR collapses to a single commit on `main` — never a
+  regular merge commit or a fast-forward/rebase merge, even if a task's own
+  history has several small commits.
 - **Do not delete the branch after merging.** Branch deletion is handled
   automatically by the host ("Automatically delete head branches" is enabled in
   the repo settings). Claude has no tool to delete remote branches anyway — do
