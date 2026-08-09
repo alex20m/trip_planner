@@ -184,7 +184,8 @@ That blind spot is narrow. From a PR opening to its first Actions check run
 existing was six seconds in one measurement and five in another. The floor in
 step 2 clears it by two orders of magnitude, and by three minutes in any
 transient disagreement has resolved too. That is the floor's job — do not drop it
-on the grounds that the field looks authoritative.
+on the grounds that the field looks authoritative. The way to remove it is
+configuration, not a better reading of the API; see the last section.
 
 Two cases still deserve an explicit decision rather than a silent merge:
 
@@ -254,12 +255,50 @@ Report the outcome plainly: merged, or what is blocking it.
   already aggregates it. Reach for the list to explain a state, not to determine
   one — and never read the combined status alone, which may carry only a deploy
   provider's entry and say `success` while the tests are mid-flight.
-- **Do not use auto-merge as a shortcut.** GitHub's auto-merge waits only for
-  checks that branch protection marks *required*; with none configured it merges
-  as soon as it can, which is this same bug with fewer chances to notice. It is a
-  sound tool once required checks are configured — verify that first.
+- **Do not use auto-merge as a shortcut** *in a repo with no required checks.*
+  GitHub's auto-merge waits only for checks branch protection marks *required*;
+  with none configured it merges as soon as it can, which is this same bug with
+  fewer chances to notice. Where required checks exist it is not a shortcut but
+  the right answer — see below.
 - **Do not merge while you are still working on the branch.** Green on a commit
   you have already moved past is not permission to land it, and the merge cannot
   be taken back.
 - **Do not stop watching a PR you opened.** An unmerged PR left behind is an
   unfinished task, and no one else is coming to finish it.
+
+## How to delete the floor: require the checks
+
+The floor is a symptom of repository configuration, not a limitation you can read
+your way around. Without required status checks, the question it guards is
+**undecidable**: "will another check appear on this commit?" has no answer,
+because any GitHub App may create a check run at any moment and nothing declares
+in advance that it intends to. GitHub cannot report a check nobody has created
+yet. Time is the only bound available, which is why there is a floor.
+
+Declaring required status checks turns that open question into a closed one. The
+expected set is written down, so GitHub reports a required check that has not
+reported *yet* as expected — the PR reads "Waiting for status to be reported" and
+`mergeable_state` is `blocked`, not `clean`. There is then no instant at which a
+commit with unfinished checks looks mergeable, and the window this skill spends a
+floor to cover simply does not exist.
+
+In a repo configured that way, two things change:
+
+- **Poll immediately.** `blocked` covers the early window deterministically, so
+  the floor becomes a pure efficiency choice rather than a correctness guard.
+- **Better, stop polling.** `mcp__github__enable_pr_auto_merge` with
+  `mergeMethod: "SQUASH"` hands the whole loop to GitHub, which merges exactly
+  when the required checks pass. The warning against auto-merge above applies
+  only to repos *without* required checks; with them it is the correct mechanism
+  and this skill reduces to arming it once.
+
+Setting it up is a repository setting, not something the API tools here can do:
+Settings → Branches (or Rules → Rulesets) → protect the default branch → *Require
+status checks to pass before merging*, then add each job name to gate. Names
+appear in the picker once they have run at least once.
+
+One failure mode to design around: a required check whose workflow is skipped by
+path or branch filtering never reports at all, and the PR blocks forever. Only
+require checks that run unconditionally on every pull request.
+
+Until a repo is configured this way, keep the floor.
