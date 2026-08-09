@@ -200,6 +200,22 @@ otherwise for that specific task:
 
 ---
 
+## When the MR Is Merged, Report It Simply
+
+Once the task's MR is merged, the deliverable in the chat is a **short, plain
+summary of what was done** — a few sentences or a handful of bullets, readable by
+someone who did not watch the session.
+
+- Say what changed and why, and link the merged MR.
+- Flag anything left undone, deliberately skipped, or worth a second look.
+- Do not replay the session: the investigation, the false starts, and the
+  reasoning belong in the MR description and the commit messages, where they stay
+  findable. The chat summary is the headline, not the record.
+
+If it needs its own headings and sections, it is too long.
+
+---
+
 ## Parallel Workflow
 
 Multiple tasks may be in flight at once (different agents/sessions, or the same
