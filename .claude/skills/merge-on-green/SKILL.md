@@ -160,18 +160,31 @@ still running.
 routinely. `cancelled` is the one that reads like a pass and is not — a killed
 run produced no verdict, so re-run it or push a fix rather than counting it.
 
-### 4. Close the empty window
+### 4. Know what the field cannot tell you
 
-`mergeable_state` describes the checks that exist. In the first moments after a
-push, before GitHub has created any, there is nothing for it to describe — so do
-not merge on a `clean` you obtained seconds after pushing, no matter how green it
-looks.
+`mergeable_state` is a rollup over the checks that **exist**. It does not predict
+checks that are coming. A repo with no CI at all reports `clean` immediately and
+permanently — correctly — and that is the same answer it gives in the moments
+after a push, before anything has been created. So a `clean` obtained seconds
+after pushing is not evidence of anything, however green it looks.
 
-In practice the window tends to close within a second or two — GitHub queues a
-check suite as soon as it accepts the event, and integrations post a `pending`
-status almost immediately — but neither is guaranteed and a repo with no external
-integrations has less closing it. Do not bet a merge on it. The floor in step 2
-covers it for free: by three minutes in, a repo with CI has checks.
+Two further reasons to keep it as your primary signal rather than your only one:
+it is an officially **undocumented** field — GitHub staff have said so on the
+record, and the GraphQL enum mirroring it has been seen returning values its own
+documentation omits — and tools built on it report it going briefly stale or
+inconsistent between consecutive calls. It is the best single signal available,
+not a contract.
+
+What it does track well, measured with every externally-reported check already
+terminal so nothing else could explain the reading: an Actions job merely running
+is enough to hold the state at `unstable`. The field follows CI progress on its
+own — it is only the not-yet-created that it cannot see.
+
+That blind spot is narrow. From a PR opening to its first Actions check run
+existing was six seconds in one measurement and five in another. The floor in
+step 2 clears it by two orders of magnitude, and by three minutes in any
+transient disagreement has resolved too. That is the floor's job — do not drop it
+on the grounds that the field looks authoritative.
 
 Two cases still deserve an explicit decision rather than a silent merge:
 
