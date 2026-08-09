@@ -200,6 +200,32 @@ otherwise for that specific task:
 
 ---
 
+## When the MR Is Merged, Report It Simply
+
+Once the task's MR is merged, the deliverable in the chat is a **short, plain
+summary of what was done**.
+
+**Assume it is the only thing the user reads.** They will not open the MR, read
+its description, or scroll back through the session. So anything they need in
+order to understand what changed — or to decide something — has to be in the
+summary itself. Never park it in the MR description and link to it.
+
+That cuts both ways, and short does not mean incomplete:
+
+- **Include** what changed and why, in plain terms; anything left undone or
+  deliberately skipped; anything needing a decision or action from them; and
+  anything likely to surprise them later.
+- **Cut** the process — the investigation, the false starts, the reasoning, the
+  tools used, the order things were done in. That belongs in the MR description
+  and the commit messages, which are the record for whoever audits this later,
+  not reading for the user.
+
+A few sentences or a handful of bullets. If it needs its own headings and
+sections, it is too long — but if trimming would drop something the user has to
+know, cut elsewhere.
+
+---
+
 ## Parallel Workflow
 
 Multiple tasks may be in flight at once (different agents/sessions, or the same
