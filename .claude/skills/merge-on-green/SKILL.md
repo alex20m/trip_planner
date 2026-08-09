@@ -33,34 +33,40 @@ will never exist. So "every check I can see has completed and passed" is
 satisfied, trivially, in the window before the real work starts — and merging
 there means merging code CI never looked at.
 
-Everything below exists to close that window. There is no manifest to maintain
-and no workflow file to parse: you just need one signal that is true *before* the
-jobs exist, which is the workflow run itself.
+So the rule is not "wait for the checks I can see". It is "wait until GitHub says
+the commit is mergeable and passing, having given it long enough to know". There
+is no manifest to maintain and no workflow file to parse — just one field and one
+floor on how early you trust it.
 
 ## What green means
 
-Two conditions, both on the **current head SHA**:
+Do not reconstruct this from the check list. GitHub already computes it, over
+every check run *and* commit status attached to the head commit, and hands it to
+you as one field: `mergeable_state` on the PR.
 
-1. **Nothing is still running.** Every check run has `status: "completed"`, every
-   commit status is terminal (not `pending`), **and** every Actions *workflow
-   run* for that SHA has `status: "completed"`.
-2. **Nothing failed.** No check run, commit status, or workflow run concluded in
-   a failure state. `success`, `skipped`, and `neutral` are all fine.
+| `mergeable_state` | Meaning | Merge? |
+|---|---|---|
+| `clean` | Mergeable; everything attached to the head commit completed and passed | **Yes** |
+| `unstable` | Mergeable, but something is still pending *or* concluded badly | No — keep waiting, or investigate |
+| `blocked` | A required check is pending/failing, or a review is required | No |
+| `dirty` | Conflicts with the base branch | No — rebase, resolve, push |
+| `behind` | Base branch moved and strict required checks are on | No — update the branch |
+| `unknown` | GitHub has not finished computing it | Re-poll; not a verdict |
 
-The workflow-run clause is the one doing the real work. A run stays `in_progress`
-for its entire duration — including while its `needs:`-gated jobs have no check
-runs yet — so it is true exactly when there is more to come, which is what the
-check-run list cannot tell you. Verified: on a PR whose second job had not been
-created, the run reported `in_progress` throughout.
+`clean` is the only value you merge on, and it is strict: a *failed* check makes
+the state `unstable` just as a pending one does. That is the right default — a
+red deploy preview should stop you and make you look — but it means an `unstable`
+state that never resolves is your cue to read the check list and find out which
+of the two it is.
 
-The rest of the list is deliberately broad. Checking *every* check and status,
-rather than a list of ones you expect, is what makes this portable: external
-services (deploy previews, coverage bots, preview-comment bots) never appear in
-`.github/workflows/` and cannot be enumerated from the repo, but they do show up
-here for free.
+Reading this field rather than the check list is what makes the skill portable.
+External services — deploy previews, coverage bots, preview-comment bots — never
+appear in `.github/workflows/` and cannot be enumerated from the repo, but they
+report against the commit, so GitHub's rollup counts them and you get them for
+free. There is no list to maintain and no YAML to parse.
 
-Anchoring to the head SHA matters just as much: a green run for code you have
-since replaced says nothing about what you are about to merge.
+Anchor every reading to the **current head SHA**. A green result for code you
+have since replaced says nothing about what you are about to merge.
 
 ## The loop
 
@@ -103,69 +109,62 @@ A PR-activity subscription, where available, is a fine way to hear about failure
 sooner — but never a replacement for the loop. Success events and pushes are
 documented to arrive late or not at all, so silence from it is not evidence.
 
-### 3. Poll both check surfaces
+### 3. Poll one field
+
+```
+mcp__github__pull_request_read({method: "get", owner, repo, pullNumber})
+```
+
+Read `mergeable_state` and check `head.sha` still matches step 1's. Anything but
+`clean` → wait and repeat. That is the whole poll.
+
+You only need the check list when you want to know *why* it is not `clean` — a
+long-running `unstable` that you suspect is a failure rather than a pending job,
+or a failure you are about to debug:
 
 ```
 mcp__github__pull_request_read({method: "get_check_runs", owner, repo, pullNumber})
 mcp__github__pull_request_read({method: "get_status",     owner, repo, pullNumber})
 ```
 
-Both, every cycle. Actions jobs arrive as *check runs*; many external services
-post *commit statuses* instead, so one surface alone is half the evidence — a
-combined status of `success` is perfectly normal while every Actions job is still
-running. Confirm the SHA on the status response still matches step 1's.
+Both, when you do reach for them. Actions jobs arrive as *check runs* while many
+external services post *commit statuses*, so either one alone is half the picture
+— a combined status of `success` is perfectly normal while every Actions job is
+still running.
 
-Anything not `completed`, or any pending status → wait and repeat.
+`skipped` is a pass; conditional jobs and unconfigured integrations skip
+routinely. `cancelled` is the one that reads like a pass and is not — a killed
+run produced no verdict, so re-run it or push a fix rather than counting it.
 
-### 4. Before merging, confirm the pipeline is actually over
+### 4. Close the empty window
 
-Only when step 3 looks entirely done, spend one more call to rule out jobs that
-do not exist yet:
+`mergeable_state` describes the checks that exist. In the first moments after a
+push, before GitHub has created any, there is nothing for it to describe — so do
+not merge on a `clean` you obtained seconds after pushing, no matter how green it
+looks.
 
-```
-mcp__github__actions_list({
-  method: "list_workflow_runs", owner, repo,
-  workflow_runs_filter: {branch: "<head branch>"}
-})
-```
+In practice the window tends to close within a second or two — GitHub queues a
+check suite as soon as it accepts the event, and integrations post a `pending`
+status almost immediately — but neither is guaranteed and a repo with no external
+integrations has less closing it. Do not bet a merge on it. The floor in step 2
+covers it for free: by three minutes in, a repo with CI has checks.
 
-Keep the runs whose `head_sha` equals yours and read only `status` and
-`conclusion` — these objects are very large, so ignore the rest. Every one must
-be `completed`. Any `queued` or `in_progress` run means more checks are coming,
-however finished the check-run list looked.
+Two cases still deserve an explicit decision rather than a silent merge:
 
-Doing this once at the end rather than every cycle keeps the cost to a single
-call per PR.
+- **A `clean` PR with no checks at all**, minutes after the push. Either CI does
+  not run on pull requests here, or nothing was triggered. Both are fine reasons
+  to merge — but confirm which, with one `get_check_runs`, instead of assuming.
+- **Workflows that trigger other workflows** (`on: workflow_run`). A second run
+  is created only after the first finishes, so a brief `clean` can appear between
+  them. If the repo has any, confirm with
+  `mcp__github__actions_list({method: "list_workflow_runs", owner, repo,
+  workflow_runs_filter: {branch: "<head branch>"}})` — keep the entries whose
+  `head_sha` matches yours and require every `status` to be `completed`. Read
+  only `head_sha`, `status`, and `conclusion`; these objects are very large.
 
-Two sanity cases worth handling explicitly:
+Both are exceptions. The ordinary path is step 3 alone.
 
-- **No checks and no workflow runs at all.** Either CI is not configured for
-  pull requests, or you looked too early. Wait one more interval; if it is still
-  empty, say so rather than polling forever — there may genuinely be nothing to
-  wait for.
-- **A run appears after you thought you were done** (some workflows are triggered
-  by another completing). It will be `queued`; go back to waiting.
-
-### 5. Decide
-
-| What you observe | What it means | Do |
-|---|---|---|
-| All check runs completed, all statuses terminal, all workflow runs completed, nothing failed | Genuinely green | Merge (step 6) |
-| A workflow run is `queued` or `in_progress` | More jobs are coming, whatever the check list shows | Keep waiting |
-| A check run is `queued` or `in_progress`, or a status is `pending` | Still running | Keep waiting |
-| Anything concluded `failure` or `timed_out` | Real failure | Diagnose and fix (step 5) |
-| Anything concluded `cancelled` | The run was killed; there is no verdict | Push a fix or re-run — never read it as a pass |
-| `mergeable_state: "dirty"` | Conflicts with the base branch | Do not merge. Rebase, resolve, push — then restart at step 1 |
-| `mergeable_state: "unknown"` | GitHub is still computing it | Re-read next cycle; not a blocker by itself |
-| Nothing has completed well past the expected duration | Runner backlog or a stuck workflow | Stop and report the names and states rather than waiting silently |
-
-`skipped` is a pass — conditional jobs and unconfigured integrations skip
-routinely. `cancelled` is the one that reads like a pass and is not.
-
-A failure on a check that is not gating (a deploy preview, say) still deserves a
-look before you merge; it is a real signal even when nothing enforces it.
-
-### 6. On failure, fix the cause
+### 5. On failure, fix the cause
 
 ```
 mcp__github__get_job_logs({owner, repo, run_id, failed_only: true, return_content: true, tail_lines: 200})
@@ -181,7 +180,7 @@ review, nothing else will catch it.
 After pushing, **the clock and the evidence reset**: back to step 1 with the new
 head SHA, and wait out the pipeline again.
 
-### 7. Merge
+### 6. Merge
 
 Confirm the PR is still open and the SHA you validated is still `head.sha`, then
 merge with the method the repo's conventions call for — squash where each PR
@@ -209,8 +208,13 @@ Report the outcome plainly: merged, or what is blocking it.
 ## Do not
 
 - **Do not merge on "everything I can see has passed."** That is the trap this
-  whole skill exists to close. Confirm no workflow run is still going first.
-- **Do not treat the combined status alone as green.** It may carry only a deploy
+  whole skill exists to close — the checks you can see are not the checks there
+  will be.
+- **Do not trust a `clean` you got seconds after pushing.** The field describes
+  the checks that exist, and at that point none do.
+- **Do not rebuild the verdict by hand from the check list** when `mergeable_state`
+  already aggregates it. Reach for the list to explain a state, not to determine
+  one — and never read the combined status alone, which may carry only a deploy
   provider's entry and say `success` while the tests are mid-flight.
 - **Do not use auto-merge as a shortcut.** GitHub's auto-merge waits only for
   checks that branch protection marks *required*; with none configured it merges
