@@ -134,6 +134,10 @@ otherwise for that specific task:
   asked.
 - **Merge automatically once CI/the pipeline goes green** on that MR. Getting CI
   green **is** sufficient authorization to merge — do not stop and ask first.
+- **Use the `merge-on-green` skill to do the waiting and merging.** Do not
+  improvise a polling approach: "all the checks I can see have passed" is not
+  the same as green here, and PRs have been merged before CI ever ran because of
+  it. The skill defines what green means on this repo and how to wait for it.
 - **Always squash merge.** Use the host's squash-merge option (e.g. "Squash and
   merge" on GitHub) so each MR collapses to a single commit on `main` — never a
   regular merge commit or a fast-forward/rebase merge, even if a task's own
@@ -249,8 +253,8 @@ git push -u origin <branch-name>
 
 Open an MR from `<branch-name>` to `main` and wait for CI/CD to run.
 
-- Check the pipeline/PR status, and do NOT remove the worktree or stop the agent
-  until all checks pass.
+- Follow the `merge-on-green` skill to watch the pipeline and merge. Do NOT
+  remove the worktree or stop the agent until all checks pass.
 - If CI fails, iterate in the same worktree/branch and re-run the pipeline.
 - Once all checks are green, merge automatically — see
   [PR & Merge Policy](#pr--merge-policy-default-auto). Do not wait to be asked,
