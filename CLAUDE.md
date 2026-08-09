@@ -203,16 +203,26 @@ otherwise for that specific task:
 ## When the MR Is Merged, Report It Simply
 
 Once the task's MR is merged, the deliverable in the chat is a **short, plain
-summary of what was done** — a few sentences or a handful of bullets, readable by
-someone who did not watch the session.
+summary of what was done**.
 
-- Say what changed and why, and link the merged MR.
-- Flag anything left undone, deliberately skipped, or worth a second look.
-- Do not replay the session: the investigation, the false starts, and the
-  reasoning belong in the MR description and the commit messages, where they stay
-  findable. The chat summary is the headline, not the record.
+**Assume it is the only thing the user reads.** They will not open the MR, read
+its description, or scroll back through the session. So anything they need in
+order to understand what changed — or to decide something — has to be in the
+summary itself. Never park it in the MR description and link to it.
 
-If it needs its own headings and sections, it is too long.
+That cuts both ways, and short does not mean incomplete:
+
+- **Include** what changed and why, in plain terms; anything left undone or
+  deliberately skipped; anything needing a decision or action from them; and
+  anything likely to surprise them later.
+- **Cut** the process — the investigation, the false starts, the reasoning, the
+  tools used, the order things were done in. That belongs in the MR description
+  and the commit messages, which are the record for whoever audits this later,
+  not reading for the user.
+
+A few sentences or a handful of bullets. If it needs its own headings and
+sections, it is too long — but if trimming would drop something the user has to
+know, cut elsewhere.
 
 ---
 
