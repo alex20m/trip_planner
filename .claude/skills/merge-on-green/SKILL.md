@@ -68,6 +68,30 @@ free. There is no list to maintain and no YAML to parse.
 Anchor every reading to the **current head SHA**. A green result for code you
 have since replaced says nothing about what you are about to merge.
 
+## Arm this only when the branch is finished
+
+Merging is the one irreversible step here, and the loop runs asynchronously — a
+wake-up lands whenever it lands, including in the middle of you editing the same
+branch. So start it only when the work is genuinely done: the change is complete,
+the tests you intend to add exist, and you have no further commits planned.
+
+Before every merge, two mechanical checks:
+
+```bash
+git status --porcelain          # must be empty — no uncommitted work
+git log origin/<branch>..HEAD   # must be empty — nothing unpushed
+```
+
+Either one non-empty means the PR does not contain the work yet, and CI validated
+something other than what you meant to ship.
+
+If a wake-up arrives while you are still working — you went back to fix
+something, a review landed, you thought of one more test — **do not merge on it.**
+Re-arm the wait and let the new commits go through CI first. A merge that races
+your own editing is the same class of mistake as merging before CI finishes: it
+lands a state nobody vetted, and everything still in flight has to become a
+second PR.
+
 ## The loop
 
 ### 1. Anchor to the head SHA
@@ -182,9 +206,10 @@ head SHA, and wait out the pipeline again.
 
 ### 6. Merge
 
-Confirm the PR is still open and the SHA you validated is still `head.sha`, then
-merge with the method the repo's conventions call for — squash where each PR
-should collapse to a single commit on the default branch:
+Confirm the PR is still open, that the SHA you validated is still `head.sha`, and
+that the working tree is clean with nothing unpushed. Then merge with the method
+the repo's conventions call for — squash where each PR should collapse to a
+single commit on the default branch:
 
 ```
 mcp__github__merge_pull_request({
@@ -220,5 +245,8 @@ Report the outcome plainly: merged, or what is blocking it.
   checks that branch protection marks *required*; with none configured it merges
   as soon as it can, which is this same bug with fewer chances to notice. It is a
   sound tool once required checks are configured — verify that first.
+- **Do not merge while you are still working on the branch.** Green on a commit
+  you have already moved past is not permission to land it, and the merge cannot
+  be taken back.
 - **Do not stop watching a PR you opened.** An unmerged PR left behind is an
   unfinished task, and no one else is coming to finish it.
