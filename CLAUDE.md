@@ -24,11 +24,50 @@ blocked.
 
 ---
 
+## Write Down What You Worked Out
+
+If you figure out how to do something that the next task would otherwise have to
+figure out again, capture it as a skill in `.claude/skills/<name>/SKILL.md`
+instead of leaving it in a transcript nobody will read. Sessions here do not
+share memory: an approach that is not written down is discovered fresh every
+time, differently each time, and that is exactly how the same mistake gets made
+twice.
+
+Worth extracting when it has a **procedure** — an order that matters, a check
+that is easy to skip, a trap with a non-obvious cause, a decision rule for
+choosing between options. Not worth extracting when it is a single command, a
+one-off specific to today's task, or a preference with no steps; a rule like that
+belongs in this file, not in a skill.
+
+To keep a skill worth having:
+
+- **Write the mechanism, not the anecdote.** Explain *why* the procedure is
+  shaped that way, so a reader can adapt it when the situation differs slightly.
+  A skill that only pattern-matches one past incident breaks on the next one.
+- **Keep it repo-agnostic.** No job names, no project-specific paths, no
+  timings measured from one pipeline. Derive those at use time. The evidence for
+  a rule belongs in the PR that introduced it; the skill is the procedure.
+- **Say what you are unsure about.** A skill that marks its own soft spots gets
+  corrected; one that states everything with equal confidence gets trusted where
+  it should not be.
+- **Add it to both repos** when it is general enough to apply to both, and keep
+  the copies identical so they do not drift.
+
+Existing skills follow this: `merge-on-green`, `test-first`,
+`isolated-task-branch`. Improve one rather than writing a near-duplicate — if a
+new situation is a variation on something already covered, extend that skill.
+
+---
+
 ## Tests Are the Review — Test-Driven by Default
 
 **Nobody reviews these PRs.** The test suite is the only thing standing between
 a change and production, so it has to carry the weight a human reviewer normally
 would. Treat every test as a claim about behavior that someone is relying on.
+
+The rules below are the standard. **Use the `test-first` skill for how to meet
+it** — the red-first loop, verifying a regression test against the bug rather
+than the fix, and recognising tests that cannot fail.
 
 ### Write the test first
 
@@ -164,7 +203,9 @@ otherwise for that specific task:
 ## Parallel Workflow
 
 Multiple tasks may be in flight at once (different agents/sessions, or the same
-agent multitasking). To keep them from colliding:
+agent multitasking). **Use the `isolated-task-branch` skill** for the mechanics —
+collision checks before creating anything, per-task runtime state, teardown, and
+restarting after a merge. The rules to satisfy:
 
 - **One task = one worktree = one branch = one MR.** Never share a worktree or
   branch across tasks, even "quick" ones.
