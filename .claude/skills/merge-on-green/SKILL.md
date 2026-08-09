@@ -16,55 +16,51 @@ description: >-
 Take an open PR from *pushed* to *merged*, without ever merging code that CI has
 not actually vetted.
 
-## Why this needs a procedure
+Wait for everything to finish, then merge. The whole difficulty is that GitHub
+will happily tell you everything has finished when it has not yet started.
 
-The obvious approach — ask GitHub for the checks, see nothing failing, merge — is
-wrong, and it fails silently in the direction of merging unverified code. Two
-properties of GitHub cause it:
+## The one trap
 
-**The set of checks grows over time.** A job gated behind `needs:` gets no check
-run until its dependency succeeds. A workflow that no runner has picked up yet
-reports nothing at all. In the API, a check that has not been created is
-indistinguishable from one that will never exist — so early in a PR's life the
-response often contains only the fast third-party integrations (deploy previews,
-preview-comment bots), all passing. "Nothing is failing" is then true and means
-nothing.
+Ask GitHub for a PR's checks a few seconds after opening it and you get a short
+list — typically just the fast external integrations, deploy previews and the
+like — every one of them passed. Nothing is pending. Nothing is failing.
 
-**Different systems report through different APIs.** GitHub Actions jobs arrive
-as *check runs*; many external services post *commit statuses* instead. Read one
-surface and you get a confident answer built on half the evidence — a combined
-status of `success` is perfectly normal while every Actions job is still running.
+That answer is worthless, because **checks are created over time, not all at
+once.** A job gated behind `needs:` gets no check run until its dependency
+succeeds. A workflow no runner has picked up yet reports nothing at all. And in
+the API, a check that has not been created is indistinguishable from one that
+will never exist. So "every check I can see has completed and passed" is
+satisfied, trivially, in the window before the real work starts — and merging
+there means merging code CI never looked at.
 
-The dangerous window is only a few minutes wide, which is exactly what makes it
-bite: it is the window a session lands in when it opens a PR and immediately
-checks on it.
+Everything below exists to close that window. There is no manifest to maintain
+and no workflow file to parse: you just need one signal that is true *before* the
+jobs exist, which is the workflow run itself.
 
 ## What green means
 
-> Every **required** check exists on the **current head SHA**, every one has
-> `status: "completed"`, and every one concluded `success` (or `skipped` /
-> `neutral`) — and no other check on that SHA concluded in a failure state.
+Two conditions, both on the **current head SHA**:
 
-All three clauses carry weight. Drop *exists* and you merge before the slow jobs
-were ever created. Drop *current head SHA* and you merge on the strength of a run
-for code you have since replaced.
+1. **Nothing is still running.** Every check run has `status: "completed"`, every
+   commit status is terminal (not `pending`), **and** every Actions *workflow
+   run* for that SHA has `status: "completed"`.
+2. **Nothing failed.** No check run, commit status, or workflow run concluded in
+   a failure state. `success`, `skipped`, and `neutral` are all fine.
 
-### Establish the required set before you start waiting
+The workflow-run clause is the one doing the real work. A run stays `in_progress`
+for its entire duration — including while its `needs:`-gated jobs have no check
+runs yet — so it is true exactly when there is more to come, which is what the
+check-run list cannot tell you. Verified: on a PR whose second job had not been
+created, the run reported `in_progress` throughout.
 
-Derive it, rather than accepting whatever the API happens to return: read
-`.github/workflows/*.yml` and take the `name:` of every job triggered by
-`pull_request`, falling back to the job key where a job has no `name:`. That list
-is your manifest. Matrix jobs expand to one check run per combination, named
-`Job name (value)`.
+The rest of the list is deliberately broad. Checking *every* check and status,
+rather than a list of ones you expect, is what makes this portable: external
+services (deploy previews, coverage bots, preview-comment bots) never appear in
+`.github/workflows/` and cannot be enumerated from the repo, but they do show up
+here for free.
 
-Anything else appearing on the PR — deploy previews, preview-comment bots,
-coverage reporters — is **not** required. Never wait on one and never read its
-success as evidence about the code. A *failure* on one is still worth looking at
-before merging, since it is a real signal even when it is not gating.
-
-If no workflow triggers on `pull_request` at all, there is nothing to wait for.
-Say so and merge or hand back, rather than polling for checks that will never
-appear.
+Anchoring to the head SHA matters just as much: a green run for code you have
+since replaced says nothing about what you are about to merge.
 
 ## The loop
 
@@ -74,20 +70,18 @@ appear.
 mcp__github__pull_request_read({method: "get", owner, repo, pullNumber})
 ```
 
-Record `head.sha`; confirm `state: "open"` and `draft: false`. Every later
-observation is about *this* SHA. If it changes, the evidence is void and the
-clock restarts (step 5).
+Record `head.sha`; confirm `state: "open"` and `draft: false`. If that SHA ever
+changes, the evidence is void and the clock restarts (step 5).
 
-### 2. Wait before you look
+### 2. Wait before looking
 
-Estimate how long the pipeline takes before the first check, because looking
-sooner cannot teach you anything. The cheapest estimate is the repo's own
-history: `get_check_runs` on a recently merged PR reports `started_at` and
-`completed_at` per job, which shows both the total duration and how late the
-`needs:`-gated jobs appeared. Absent that, **first check at 3 minutes, then every
-2**, and expect longer for suites with browser or container steps.
+Looking early cannot teach you anything, so spend the time asleep rather than
+polling. Estimate the pipeline's duration from the repo's own history —
+`get_check_runs` on a recently merged PR reports `started_at` and `completed_at`
+per job — and default to **3 minutes, then every 2** when there is nothing to
+measure. Expect longer for suites with browser or container steps.
 
-To wait, run `sleep` as a **background** Bash command and end the turn:
+Wait with a **background** `sleep`, then end the turn:
 
 ```
 Bash({command: "sleep 180", run_in_background: true, description: "wait before first CI check"})
@@ -96,50 +90,82 @@ Bash({command: "sleep 180", run_in_background: true, description: "wait before f
 The session is re-invoked when it exits, so a wait costs one tool call and no
 context. For waits beyond ~10 minutes, or where the container may be recycled,
 `mcp__Claude_Code_Remote__send_later({delay_minutes: N, message: "..."})` survives
-restarts at one-minute granularity.
+restarts, at one-minute granularity.
 
-Two ways of waiting that do not work: foreground `sleep` is blocked in some
-harnesses, and back-to-back tool calls to pass time burn context while revealing
-nothing. A `Monitor` poll loop that exits on a terminal state is a good fit *if*
-the shell can actually reach the GitHub API — verify with one call rather than
-assuming, because sandboxed environments frequently proxy or block
-`api.github.com` and ship no `gh` CLI, leaving the MCP tools as the only route.
+Two non-options: foreground `sleep` is blocked in some harnesses, and firing
+tool calls back-to-back to pass time burns context while revealing nothing. A
+`Monitor` poll loop that exits on a terminal state is a good fit *if* the shell
+can reach the GitHub API — worth one call to check, since sandboxed environments
+often proxy or block `api.github.com` and ship no `gh` CLI, leaving the MCP tools
+as the only route.
 
-If a PR-activity subscription is available, use it alongside the loop to hear
-about failures sooner — but never in place of the loop. Success events and pushes
-are documented to arrive late or not at all, so silence from it is not evidence.
+A PR-activity subscription, where available, is a fine way to hear about failures
+sooner — but never a replacement for the loop. Success events and pushes are
+documented to arrive late or not at all, so silence from it is not evidence.
 
-### 3. Read both surfaces
+### 3. Poll both check surfaces
 
 ```
 mcp__github__pull_request_read({method: "get_check_runs", owner, repo, pullNumber})
 mcp__github__pull_request_read({method: "get_status",     owner, repo, pullNumber})
 ```
 
-Both, every cycle — check runs for the Actions jobs, combined status for
-everything reporting the older way. Confirm the SHA on the status response still
-matches step 1's.
+Both, every cycle. Actions jobs arrive as *check runs*; many external services
+post *commit statuses* instead, so one surface alone is half the evidence — a
+combined status of `success` is perfectly normal while every Actions job is still
+running. Confirm the SHA on the status response still matches step 1's.
 
-### 4. Decide
+Anything not `completed`, or any pending status → wait and repeat.
 
-Walk the manifest and classify. Only the first row is a merge.
+### 4. Before merging, confirm the pipeline is actually over
+
+Only when step 3 looks entirely done, spend one more call to rule out jobs that
+do not exist yet:
+
+```
+mcp__github__actions_list({
+  method: "list_workflow_runs", owner, repo,
+  workflow_runs_filter: {branch: "<head branch>"}
+})
+```
+
+Keep the runs whose `head_sha` equals yours and read only `status` and
+`conclusion` — these objects are very large, so ignore the rest. Every one must
+be `completed`. Any `queued` or `in_progress` run means more checks are coming,
+however finished the check-run list looked.
+
+Doing this once at the end rather than every cycle keeps the cost to a single
+call per PR.
+
+Two sanity cases worth handling explicitly:
+
+- **No checks and no workflow runs at all.** Either CI is not configured for
+  pull requests, or you looked too early. Wait one more interval; if it is still
+  empty, say so rather than polling forever — there may genuinely be nothing to
+  wait for.
+- **A run appears after you thought you were done** (some workflows are triggered
+  by another completing). It will be `queued`; go back to waiting.
+
+### 5. Decide
 
 | What you observe | What it means | Do |
 |---|---|---|
-| Every required check present, `completed`, `success`/`skipped`/`neutral`; nothing else failed | Genuinely green | Merge (step 6) |
-| A required check is **absent** | Not created yet — a `needs:` dependency is still running, or no runner has picked it up | Keep waiting |
-| A required check is `queued` or `in_progress` | Still running | Keep waiting |
-| A required check concluded `failure` or `timed_out` | Real failure | Diagnose and fix (step 5) |
-| A required check concluded `cancelled` | The run was killed; there is no verdict | Push a fix or re-run the workflow — never read it as a pass |
-| A non-required check concluded `failure` | Something outside the gate broke | Look before merging; usually worth fixing, and say so if you merge anyway |
+| All check runs completed, all statuses terminal, all workflow runs completed, nothing failed | Genuinely green | Merge (step 6) |
+| A workflow run is `queued` or `in_progress` | More jobs are coming, whatever the check list shows | Keep waiting |
+| A check run is `queued` or `in_progress`, or a status is `pending` | Still running | Keep waiting |
+| Anything concluded `failure` or `timed_out` | Real failure | Diagnose and fix (step 5) |
+| Anything concluded `cancelled` | The run was killed; there is no verdict | Push a fix or re-run — never read it as a pass |
 | `mergeable_state: "dirty"` | Conflicts with the base branch | Do not merge. Rebase, resolve, push — then restart at step 1 |
 | `mergeable_state: "unknown"` | GitHub is still computing it | Re-read next cycle; not a blocker by itself |
-| Nothing has completed well past the expected duration | Runner backlog or a stuck workflow | Stop and report the check names and states, rather than waiting silently |
+| Nothing has completed well past the expected duration | Runner backlog or a stuck workflow | Stop and report the names and states rather than waiting silently |
 
-`skipped` is a pass — conditional jobs and unconfigured integrations routinely
-skip. `cancelled` is the one that reads like a pass and is not.
+`skipped` is a pass — conditional jobs and unconfigured integrations skip
+routinely. `cancelled` is the one that reads like a pass and is not.
 
-### 5. On failure, fix the cause
+A failure on a check that is not gating (a deploy preview, say) still deserves a
+look before you merge; it is a real signal even when nothing enforces it.
+
+### 6. On failure, fix the cause
 
 ```
 mcp__github__get_job_logs({owner, repo, run_id, failed_only: true, return_content: true, tail_lines: 200})
@@ -147,19 +173,18 @@ mcp__github__get_job_logs({owner, repo, run_id, failed_only: true, return_conten
 
 `run_id` is in the failing check's `html_url` (`.../actions/runs/<run_id>/job/<job_id>`).
 
-Fix the underlying problem, reproducing locally first where you can. Never reach
-green by weakening an assertion, skipping a test, or re-running a job until it
-passes — a flake you re-ran away is a bug you shipped, and on a repo where the
-suite is the only review, nothing else will catch it.
+Fix the underlying problem, reproducing locally where you can. Never reach green
+by weakening an assertion, skipping a test, or re-running a job until it passes —
+a flake you re-ran away is a bug you shipped, and where the suite is the only
+review, nothing else will catch it.
 
-After pushing, **the clock and the evidence reset**: return to step 1, read the
-new head SHA, and wait out the pipeline again. Checks from the old SHA say
-nothing about the new one.
+After pushing, **the clock and the evidence reset**: back to step 1 with the new
+head SHA, and wait out the pipeline again.
 
-### 6. Merge
+### 7. Merge
 
-Confirm the PR is still open and that the SHA you validated is still `head.sha`,
-then merge with the method the repo's conventions call for — squash where each PR
+Confirm the PR is still open and the SHA you validated is still `head.sha`, then
+merge with the method the repo's conventions call for — squash where each PR
 should collapse to a single commit on the default branch:
 
 ```
@@ -183,13 +208,13 @@ Report the outcome plainly: merged, or what is blocking it.
 
 ## Do not
 
-- **Do not treat the combined status alone as a green signal.** It may carry only
-  a deploy provider's entry and say `success` while the tests are mid-flight.
-- **Do not merge because everything currently visible is passing.** That is the
-  central bug this skill exists to prevent. Check against the manifest.
+- **Do not merge on "everything I can see has passed."** That is the trap this
+  whole skill exists to close. Confirm no workflow run is still going first.
+- **Do not treat the combined status alone as green.** It may carry only a deploy
+  provider's entry and say `success` while the tests are mid-flight.
 - **Do not use auto-merge as a shortcut.** GitHub's auto-merge waits only for
   checks that branch protection marks *required*; with none configured it merges
   as soon as it can, which is this same bug with fewer chances to notice. It is a
-  sound tool only once required checks are configured — verify that first.
+  sound tool once required checks are configured — verify that first.
 - **Do not stop watching a PR you opened.** An unmerged PR left behind is an
   unfinished task, and no one else is coming to finish it.
