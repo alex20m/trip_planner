@@ -220,9 +220,14 @@ That cuts both ways, and short does not mean incomplete:
   and the commit messages, which are the record for whoever audits this later,
   not reading for the user.
 
-A few sentences or a handful of bullets. If it needs its own headings and
-sections, it is too long — but if trimming would drop something the user has to
-know, cut elsewhere.
+**Start it with a `## Summary` header**, so it is unmistakable where the summary
+begins and where anything preceding it ends. Without that marker the summary runs
+together with whatever was said while working, and the one part meant to be read
+stops being findable.
+
+Below that header: a few sentences or a handful of bullets. It should need no
+further headings of its own — if it does, it is too long, though if trimming
+would drop something the user has to know, cut elsewhere.
 
 ---
 
