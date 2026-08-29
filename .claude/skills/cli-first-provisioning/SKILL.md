@@ -293,6 +293,49 @@ provider console is the one manual step here.
   behaviour, not a broken setup — say so in SETUP.md before someone reports it
   as a bug.
 
+#### Those preview branches accumulate, and the quota failure lies about itself
+
+Nothing deletes a preview branch when its pull request merges. They pile up one
+per branch ever previewed, and every plan caps how many may exist — a free tier
+in the small handful, where a repo with a few merged PRs reaches the ceiling
+within days.
+
+**What makes this expensive is the symptom, which points at the wrong layer.**
+Provisioning the database happens *before* the build container starts, so the
+platform reports the failure as a build failure: a red deploy check, a generic
+"resource provisioning failed", and a build that lasted `0ms`. There are **no
+build logs at all**, because nothing was ever built. The natural reading is
+that the commit broke the build, and the natural response is to go hunting
+through a diff that is entirely innocent.
+
+Three signals separate this from a real build failure, and all three are
+cheap:
+
+- **Zero build events.** Not "the logs look short" — the log endpoint returns
+  nothing, because no build ran.
+- **Production still deploys fine.** Production uses the long-lived parent
+  branch and provisions nothing, so it is unaffected. Previews failing while
+  production succeeds is close to diagnostic on its own.
+- **It is not specific to one branch.** Check whether previews on *other*
+  branches also started failing, and when. A per-branch cause cannot explain a
+  project-wide onset.
+
+The fix is to delete the branches belonging to merged or abandoned work — never
+the default branch, which is the parent everything else is seeded from:
+
+```bash
+<provider-cli> branches list  --project-id "$PROJECT_ID" --output json
+<provider-cli> branches delete "<branch>" --project-id "$PROJECT_ID"
+```
+
+Then re-trigger the failed deployment; it will provision and build normally.
+
+Worth doing once as housekeeping and then *not* relying on memory: the quota
+refills silently and fails the same confusing way next time. If the integration
+offers automatic cleanup on branch deletion, turn it on. Otherwise put the
+delete command in SETUP.md next to the preview-database note, so the person who
+meets the 0ms build has somewhere to find it.
+
 ### Neon Auth is managed Better Auth now
 
 This is the trap worth spending a paragraph on: nearly everything written about
@@ -354,7 +397,7 @@ Client side, `createAuthClient()` from `@neondatabase/auth/next`, and the vanill
 client takes the auth URL directly. A React SPA installs `@neondatabase/neon-js`
 instead and reads `VITE_NEON_AUTH_URL`.
 
-Six things that bite:
+Eight things that bite:
 
 - **The catch-all segment must be `[...path]`.** The handler reads `params.path`,
   so any other name routes nothing. The package's own JSDoc example says
@@ -375,10 +418,52 @@ Six things that bite:
 - **Server components that touch `auth` need `export const dynamic =
   'force-dynamic'`.** Sessions come from cookies, which only exist at request
   time; without it the page is prerendered and the user is always logged out.
+- **`@neondatabase/auth-ui`'s provider themes the whole document**, so the root
+  layout needs `suppressHydrationWarning` on `<html>`. `NeonAuthUIProvider`
+  wraps its children in next-themes' `ThemeProvider` (`attribute: "class"`,
+  `enableSystem`), and next-themes ships a blocking script that stamps
+  `class="dark"` and `style="color-scheme: dark"` onto `document.documentElement`
+  before React hydrates. The server markup can never carry those — the theme
+  lives in `localStorage` and the OS setting — so every dark-mode visitor gets a
+  hydration mismatch on `<html>`. The symptom accuses the layout, which is
+  innocent; the cause is a transitive dependency of a provider mounted deep in
+  the body, and no amount of reading the layout reveals it. Verified against
+  `@neondatabase/auth-ui@0.3.0-beta`. `suppressHydrationWarning` applies to the
+  one element it is set on and **not** its subtree, so real mismatches inside the
+  page are still reported — which is why it belongs on `<html>` and nowhere else.
+  The same holds for any provider that themes the document rather than its own
+  subtree.
 - **Add the deployed URL as a trusted domain** as soon as the app has one.
   Skipping it is a delayed failure: sign-up works, but confirmation and
   password-reset links point at localhost, and only the developer fails to
   notice.
+- **A proxy in front of a hosted auth service must not let `fetch` follow the
+  redirect**, or the session it just minted is lost. This is the shape: the
+  provider's SDK mounts a catch-all route that forwards each request upstream
+  with a plain `fetch` and re-signs the upstream `Set-Cookie` onto *your*
+  origin — that re-signing is the whole reason the proxy exists. But
+  `fetch` follows redirects by default and exposes only the final response, so
+  when an endpoint answers `302 + Set-Cookie` — which is exactly what an email
+  verification or confirmation link does — the cookie is set on a hop nobody
+  can read and the browser gets the *body of the redirect target* instead. The
+  visitor lands back on the app signed out, on the page they had just
+  clicked their way past, and has to sign in by hand. Nothing errors, and
+  reading the proxy explains nothing, because the bug is in a default.
+  The fix depends on which side you can move. Better Auth decides between a
+  redirect and JSON purely on whether the request carries a `callbackURL`, and
+  it sets the session cookie *before* that branch — so stripping `callbackURL`
+  from the request before forwarding it gets the same verification back as a
+  200 with the cookie intact, leaving your own route to issue the redirect
+  (`303`, so it is followed as a `GET`) with those cookies attached. Where you
+  cannot change the request, `redirect: 'manual'` on the upstream fetch is the
+  general version of the same move. Either way, send the browser to the UI
+  library's own callback view rather than to `/`: that view refetches the
+  session and announces the change before forwarding on, which is what stops
+  the destination from rendering as signed-out until a manual reload. Verified
+  by reading `better-auth@1.6.23`'s `api/routes/email-verification` and
+  `@neondatabase/auth@0.5.0-beta`'s proxy; when a flow "works but the user
+  isn't signed in afterwards", read the endpoint's source for that
+  redirect-versus-JSON branch before anything else.
 
 Managed Better Auth is documented as **AWS regions only** (no Azure), and as not
 supporting projects with IP Allow or Private Networking enabled. Confirm against
